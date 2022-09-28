@@ -41,11 +41,9 @@ class SSA:
             probabilities = np.cumsum(lambdas) / lambda0
             delta = np.random.exponential(1/lambda0)
             self.time += delta
-            if (self.time > self.final_time) or (len(self.samples) == len(self.sampling_times)):
+            if (self.time > self.sampling_times[-1]) or (self.time > self.final_time):
                 # last samples
-                last_index = int(np.searchsorted(sampling_times, self.time - delta, side='right'))
-                current_index = int(np.searchsorted(sampling_times, self.time, side='right'))
-                for _ in range(current_index - last_index):
+                for _ in range(len(self.sampling_times) - len(self.samples)):
                     self.samples.append(list(self.current_state))
                 break
             # choosing which reaction occurs
@@ -70,7 +68,7 @@ class SSA:
 
 
 # testing
-#        
+     
 def lambda1(params, x):
     return params[0]
 
@@ -78,13 +76,13 @@ stoichiometric_mat = np.array([1]).reshape(1,1)
 
 crn = CRN(stoichiometric_mat, np.array([lambda1]))
 
-sampling_times = np.linspace(1, 20, 50)
-ssa = SSA(np.array([0.]), 20, crn, sampling_times, [2.])
+sampling_times = np.linspace(0, 1, 50)
+ssa = SSA(np.array([0.]), 700, crn, sampling_times, [2.])
 
 sampling_times, samples = ssa.step()
 
-# print(samples)
+print(samples)
 
 X, y = ssa.outputs()
 
-print(X, y)
+print(y)
