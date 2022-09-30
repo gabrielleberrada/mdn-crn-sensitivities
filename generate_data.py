@@ -1,11 +1,8 @@
-import torch
 import numpy as np
 import math
 import scipy.stats.qmc as qmc
 import time
 import concurrent.futures
-import test
-import simulation
 
 
 class CRN_Dataset:
@@ -84,7 +81,7 @@ class CRN_Dataset:
                 'sobol_length': upper bound of the hypercube [0, length]^N in which each set of parameters lie.
                 'ind_specy': index of the specy of which to compute the distribution.
         
-        Output: A tuple of tensors '(X, y)'. 
+        Output: A tuple of arrays '(X, y)'. 
                 Each entry of 'X' is an input to the neural network of the form '[t, params...]'
                 The corresponding entry of 'y' is the expected probability distribution for these parameters.
         """
@@ -114,18 +111,9 @@ class CRN_Dataset:
         distributions = list(map(lambda d: self.set_length(d, max_value + 1), distributions))
         distributions = np.array(distributions)
         # split 'distributions' into input data and output data
-        X = torch.tensor(distributions[:, :1+n_params].copy())
-        y = torch.tensor(distributions[:, 1+n_params:].copy()/n_trajectories)
+        X = distributions[:, :1+n_params].copy()
+        y = distributions[:, 1+n_params:].copy()/n_trajectories
         end=time.time()
         print('Total time: ', end-start)
         return X, y
 
-# # Testing
-
-# if __name__ == '__main__':
-
-#     stoichiometric_mat = np.array([1]).reshape(1,1)
-#     crn = simulation.CRN(stoichiometric_mat, np.array([test.lambda1]), 1)
-#     dataset = CRN_Dataset(crn, np.array([5, 10, 25]))
-#     X, y = dataset.generate_data(10)
-#     print(X,'\n', y)

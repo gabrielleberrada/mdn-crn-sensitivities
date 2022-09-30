@@ -64,20 +64,3 @@ class SSA:
                 self.samples.append(list(self.current_state))
         return self.sampling_times, self.samples
 
-
-# testing
-     
-# def lambda1(params, x):
-#     return params[0]
-
-# stoichiometric_mat = np.array([1]).reshape(1,1)
-
-# crn = CRN(stoichiometric_mat, np.array([lambda1]), 1)
-
-# sampling_times = [5, 10, 25, 100]
-
-# # print(crn.parameters_propensities(np.array([lambda1]), ))
-
-# sampling_times, samples = crn.simulation(np.array([0.]), np.array([10.]), sampling_times, 100)
-
-# print(samples)
