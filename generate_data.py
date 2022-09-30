@@ -3,6 +3,8 @@ import math
 import scipy.stats.qmc as qmc
 import time
 import concurrent.futures
+import simulation
+import propensities
 
 
 class CRN_Dataset:
@@ -94,7 +96,7 @@ class CRN_Dataset:
         sobol.random()
         # generating parameters
         # sobol sequence requires a power of 2
-        n_elts = 2**math.ceil(np.log2(data_length/len(self.sampling_times)))
+        n_elts = 2**math.ceil(np.log2(data_length))
         params = sobol.random(n_elts)*sobol_length # array of n_elts of set of parameters, each set of length n_params
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -117,3 +119,16 @@ class CRN_Dataset:
         print('Total time: ', end-start)
         return X, y
 
+if __name__ == '__main__':
+
+    CRN_NAME = 'ø_S1'
+    datasets = {'train': 10, 'valid': 1, 'test': 5}
+    DATA_LENGTH = sum(datasets.values())
+
+    stoich_mat = np.array([1]).reshape(1,1)
+    crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=np.array([propensities.lambda1]), n_params=1)
+    dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 25]))
+    X, y = dataset.generate_data(data_length=DATA_LENGTH)
+
+    print(X, np.shape(X))
+    print(y, np.shape(y[0,:]))
