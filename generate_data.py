@@ -5,10 +5,13 @@ import time
 import concurrent.futures
 import simulation
 from tqdm import tqdm
-import propensities
 import matplotlib.pyplot as plt
-from scipy.stats import poisson
 from typing import Tuple, Union
+# from scipy.stats import poisson
+# import propensities
+from scipy.stats import nbinom
+from CRN2_birth_death import propensities_birth_death as propensities
+import psutil
 
 class CRN_Dataset:
 
@@ -52,23 +55,30 @@ class CRN_Dataset:
         """
         
         res = []
+        # print(0)
         for _ in range(self.n_trajectories):
+            # print(psutil.virtual_memory())
+            # print(1)
             _, samples = self.crn.simulation(self.initial_state.copy(),
                                             params, 
                                             self.sampling_times, self.sampling_times[-1])
+            # print(2)
             res.append(samples)
         res = np.array(res)
         max_value = int(np.max(res))
+        # print(1)
         # Counts of events for each specy
         distr = np.empty((int(max_value) + 1, len(self.sampling_times), self.crn.n_species))
         for i in range(int(max_value)+1):
             distr[i,:,:] = np.count_nonzero((res == i), axis=0)
         # final output
         samples = []
+        # print(2)
         for i, t in enumerate(self.sampling_times):
-            sample = [t] + list(params) + list(distr[:,i, self.ind_specy])
+            sample = [t] + list(params) + list(distr[:, i, self.ind_specy])
             samples.append(sample)
         # + 1 for time
+        # print(3)
         return samples, max_value + self.n_params + 1
 
     def set_length(self, onedim_tab: np.ndarray, length: int):
@@ -136,6 +146,8 @@ class CRN_Dataset:
         print('Total time: ', end-start)
         return X, y
 
+# CRN1
+
 # if __name__ == '__main__':
 
 #     CRN_NAME = 'ø_S1'
@@ -157,3 +169,27 @@ class CRN_Dataset:
 #     plt.plot(y[index,:])
 #     plt.plot(np.arange(len(y[index,:])), exact, marker = 'x', color = 'red')
 #     plt.show()
+
+# CRN2
+
+if __name__ == '__main__':
+
+    CRN_NAME = 'birth_death'
+    datasets = {'train': 20, 'valid': 0, 'test': 0}
+    DATA_LENGTH = sum(datasets.values())
+
+    stoich_mat = propensities.stoich_mat.reshape(1, 2)
+    crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=np.array([propensities.lambda1, propensities.lambda2]), n_params=2)
+    dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 15, 20]))
+    X, y = dataset.generate_data(data_length=DATA_LENGTH, initial_state=(True, np.ones(1)))
+
+    # print(np.shape(y))
+    index = 4
+    print(X[index, :])
+    print(y[index, :])
+    t = X[index, 0]
+    lambd = X[index,1]
+    exact = nbinom.pmf(np.arange(len(y[index,:])), 1, np.exp(-t*lambd))
+    plt.plot(y[index,:])
+    plt.plot(np.arange(len(y[index,:])), exact, marker = 'x', color = 'red')
+    plt.show()

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 
-def array_to_csv(arr, file_name):
+def array_to_csv(arr: np.ndarray, file_name: str):
     """
     Save an array in a CSV file.
     
@@ -14,7 +14,7 @@ def array_to_csv(arr, file_name):
     df.to_csv(f'{file_name}.csv', header=False, index=False)
 
 
-def csv_to_array(file_name):
+def csv_to_array(file_name: str):
     """
     Load an array from a CSV file.
 
@@ -25,7 +25,7 @@ def csv_to_array(file_name):
     """
     return np.array((pd.read_csv(file_name, header=None)).values)
 
-def csv_to_tensor(file_name):
+def csv_to_tensor(file_name: str):
     """
     Load an array from a CSV file.
 
@@ -34,6 +34,6 @@ def csv_to_tensor(file_name):
 
     Output: a tensor containing the information from the CSV file.
     """
-    return torch.tensor((pd.read_csv(file_name, header=None)).values)
+    return torch.tensor((pd.read_csv(file_name, header=None)).values, dtype=torch.float32)
 
 

@@ -23,13 +23,13 @@ class NeuralNetwork(nn.Module):
         super(NeuralNetwork, self).__init__()
         self.n_comps = n_comps
         self.num_params = n_params
-        self.hidden_layer = nn.Linear(1 + n_params, n_hidden).double()
+        self.hidden_layer = nn.Linear(1 + n_params, n_hidden)
         self.hidden_actf = F.relu
-        self.MNBOutputLayer1 = nn.Linear(n_hidden, n_comps).double()
+        self.MNBOutputLayer1 = nn.Linear(n_hidden, n_comps)
         self.output_actf1 = nn.Softmax(dim=-1)
-        self.MNBOutputLayer2 = nn.Linear(n_hidden, n_comps).double()
+        self.MNBOutputLayer2 = nn.Linear(n_hidden, n_comps)
         self.output_actf2 = torch.exp
-        self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps).double()
+        self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps)
         self.output_actf3 = torch.sigmoid
         # initializing with Glorot Uniform method
         nn.init.xavier_uniform_(self.hidden_layer.weight)
@@ -190,10 +190,10 @@ class TrainArgs:
                 batchsize: int =100, 
                 optimizer: Callable =torch.optim.Adam
                 ) -> None:
-        self.lr = np.float64(lr)            # Current learning rate
-        self.l2_reg = np.float64(l2_reg)    # L2 regularisation weight
+        self.lr = np.float32(lr)            # Current learning rate
+        self.l2_reg = np.float32(l2_reg)    # L2 regularisation weight
         self.max_rounds = max_rounds        # Maximal number of training rounds
-        self.min_lr = np.float64(min_lr)    # Minimial learning rate
+        self.min_lr = np.float32(min_lr)    # Minimial learning rate
         if batchsize == 0:
             batchsize = len(train_data[0])
         self.batchsize = batchsize

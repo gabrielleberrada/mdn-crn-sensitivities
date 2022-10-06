@@ -1,6 +1,6 @@
 import numpy as np
 import random
-
+import psutil
 
 class CRN:
     def __init__(self, stoichiometric_mat, propensities, n_params):
@@ -39,9 +39,9 @@ class SSA:
         while True:
             eval_propensities = np.vectorize(lambda f, x: f(x), excluded=[1], otypes=[np.ndarray])
             lambdas = eval_propensities(self.propensities, self.current_state)
-            if np.size(lambdas) > 1:
-                lambdas = np.concatenate(lambdas)
-                lambdas.reshape(self.n_species, self.n_reactions)
+            # if np.size(lambdas) > 1:
+            #     lambdas = np.concatenate(lambdas)
+            #     lambdas.reshape(self.n_species, self.n_reactions)
             lambda0 = lambdas.sum()
             probabilities = np.cumsum(lambdas) / lambda0
             delta = np.random.exponential(1/lambda0)
@@ -53,7 +53,7 @@ class SSA:
                 break
             # choosing which reaction occurs
             u = random.random()
-            ind_reaction = np.searchsorted(probabilities, u, side='left') - 1 # the reaction n°ind_reaction occurs
+            ind_reaction = np.searchsorted(probabilities, u, side='right') # the reaction n°ind_reaction occurs
             # sampling if needed
             last_index = int(np.searchsorted(self.sampling_times, self.time - delta, side='left'))
             current_index = int(np.searchsorted(self.sampling_times, self.time, side='left'))
@@ -61,6 +61,7 @@ class SSA:
                 self.samples.append(list(self.current_state))
             # updating state
             self.current_state += self.stoich_mat[:, ind_reaction]
+            # print(psutil.virtual_memory())
         return self.sampling_times, self.samples
 
 # def lambda1(params, x):
