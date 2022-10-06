@@ -128,7 +128,10 @@ def loss_kldivergence(x: torch.tensor,
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])
     pred = pred_pdf(model, x, mat_k)
     kl_loss = nn.KLDivLoss(reduction='sum')
-    return kl_loss(torch.log(pred.permute(1,0)), y)
+    p = pred.permute(1,0)
+    p[p==0]=1e-9
+    return kl_loss(torch.log(p), y)
+
 
 def loss_hellinger(x: torch.tensor, 
                 y: torch.tensor, 

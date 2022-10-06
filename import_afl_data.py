@@ -28,4 +28,5 @@ y_test = torch.tensor(y_test_data_pd.values)
 test_data = [X_test, y_test]
 
 print('Downloaded csv files.\n')
+print(X_train.size(), '\n', y_train.size())
 # print(y_train.abs())

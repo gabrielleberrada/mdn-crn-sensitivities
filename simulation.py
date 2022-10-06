@@ -24,7 +24,6 @@ class CRN:
 
 class SSA:
     def __init__(self, x0, tf, sampling_times, propensities, n_species, n_reactions, stoich_mat):
-        self.initial_state = x0 # necessary?
         self.final_time = tf
         self.n_species = n_species
         self.n_reactions = n_reactions
@@ -54,13 +53,18 @@ class SSA:
                 break
             # choosing which reaction occurs
             u = random.random()
-            ind_reaction = np.searchsorted(probabilities, u, side='left') # the reaction n°ind_reaction occurs
-            # updating state
-            self.current_state += self.stoich_mat[:, ind_reaction]
+            ind_reaction = np.searchsorted(probabilities, u, side='left') - 1 # the reaction n°ind_reaction occurs
             # sampling if needed
-            last_index = int(np.searchsorted(self.sampling_times, self.time - delta, side='right'))
-            current_index = int(np.searchsorted(self.sampling_times, self.time, side='right'))
+            last_index = int(np.searchsorted(self.sampling_times, self.time - delta, side='left'))
+            current_index = int(np.searchsorted(self.sampling_times, self.time, side='left'))
             for _ in range(current_index - last_index):
                 self.samples.append(list(self.current_state))
+            # updating state
+            self.current_state += self.stoich_mat[:, ind_reaction]
         return self.sampling_times, self.samples
 
+# def lambda1(params, x):
+#     return params[0]
+
+# crn = CRN(np.array([1.]).reshape(1,1), np.array([lambda1]), 1)
+# print(crn.simulation(np.array([0.]), np.array([1.]), [0.2, 1, 5, 10, 15], 15))

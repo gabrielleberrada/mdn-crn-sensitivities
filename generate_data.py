@@ -4,12 +4,19 @@ import scipy.stats.qmc as qmc
 import time
 import concurrent.futures
 import simulation
+from tqdm import tqdm
 import propensities
-
+import matplotlib.pyplot as plt
+from scipy.stats import poisson
+from typing import Tuple, Union
 
 class CRN_Dataset:
 
-    def __init__(self, crn, sampling_times, n_trajectories=10**3, ind_specy=0):
+    def __init__(self, 
+            crn: simulation.CRN, 
+            sampling_times: list[float], 
+            n_trajectories: int =10**3, 
+            ind_specy: int =0):
         """
         Initializes parameters to build our dataset.
 
@@ -26,8 +33,10 @@ class CRN_Dataset:
         self.sampling_times = sampling_times
         self.n_trajectories = n_trajectories
         self.ind_specy = ind_specy
-    
-    def samples_probs(self, params):
+        self.initial_state = np.zeros(self.n_species)
+
+
+    def samples_probs(self, params: np.ndarray):
         """
         Runs n_trajectories of the SSA simulation for the parameters in input and deducts the corresponding distribution
         for the specy indexed by 'ind_specy'.
@@ -41,14 +50,13 @@ class CRN_Dataset:
             'max_value': maximum value reached during simulations + number of parameters + 1 (for time).
                         Will be useful to standardize each data length to turn the data list into a tensor.
         """
+        
         res = []
-        start_ = time.time()
         for _ in range(self.n_trajectories):
-            _, samples = self.crn.simulation(np.zeros(self.n_species, dtype=np.float32), 
-                                    params, self.sampling_times, self.sampling_times[-1])
+            _, samples = self.crn.simulation(self.initial_state.copy(),
+                                            params, 
+                                            self.sampling_times, self.sampling_times[-1])
             res.append(samples)
-        end_ = time.time()
-        print('Done, time needed:', end_ - start_)
         res = np.array(res)
         max_value = int(np.max(res))
         # Counts of events for each specy
@@ -63,7 +71,7 @@ class CRN_Dataset:
         # + 1 for time
         return samples, max_value + self.n_params + 1
 
-    def set_length(self, onedim_tab, length):
+    def set_length(self, onedim_tab: np.ndarray, length: int):
         """
         Inputs: 'onedim_tab': array to extend. In our case, 1D array.
                 'length': wanted length of array.
@@ -72,7 +80,12 @@ class CRN_Dataset:
         """
         return onedim_tab + [0] * max(length - len(onedim_tab), 0)
 
-    def generate_data(self, data_length, n_trajectories=10**3, sobol_length=10, ind_specy=0):
+    def generate_data(self, 
+                    data_length: int, 
+                    n_trajectories: int =10**4, 
+                    sobol_length: float =2., 
+                    ind_specy: Union[int, np.ndarray] =0,
+                    initial_state: Tuple[bool, np.ndarray] =(False, None)):
         """
         Generates a training, validation or test dataset.
         We use multiprocessing to run simulations in parallel to compute faster.
@@ -89,18 +102,22 @@ class CRN_Dataset:
         """
         self.n_trajectories = n_trajectories
         self.ind_specy = ind_specy
+        if initial_state[0]:
+            self.initial_state = initial_state[1]
+        else:
+            self.initial_state = np.zeros(self.n_species, dtype=np.float32)
         n_params = self.crn.n_params
         start = time.time()
-        sobol = qmc.Sobol(n_params, scramble=False)
-        # to avoid 0.
-        sobol.random()
+        sobol = qmc.Sobol(n_params)
         # generating parameters
         # sobol sequence requires a power of 2
         n_elts = 2**math.ceil(np.log2(data_length))
-        params = sobol.random(n_elts)*sobol_length # array of n_elts of set of parameters, each set of length n_params
+        params = sobol.random(n_elts)*sobol_length # array of n_elts of parameters set, each set of length n_params
+        # to avoid all zeros
+        params[np.count_nonzero(params, axis=1) == 0] = sobol.random()*sobol_length
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            res = executor.map(self.samples_probs, params)
+            res = list(tqdm(executor.map(self.samples_probs, params), total = len(params), desc='Generating data ...'))
         print('Simulations done.')
         distributions = []
         max_value = 0
@@ -119,16 +136,24 @@ class CRN_Dataset:
         print('Total time: ', end-start)
         return X, y
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    CRN_NAME = 'ø_S1'
-    datasets = {'train': 10, 'valid': 1, 'test': 5}
-    DATA_LENGTH = sum(datasets.values())
+#     CRN_NAME = 'ø_S1'
+#     datasets = {'train': 20, 'valid': 0, 'test': 0}
+#     DATA_LENGTH = sum(datasets.values())
 
-    stoich_mat = np.array([1]).reshape(1,1)
-    crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=np.array([propensities.lambda1]), n_params=1)
-    dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 25]))
-    X, y = dataset.generate_data(data_length=DATA_LENGTH)
+#     stoich_mat = np.array([1]).reshape(1,1)
+#     crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=np.array([propensities.lambda1]), n_params=1)
+#     dataset = CRN_Dataset(crn=crn, sampling_times=np.array([0, 1, 5, 10, 15]))
+#     X, y = dataset.generate_data(data_length=DATA_LENGTH)
 
-    print(X, np.shape(X))
-    print(y, np.shape(y[0,:]))
+#     # print(np.shape(y))
+#     index = 4
+#     print(X[index, :])
+#     print(y[index, :])
+#     t = X[index, 0]
+#     lambd = X[index,1]
+#     exact = [poisson.pmf(k, t*lambd) for k in np.arange(len(y[index,:]))]
+#     plt.plot(y[index,:])
+#     plt.plot(np.arange(len(y[index,:])), exact, marker = 'x', color = 'red')
+#     plt.show()
