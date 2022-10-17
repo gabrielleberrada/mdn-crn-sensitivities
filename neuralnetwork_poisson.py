@@ -11,10 +11,7 @@ class NeuralNetwork(nn.Module):
     """
     Builds a neural network.
     """
-    def __init__(self, 
-                n_comps: int, 
-                n_params: int, 
-                n_hidden: int = 128) -> None:
+    def __init__(self, n_comps: int, n_params: int, n_hidden: int = 128) -> None:
         """
         Inputs:
         'n_comps': number of components in output.
@@ -31,14 +28,11 @@ class NeuralNetwork(nn.Module):
         self.MNBOutputLayer1 = nn.Linear(n_hidden, n_comps)
         self.output_actf1 = nn.Softmax(dim=-1)
         self.MNBOutputLayer2 = nn.Linear(n_hidden, n_comps)
-        self.output_actf2 = F.relu
-        self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps)
-        self.output_actf3 = torch.sigmoid
+        self.output_actf2 = torch.exp
         # initializing with Glorot Uniform method
         nn.init.xavier_uniform_(self.hidden_layer.weight)
         nn.init.xavier_uniform_(self.MNBOutputLayer1.weight)
         nn.init.xavier_uniform_(self.MNBOutputLayer2.weight)
-        nn.init.xavier_uniform_(self.MNBOutputLayer3.weight)
         print('Neural Network created.')
 
     def forward(self, input: torch.tensor) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
@@ -53,20 +47,18 @@ class NeuralNetwork(nn.Module):
         x = self.hidden_layer(x)
         x = self.hidden_actf(x)
         layer_ww = self.MNBOutputLayer1(x)
-        layer_rr = self.MNBOutputLayer2(x)
-        layer_pp = self.MNBOutputLayer3(x)
-        layer_ww = self.output_actf1(layer_ww)
-        layer_rr = self.output_actf2(layer_rr)
-        layer_pp = self.output_actf3(layer_pp)
-        return layer_ww, layer_rr, layer_pp
+        layer_pp = self.MNBOutputLayer2(x)
+        ww = self.output_actf1(layer_ww)
+        pp = self.output_actf2(layer_pp)
+        return ww, pp
 
 
 # Negative Binomial mixtures
 
-def nbpdf(r: torch.tensor, 
+def nbpdf( 
         p: torch.tensor, 
         k: torch.tensor, 
-        eps:float =1e-5
+        eps:float =1e-3
         ) -> torch.tensor:
     """
     Inputs: A tuple of three vectors.
@@ -76,36 +68,49 @@ def nbpdf(r: torch.tensor,
             'eps': corrective term since a negative binomial cannot be evaluated at p=1.0
     Output: The pdf of a negative binomial distribution NB(r, p) evaluated at k.
     """
-    #NB distribution
-    # Here r is the number of successes but pytorch understands it as the number of failures.
-    corrected_p = 1 - p
-    corrected_p[corrected_p == 1.] -= eps
-    distr = torch.distributions.negative_binomial.NegativeBinomial(r, corrected_p)
-    #
     # Poisson distribution
-    # p[p==0] += eps
-    # distr = torch.distributions.poisson.Poisson(torch.div(torch.mul(p,r), 1-p))
-    return torch.exp(distr.log_prob(k))
+    corrected_p = p.clone()
+    corrected_p[corrected_p < eps] += eps
+    # print('min', corrected_p.min())
+    # print('max', corrected_p.max())
+    distr = torch.distributions.poisson.Poisson(corrected_p)
+    # for i in range(74):
+    #     if distr.log_prob(torch.tensor([i])).any() < -10:
+    #         print(i)
+    prob = distr.log_prob(k)
+    prob[prob < -10] = -10
+    # return prob
+    return torch.exp(prob)
 
 
-def mix_nbpdf(model: NeuralNetwork, 
+def mix_nbpdf(pp: torch.tensor, 
+            ww: torch.tensor, 
+            k: torch.tensor
+            ) -> torch.tensor:
+    """
+    Inputs: Parameters of the negative binomial mixtures.
+            'rr': count parameters.
+            'pp': success probabilities.
+            'ww': weights.
+            'k': points at which to evaluate the pdf.
+    Output: The pdf of a negative binomial mixture distribution evaluated at k.
+    """
+    nb = nbpdf(pp, k)
+    # print('nb', len(nb[nb == 0]))
+    ret = ww * nbpdf(pp,k)
+    # ret = nbpdf(pp,k)
+    # ret = torch.mul(ww, nbpdf(pp,k))
+    return torch.sum(ret, dim=-1)
+
+def pred_pdf(model: NeuralNetwork, 
             x: torch.tensor, 
             yy: torch.tensor
             ) -> torch.tensor:
     """
     Computes the predicted distribution of the model at input points 'x' and evaluates its pdf at points 'yy'.
-    'rr', 'pp', 'ww' are parameters of the distribution mixture.
-        'rr': count parameters.
-        'pp': success probabilities.
-        'ww': weights.
-    
-    Inputs: 'x': input points, [t, param1, ...].
-            'yy': points at which to evaluate the pdf.
-    Output: The pdf of a mixture of distributions evaluated at k.
     """
-    ww, rr, pp = model.forward(x)
-    ret = torch.mul(ww, nbpdf(rr, pp, yy))
-    return torch.sum(ret, dim=-1)
+    ww, pp = model.forward(x)
+    return mix_nbpdf(pp, ww, yy)
 
 
 ## Losses functions
@@ -125,12 +130,12 @@ def loss_kldivergence(x: torch.tensor,
         dim0 = y_size[0]
     # to provide a set of points at which to evaluate the pdf for each input point.
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])
-    pred = mix_nbpdf(model, x, mat_k)
+    pred = pred_pdf(model, x, mat_k)
     p = pred.permute(1,0)
-    p[p==0]+=1e-12
-    y[y==0]+=1e-12
-    if p[p>1].size()[0]:
-        print(p[p>1])
+    p[p==0] = p[p==0] + 1e-12
+    # y[y==0]+=1e-12
+    # if p[p>1].size()[0]:
+    #     print(p[p>1])
     kl_loss = nn.KLDivLoss(reduction='sum')
     return kl_loss(torch.log(p), y)
 
@@ -149,7 +154,7 @@ def loss_hellinger(x: torch.tensor,
         dim0 = y_size[0]
     # to provide a set of points at which to evaluate the pdf for each input point.
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])    
-    pred = mix_nbpdf(model, x, mat_k)
+    pred = pred_pdf(model, x, mat_k)
     # computes the Hellinger distance step by step
     sqrt1 = torch.sqrt(pred.permute(1,0)*y)
     sqrt1 = sqrt1.sum(dim=-1)
@@ -172,7 +177,7 @@ def mean_loss(X: torch.tensor,
             'y': corresponding vector of outputs.
     """
     ret = loss(X, y, model)
-    return ret / len(X)
+    return torch.div(ret,len(X))
 
 
 # Training Neural Net
@@ -277,8 +282,12 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
     for x, y in trainer.train_loader:
         model.zero_grad()
         loss_y = mean_loss(x, y, model, loss)
+        # print('loss', loss_y)
+        torch.autograd.set_detect_anomaly(True)
         loss_y.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), 1., error_if_nonfinite=False)
         optimizer.step()
+        # print('grads', model.hidden_layer.weight.grad,model.MNBOutputLayer1.weight.grad, model.MNBOutputLayer2.weight.grad )
     trainer.update_losses()
 
 
@@ -319,10 +328,10 @@ def train_NN(model: NeuralNetwork,
 # FILE_NAME = 'CRN3_birth'
 # CRN_NAME = 'birth'
 
-# N_COMPS = 4
+# N_COMPS = 3
 # NUM_PARAMS = 1
 
-# # loading data
+# # # loading data
 
 # X_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_train3.csv')
 # y_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_train3.csv')
@@ -355,10 +364,10 @@ def train_NN(model: NeuralNetwork,
 # import matplotlib.pyplot as plt
 # # index=0
 # for index in range(0, 50, 10):
-#     layer_ww, layer_rr, layer_pp= model(X_test[index,:])
+#     layer_ww, layer_pp= model(X_test[index,:])
 #     x = torch.arange(100).repeat(1, N_COMPS,1).permute([2,0,1])
-#     y_pred = mix_nbpdf(layer_rr, layer_pp, layer_ww, x)
+#     y_pred = mix_nbpdf(layer_pp, layer_ww, x)
 #     y_pred = y_pred.detach().numpy()
-#     plt.plot(y_pred)
-#     plt.plot(y_test[index,:])
+#     plt.plot(y_pred[:100])
+#     plt.plot(y_test[index,:100])
 # plt.show()
