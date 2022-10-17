@@ -184,37 +184,46 @@ class SensitivitiesDerivation:
 
 # A+B -> C
 
-def propensity1(params, x):
-    return params[0]*x[0]*x[1]
+# def propensity1(params, x):
+#     return params[0]*x[0]*x[1]
 
 
-# stoich_mats = [stoich_mat1, stoich_mat2]
-stoich_mats = np.array([-1, -1, 1]).reshape(3,1)
-propensities = [propensity1]
+# # stoich_mats = [stoich_mat1, stoich_mat2]
+# stoich_mats = np.array([-1, -1, 1]).reshape(3,1)
+# propensities = [propensity1]
 
-crn = simulation.CRN(stoich_mats, [propensity1], 1)
-sens = SensitivitiesDerivation(crn)
-print(sens.solve_ode(np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]), 0., 5., np.array([2.]), 0, t_eval=np.arange(5)))
+# crn = simulation.CRN(stoich_mats, [propensity1], 1)
+# sens = SensitivitiesDerivation(crn)
+# print(sens.solve_ode(np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]), 0., 5., np.array([2.]), 0, t_eval=np.arange(5)))
 
 
 # Fisher information
 
 def fisher_information_t(probs, sensitivities):
-    # sensitivities (N_teta, N)
+    # sensitivities (N, N_teta)
     # probs (N,)
     inversed_p = np.divide(np.ones_like(probs), probs, out=np.zeros_like(probs), where=probs!=0)
-    pS = (inversed_p * sensitivities).T
-    return np.matmul(pS, sensitivities)
+    pS = np.zeros_like(sensitivities)
+    for l, pl in enumerate(inversed_p):
+        pS[l,:] = pl * sensitivities[l,:]
+    print(pS)
+    return np.matmul(pS.T, sensitivities)
 
 
-def fisher_information(time_samples, probs, sensitivities):
-    # sensitivities (Nt, N_teta, N)
+def fisher_information(ntime_samples, probs, sensitivities):
+    # sensitivities (Nt, N, N_teta)
     # probs (N,)
     f_inf = np.zeros((sensitivities.shape[-1], sensitivities.shape[-1]))
-    for t in range(time_samples):
+    for t in range(ntime_samples):
         f_inf += fisher_information_t(probs[t,:], sensitivities[t,:,:])
     return f_inf
 
+# test
 
+# probs = np.array([0., 0.4, 1.])
+# sensitivities = np.arange((6.)).reshape(3,2)
+# sensitivities[1,1] = 10
+# print('sensitivities', sensitivities)
+# print(fisher_information_t(probs, sensitivities))
 
 

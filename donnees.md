@@ -38,7 +38,7 @@ Losses :
 
 ## CRN2 - Birth/death reaction network
 
-Chemical reaction: $ø \xrightleftharpoons S$
+Chemical reaction: $ø \rightleftharpoons S$
 
 Time to generate data: 2h07min50s
 

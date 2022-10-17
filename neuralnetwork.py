@@ -129,8 +129,6 @@ def loss_kldivergence(x: torch.tensor,
     p = pred.permute(1,0)
     p[p==0]+=1e-12
     y[y==0]+=1e-12
-    if p[p>1].size()[0]:
-        print(p[p>1])
     kl_loss = nn.KLDivLoss(reduction='sum')
     return kl_loss(torch.log(p), y)
 
