@@ -3,6 +3,7 @@ import random
 
 class CRN:
     def __init__(self, stoichiometric_mat, propensities, n_params):
+        # stoichiometric_mat has shape (n_species, n_reactions)
         self.stoichiometric_mat = stoichiometric_mat
         self.n_species, self.n_reactions = np.shape(stoichiometric_mat)
         self.propensities = propensities

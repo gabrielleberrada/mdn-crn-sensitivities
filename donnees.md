@@ -118,7 +118,7 @@ Hellinger : 0.013783343136310577
 
 Chemical reaction: $S \rightarrow 2S$
 
-Initial state: $\[5]$.
+Initial state: $[5]$.
 
 Sobol length : $[0.1]$.
 
@@ -126,6 +126,14 @@ Poisson distribution
 
 Time to generate data (4096 samples) for r=5: 6h 49min 5s (pause 20 min)
 
+## Notes
+
+### Calcul de $\Phi_n(0,...,0,C_r)$
+
+$$\Phi_n(0,...,0,C_r) = \Phi_2(\Phi_{n-1}(0,...,0), C_r) \\
+                    = \Phi_2(0, C_r) \\
+                    = \frac{C_r \times (C_r+1)}{2} + C_r \\
+                    = \frac{C_r(C_r+3)}{2}$$
 
 
 

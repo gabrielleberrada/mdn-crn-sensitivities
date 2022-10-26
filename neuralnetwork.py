@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 from typing import Callable, Tuple
-import convert_csv
 
 
 class NeuralNetwork(nn.Module):
@@ -14,12 +13,16 @@ class NeuralNetwork(nn.Module):
     def __init__(self, 
                 n_comps: int, 
                 n_params: int, 
-                n_hidden: int = 128) -> None:
+                n_hidden: int = 128,
+                mixture: str ='NB') -> None:
         """
         Inputs:
         'n_comps': number of components in output.
         'n_params': number of parameters in input, excluding time parameter. 
         'n_hidden': number of neurons in the hidden layer.
+        'mixture': type of mixture to compute.
+                    'NB': Negative Binomial Mixture
+                    'Poisson': Poisson Mixture
         Output:
         The neural network structure.
         """
@@ -28,17 +31,18 @@ class NeuralNetwork(nn.Module):
         self.num_params = n_params
         self.hidden_layer = nn.Linear(1 + n_params, n_hidden)
         self.hidden_actf = F.relu
-        self.MNBOutputLayer1 = nn.Linear(n_hidden, n_comps)
-        self.output_actf1 = nn.Softmax(dim=-1)
-        self.MNBOutputLayer2 = nn.Linear(n_hidden, n_comps)
-        self.output_actf2 = F.relu
-        self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps)
-        self.output_actf3 = torch.sigmoid
         # initializing with Glorot Uniform method
         nn.init.xavier_uniform_(self.hidden_layer.weight)
+        self.MNBOutputLayer1 = nn.Linear(n_hidden, n_comps)
+        self.output_actf1 = nn.Softmax(dim=-1)
         nn.init.xavier_uniform_(self.MNBOutputLayer1.weight)
+        self.MNBOutputLayer2 = nn.Linear(n_hidden, n_comps)
+        self.output_actf2 = F.relu
         nn.init.xavier_uniform_(self.MNBOutputLayer2.weight)
-        nn.init.xavier_uniform_(self.MNBOutputLayer3.weight)
+        if mixture == 'NB':
+            self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps)
+            self.output_actf3 = torch.sigmoid
+            nn.init.xavier_uniform_(self.MNBOutputLayer3.weight)
         print('Neural Network created.')
 
     def forward(self, input: torch.tensor) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
@@ -46,19 +50,24 @@ class NeuralNetwork(nn.Module):
         Input: the input data to process.
         Output: A tuple of three vectors.
                 'layer_ww': mixture weights.
-                'layer_rr': count parameters.
-                'layer_pp': success probabilities.
+                If Negative Binomial Mixture:
+                    'layer_rr': count parameters.
+                    'layer_pp': success probabilities.
+                If Poisson Mixture:
+                    'layer_rr': rate parameters.
         """
         x = torch.log10(input)
         x = self.hidden_layer(x)
         x = self.hidden_actf(x)
         layer_ww = self.MNBOutputLayer1(x)
-        layer_rr = self.MNBOutputLayer2(x)
-        layer_pp = self.MNBOutputLayer3(x)
         layer_ww = self.output_actf1(layer_ww)
+        layer_rr = self.MNBOutputLayer2(x)
         layer_rr = self.output_actf2(layer_rr)
-        layer_pp = self.output_actf3(layer_pp)
-        return layer_ww, layer_rr, layer_pp
+        if self.mixture == 'NB':
+            layer_pp = self.MNBOutputLayer3(x)
+            layer_pp = self.output_actf3(layer_pp)
+            return layer_ww, layer_rr, layer_pp
+        return layer_ww, layer_rr
 
 
 # Negative Binomial mixtures
@@ -127,8 +136,8 @@ def loss_kldivergence(x: torch.tensor,
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])
     pred = mix_nbpdf(model, x, mat_k)
     p = pred.permute(1,0)
-    p[p==0]+=1e-12
-    y[y==0]+=1e-12
+    p[p<1e-12]=1e-12
+    y[y<1e-12]=1e-12
     kl_loss = nn.KLDivLoss(reduction='sum')
     return kl_loss(torch.log(p), y)
 
@@ -275,6 +284,7 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
     for x, y in trainer.train_loader:
         model.zero_grad()
         loss_y = mean_loss(x, y, model, loss)
+        # print(loss_y)
         loss_y.backward()
         optimizer.step()
     trainer.update_losses()
@@ -312,51 +322,3 @@ def train_NN(model: NeuralNetwork,
     print(f'Learning rate: {trainer.args.lr},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}')
     return trainer.train_losses, trainer.valid_losses
 
-
-
-# FILE_NAME = 'CRN3_birth'
-# CRN_NAME = 'birth'
-
-# N_COMPS = 4
-# NUM_PARAMS = 1
-
-# # loading data
-
-# X_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_train3.csv')
-# y_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_train3.csv')
-# X_valid = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_valid3.csv')
-# y_valid = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_valid3.csv')
-# X_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_test.csv')
-# y_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_test.csv')
-
-
-# train_data=[X_train, y_train]
-# valid_data=[X_valid, y_valid]
-
-
-# model = NeuralNetwork(n_comps=N_COMPS, n_params=NUM_PARAMS)
-# train_NN(model, train_data, valid_data, loss=loss_kldivergence, max_rounds=500, lr=0.01, batchsize=64)
-
-
-# print("Training dataset")
-# print(f"KLD : {mean_loss(X_train, y_train, model, loss=loss_kldivergence)}")
-# print(f'Hellinger : {mean_loss(X_train, y_train, model, loss=loss_hellinger)}')
-
-# print("\nValidation dataset")
-# print(f"KLD : {mean_loss(X_valid, y_valid, model, loss=loss_kldivergence)}")
-# print(f'Hellinger : {mean_loss(X_valid, y_valid, model, loss=loss_hellinger)}')
-
-# print("\nTest dataset")
-# print(f"KLD : {mean_loss(X_test, y_test, model, loss=loss_kldivergence)}")
-# print(f'Hellinger : {mean_loss(X_test, y_test, model, loss=loss_hellinger)}')
-
-# import matplotlib.pyplot as plt
-# # index=0
-# for index in range(0, 50, 10):
-#     layer_ww, layer_rr, layer_pp= model(X_test[index,:])
-#     x = torch.arange(100).repeat(1, N_COMPS,1).permute([2,0,1])
-#     y_pred = mix_nbpdf(layer_rr, layer_pp, layer_ww, x)
-#     y_pred = y_pred.detach().numpy()
-#     plt.plot(y_pred)
-#     plt.plot(y_test[index,:])
-# plt.show()

@@ -71,12 +71,7 @@ def nbpdf(
     # Poisson distribution
     corrected_p = p.clone()
     corrected_p[corrected_p < eps] += eps
-    # print('min', corrected_p.min())
-    # print('max', corrected_p.max())
     distr = torch.distributions.poisson.Poisson(corrected_p)
-    # for i in range(74):
-    #     if distr.log_prob(torch.tensor([i])).any() < -10:
-    #         print(i)
     prob = distr.log_prob(k)
     prob[prob < -10] = -10
     # return prob
@@ -95,7 +90,6 @@ def mix_nbpdf(pp: torch.tensor,
             'k': points at which to evaluate the pdf.
     Output: The pdf of a negative binomial mixture distribution evaluated at k.
     """
-    nb = nbpdf(pp, k)
     # print('nb', len(nb[nb == 0]))
     ret = ww * nbpdf(pp,k)
     # ret = nbpdf(pp,k)

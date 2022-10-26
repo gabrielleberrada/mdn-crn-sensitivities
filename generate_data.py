@@ -12,8 +12,9 @@ import matplotlib.pyplot as plt
 # from scipy.stats import nbinom
 # from CRN2_birth_death import propensities_birth_death as propensities
 # import propensities_birth as propensities
-from CRN3_birth import propensities_birth as propensities
-from scipy.stats import nbinom
+# from CRN3_birth import propensities_birth as propensities
+# from scipy.stats import nbinom
+from CRN4_bursting_gene import propensities_bursting_gene as propensities
 
 class CRN_Dataset:
 
@@ -21,7 +22,7 @@ class CRN_Dataset:
             crn: simulation.CRN, 
             sampling_times: list[float], 
             n_trajectories: int =10**3, 
-            ind_specy: int =0):
+            ind_species: int =0):
         """
         Initializes parameters to build our dataset.
 
@@ -29,27 +30,27 @@ class CRN_Dataset:
                 'sampling_times': Times to sample.
                 'n_trajectories': Number of trajectories to compute. 
                                 Can also be defined when calling the 'generate_data' function.
-                'ind_specy': Index of the specy of interest. 
-                            The distribution generated will be the one of that specy.
+                'ind_species': Index of the species of interest. 
+                            The distribution generated will be the one of that species.
         """
         self.crn = crn
         self.n_params = crn.n_params
         self.n_species = crn.n_species
         self.sampling_times = sampling_times
         self.n_trajectories = n_trajectories
-        self.ind_specy = ind_specy
+        self.ind_species = ind_species
         self.initial_state = np.zeros(self.n_species)
 
 
     def samples_probs(self, params: np.ndarray):
         """
         Runs n_trajectories of the SSA simulation for the parameters in input and deducts the corresponding distribution
-        for the specy indexed by 'ind_specy'.
+        for the species indexed by 'ind_species'.
 
         Inputs: 'params': the parameters of the propensities.
 
         Outputs:
-            'samples': list of the distributions for the corresponding specy at times time_samples.
+            'samples': list of the distributions for the corresponding species at times time_samples.
                         This list begins with time and parameters: [t, param1, ..., paramK, distr]
                         in order to keep parameters linked to the distribution.
             'max_value': maximum value reached during simulations + number of parameters + 1 (for time).
@@ -66,14 +67,14 @@ class CRN_Dataset:
         # print("done")
         res = np.array(res)
         max_value = int(np.max(res))
-        # Counts of events for each specy
+        # Counts of events for each species
         distr = np.empty((int(max_value) + 1, len(self.sampling_times), self.crn.n_species))
         for i in range(int(max_value)+1):
             distr[i,:,:] = np.count_nonzero((res == i), axis=0)
         # final output
         samples = []
         for i, t in enumerate(self.sampling_times):
-            sample = [t] + list(params) + list(distr[:, i, self.ind_specy])
+            sample = [t] + list(params) + list(distr[:, i, self.ind_species])
             samples.append(sample)
         # + 1 for time
         return samples, max_value + self.n_params + 1
@@ -91,7 +92,7 @@ class CRN_Dataset:
                     data_length: int, 
                     n_trajectories: int =10**4, 
                     sobol_length: float =2., 
-                    ind_specy: Union[int, np.ndarray] =0,
+                    ind_species: Union[int, np.ndarray] =0,
                     initial_state: Tuple[bool, np.ndarray] =(False, None)):
         """
         Generates a training, validation or test dataset.
@@ -101,14 +102,14 @@ class CRN_Dataset:
         Inputs: 'data_length': length of data expected in outputs.
                 'n_trajectories': number of trajectories to compute to build the distribution.
                 'sobol_length': upper bound of the hypercube [0, length]^N in which each set of parameters lie.
-                'ind_specy': index of the specy of which to compute the distribution.
+                'ind_species': index of the species of which to compute the distribution.
         
         Output: A tuple of arrays '(X, y)'. 
                 Each entry of 'X' is an input to the neural network of the form '[t, params...]'
                 The corresponding entry of 'y' is the expected probability distribution for these parameters.
         """
         self.n_trajectories = n_trajectories
-        self.ind_specy = ind_specy
+        self.ind_species = ind_species
         if initial_state[0]:
             self.initial_state = initial_state[1]
         else:
@@ -207,3 +208,21 @@ class CRN_Dataset:
 #     plt.legend()
 #     plt.show()
 #     print(X, y, np.shape(y), y[:,-1])
+
+# Bursting gene
+
+if __name__=='__main__':
+
+    DATA_LENGTH = 8
+    # shape (n_species, n_reactions)
+    stoich_mat = propensities.stoich_mat
+    crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=propensities.propensities, n_params=1)
+    dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 15, 20]), ind_species=1)
+    X, y = dataset.generate_data(data_length=DATA_LENGTH, n_trajectories=10**4, sobol_length=np.array([2]), ind_species=1)
+    # for k in range(8):
+    #     plt.plot(y[k,:])
+    # plt.plot(y)
+    plt.show()
+    print(X, y[:,-1], y[:,2], np.shape(y))
+
+    # 6 min
