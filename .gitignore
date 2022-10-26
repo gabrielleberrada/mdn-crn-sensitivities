@@ -1,0 +1,17 @@
+expressions.tex
+test.py
+plot.ipynb
+CRN5.ipynb
+__pycache__
+CRN1_pure_birth/__pycache__
+CRN1_pure_birth/1model
+CRN1_pure_birth/images
+CRN2_birth_death/__pycache__
+CRN2_birth_death/1model
+CRN2_birth_death/images
+CRN3_birth/__pycache__
+CRN3_birth/images
+CRN3_birth/r1
+CRN4_bursting_gene/copie
+CRN4_bursting_gene/images
+CRN4_bursting_gene/trash
