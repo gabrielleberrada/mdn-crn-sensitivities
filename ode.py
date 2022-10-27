@@ -9,14 +9,14 @@ from typing import Tuple
 
 class StateSpaceEnumeration:
     """
-    State space enumeration as presented in the paper 'A FSP algorithm for the stationary solution of the CME'
+    State space enumeration as presented in the paper 
+    'A FSP algorithm for the stationary solution of the CME'[1].
+
+    Computes Phi to project the state space on the set of integers.
 
     Inputs:
-        cl
-        cr
-        dim
-    
-
+        'cr': value such that (0, .., 0, cr) is the last value in the truncated space.
+        'dim': dimensions of the initial space.
     """
     def __init__(self, cr: int, dim: int):
         # we choose to always start at cl=0
@@ -27,11 +27,13 @@ class StateSpaceEnumeration:
         self.cr[-1] = cr
         self.lb = self.phi(self.cl, self.dim)
         self.ub = self.phi(self.cr, self.dim)
+        # number of states included in the truncated state space
         self.length = self.ub - self.lb + 1
     
     def phi(self, x: np.ndarray, n: int):
         """
-        n>1
+        Computes the projection Phi as defined in [1].
+        Phi: N^n -> N
         """
         if n < 2:
             return x[0]
@@ -41,6 +43,10 @@ class StateSpaceEnumeration:
             return self.phi(np.array([self.phi(x[:-1], n-1), x[-1]]), 2)
 
     def phi_inverse(self, z: int, n: int):
+        """
+        Computes the inversed function of Phi as defined in [1].
+        Phi-1: N -> N^n
+        """
         if n < 2:
             return (z,)
         elif n == 2:
@@ -53,6 +59,9 @@ class StateSpaceEnumeration:
             return z11 + (z2,)
     
     def create_bijection(self):
+        """
+        Saves the bijection values for the truncated state space in a dictionary.
+        """
         self.bijection[self.lb] = tuple(self.cl)
         self.bijection[self.ub] = tuple(self.cr)
         for z in range(self.lb, self.ub):
@@ -62,7 +71,10 @@ class StateSpaceEnumeration:
 
 class SensitivitiesDerivation:
     def __init__(self, crn: simulation.CRN, cr: int =4):
-        #cr = somme des max des valeurs atteignables
+        """
+        Inputs: 'crn': The CRN to study.
+                'cr': value such that (0, .., 0, cr) is the last value in the truncated space.
+        """
         self.cr = cr
         self.crn = crn
         self.n_params = crn.n_params
@@ -75,10 +87,9 @@ class SensitivitiesDerivation:
 
     def create_B(self, index: int):
         """
-        Inputs: entries : list of all possible states
-                index : index of the reaction occuring for B
+        Inputs: index : index of the reaction occuring for B.
         
-        Ouput:  the rate matrix for this reaction over the truncated state-space
+        Ouput:  the rate matrix for this reaction over the truncated state-space.
         """
         d = self.bijection.bijection.inverse
         n = self.n_states
@@ -92,11 +103,12 @@ class SensitivitiesDerivation:
         columns = np.array([self.bijection.phi(output, self.n_species) for output in outputs])
         compute_diags = np.vectorize(lambda i: -data[rows==i].sum())
         diags = compute_diags(np.arange(n))
+        # truncation
         mask = (columns >= 0) & (columns < n)
         rows = rows[mask]
         columns = columns[mask]
         data = data[mask]
-        # according to the paper
+        # according to the paper from Fox and Munsky
         B = sp.coo_matrix((data, (columns, rows)), shape=(n, n))
         B.setdiag(diags)
         B.eliminate_zeros()
@@ -109,7 +121,7 @@ class SensitivitiesDerivation:
         
         Ouput:  the rate matrix A over the truncated state-space
         """
-        # check types
+        # creates the rate matrix for each reaction
         create_Bs = np.vectorize(lambda i: self.create_B(i))
         Bs = create_Bs(np.arange(self.n_params))
         return (Bs*params).sum()
@@ -138,7 +150,9 @@ class SensitivitiesDerivation:
 
     def solve_ode(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, index: int, t_eval: list[float]):
         """
-        Solves the set of linear ODEs (34).
+        Solves the set of linear ODEs (34) from Fox, Munsky paper.
+        d/dt( p(t) )  = (A 0)( p(t) )
+            (S_i(t))    (B A)(S_i(t))
 
         Inputs: init_state: initial state for probabilities and sensitivities.
                             The length of the initial state must be 2*(Cr*(Cr+3)/2+1) if n>= 2, else 2*(Cr+1)
@@ -149,7 +163,7 @@ class SensitivitiesDerivation:
                 index: index of the reaction occuring for B
                 t_eval: times at which to store the computed solution
 
-        Outputs: 
+        Outputs: Bunch object as the output of the solve_ivp function applied to the set of linear ODEs.
         """
         constant = sp.csr_matrix(self.constant_matrix(params, index))
         # if index == 2:
@@ -182,9 +196,44 @@ class SensitivitiesDerivation:
         return probs, np.stack(sensitivities, axis=-1)
 
 
+# Fisher information
+
+def fisher_information_t(probs: np.ndarray, sensitivities: np.ndarray):
+    '''
+    Computes the Fisher Information Matrix at a single time point.
+
+    Inputs: 'probs': the probability vector which has dimension (N,)
+            'sensitivities': the sensitivity matrix which has dimensions (N, N_teta),
+                            where N is the number of species and N_teta is the number of parameters
+    
+    Outputs: The Fisher Information Matrix for the model evaluated at a single time point.
+    '''
+    inversed_p = np.divide(np.ones_like(probs), probs, out=np.zeros_like(probs), where=probs!=0)
+    pS = np.zeros_like(sensitivities)
+    for l, pl in enumerate(inversed_p):
+        pS[l,:] = pl * sensitivities[l,:]
+    return np.matmul(pS.T, sensitivities)
+
+
+def fisher_information(ntime_samples: int, probs: np.ndarray, sensitivities:np.ndarray):
+    '''
+    Computes the Fisher Information Matrix at a single time point.
+
+    Inputs: 'ntime_samples': number of time samples Nt
+            'probs': the probability vector which has dimension NtxN
+            'sensitivities': the sensitivity matrix which has dimensions NtxNxN_teta,
+                            where N is the number of species and N_teta is the number of parameters
+    
+    Outputs: The total Fisher Information Matrix for the model.
+    '''
+    f_inf = np.zeros((sensitivities.shape[-1], sensitivities.shape[-1]))
+    for t in range(ntime_samples):
+        f_inf += fisher_information_t(probs[t,:], sensitivities[t,:,:])
+    return f_inf
+
+
+
 # Correction get_sensitivities
-
-
 
 # stoich_mat = np.array([[-2, 2], 
 #                         [2, -2],
@@ -278,46 +327,6 @@ class SensitivitiesDerivation:
 # print(sens.solve_ode(np.zeros(14), 0., 5., np.array([2.]), 0, t_eval=np.arange(5)))
 
 
-
-
-
-
-# Fisher information
-
-def fisher_information_t(probs: np.ndarray, sensitivities: np.ndarray):
-    '''
-    Computes the Fisher Information Matrix at a single time point.
-
-    Inputs: 'probs': the probability vector which has dimension N
-            'sensitivities': the sensitivity matrix which has dimensions NxN_teta,
-                            where N is the number of species and N_teta is the number of parameters
-    
-    Outputs: The Fisher Information Matrix for the model evaluated at a single time point.
-    '''
-    # sensitivities (N, N_teta)
-    # probs (N,)
-    inversed_p = np.divide(np.ones_like(probs), probs, out=np.zeros_like(probs), where=probs!=0)
-    pS = np.zeros_like(sensitivities)
-    for l, pl in enumerate(inversed_p):
-        pS[l,:] = pl * sensitivities[l,:]
-    return np.matmul(pS.T, sensitivities)
-
-
-def fisher_information(ntime_samples: int, probs: np.ndarray, sensitivities:np.ndarray):
-    '''
-    Computes the Fisher Information Matrix at a single time point.
-
-    Inputs: 'ntime_samples': number of time samples Nt
-            'probs': the probability vector which has dimension NtxN
-            'sensitivities': the sensitivity matrix which has dimensions NtxNxN_teta,
-                            where N is the number of species and N_teta is the number of parameters
-    
-    Outputs: The total Fisher Information Matrix for the model.
-    '''
-    f_inf = np.zeros((sensitivities.shape[-1], sensitivities.shape[-1]))
-    for t in range(ntime_samples):
-        f_inf += fisher_information_t(probs[t,:], sensitivities[t,:,:])
-    return f_inf
 
 # test
 

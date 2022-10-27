@@ -2,12 +2,16 @@ import numpy as np
 import random
 
 class CRN:
-    def __init__(self, stoichiometric_mat, propensities, n_params):
+    def __init__(self, stoichiometric_mat, propensities, n_params, exact=False, exact_distr=None, exact_sensitivities=None):
         # stoichiometric_mat has shape (n_species, n_reactions)
         self.stoichiometric_mat = stoichiometric_mat
         self.n_species, self.n_reactions = np.shape(stoichiometric_mat)
         self.propensities = propensities
         self.n_params = n_params
+        self.exact=exact
+        if exact:
+            self.exact_distr = exact_distr
+            self.exact_sensitivities = exact_sensitivities
 
     def parameters_propensities(self, params):
         # associates to each function its parameter
@@ -59,9 +63,3 @@ class SSA:
             # updating state
             self.current_state += self.stoich_mat[:, ind_reaction]
         return self.sampling_times, self.samples
-
-# def lambda1(params, x):
-#     return params[0]
-
-# crn = CRN(np.array([1.]).reshape(1,1), np.array([lambda1]), 1)
-# print(crn.simulation(np.array([0.]), np.array([1.]), [0.2, 1, 5, 10, 15], 15))

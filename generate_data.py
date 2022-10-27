@@ -7,13 +7,6 @@ import simulation
 from tqdm import tqdm
 from typing import Tuple, Union
 import matplotlib.pyplot as plt
-# from scipy.stats import poisson
-# from CRN1_creation import propensities
-# from scipy.stats import nbinom
-# from CRN2_birth_death import propensities_birth_death as propensities
-# import propensities_birth as propensities
-# from CRN3_birth import propensities_birth as propensities
-# from scipy.stats import nbinom
 from CRN4_bursting_gene import propensities_bursting_gene as propensities
 
 class CRN_Dataset:
@@ -91,7 +84,8 @@ class CRN_Dataset:
     def generate_data(self, 
                     data_length: int, 
                     n_trajectories: int =10**4, 
-                    sobol_length: float =2., 
+                    sobol_end: float =2.,
+                    sobol_start: float =0.,
                     ind_species: Union[int, np.ndarray] =0,
                     initial_state: Tuple[bool, np.ndarray] =(False, None)):
         """
@@ -120,9 +114,9 @@ class CRN_Dataset:
         # generating parameters
         # sobol sequence requires a power of 2
         n_elts = 2**math.ceil(np.log2(data_length))
-        params = sobol.random(n_elts)*sobol_length # array of n_elts of parameters set, each set of length n_params
+        params = sobol.random(n_elts)*(sobol_end-sobol_start)+sobol_start # array of n_elts of parameters set, each set of length n_params
         # to avoid all zeros
-        params[np.count_nonzero(params, axis=1) == 0] = sobol.random()*sobol_length
+        params[np.count_nonzero(params, axis=1) == 0] = sobol.random()*(sobol_end-sobol_start)+sobol_start
         # print('params')
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -144,85 +138,3 @@ class CRN_Dataset:
         end=time.time()
         print('Total time: ', end-start)
         return X, y
-
-# CRN1
-
-# if __name__ == '__main__':
-
-#     CRN_NAME = 'ø_S1'
-#     datasets = {'train': 100, 'valid': 0, 'test': 0}
-#     DATA_LENGTH = sum(datasets.values())
-
-#     stoich_mat = np.array([1]).reshape(1,1)
-#     crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=np.array([propensities.lambda1]), n_params=1)
-#     dataset = CRN_Dataset(crn=crn, sampling_times=np.array([0, 1, 5, 10, 15]))
-#     X, y = dataset.generate_data(data_length=DATA_LENGTH)
-
-    # print(np.shape(y))
-    # index = 4
-    # print(X[index, :])
-    # print(y[index, :])
-    # t = X[index, 0]
-    # lambd = X[index,1]
-    # exact = [poisson.pmf(k, t*lambd) for k in np.arange(len(y[index,:]))]
-    # plt.plot(y[index,:])
-    # plt.plot(np.arange(len(y[index,:])), exact, marker = 'x', color = 'red')
-    # plt.show()
-
-# CRN2
-
-# if __name__ == '__main__':
-
-#     CRN_NAME = 'birth_death'
-#     datasets = {'train': 20, 'valid': 0, 'test': 0}
-#     DATA_LENGTH = sum(datasets.values())
-
-#     stoich_mat = propensities.stoich_mat.reshape(1, 2)
-#     crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=np.array([propensities.lambda1, propensities.lambda2]), n_params=2)
-#     dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 15, 20]))
-#     X, y = dataset.generate_data(data_length=DATA_LENGTH, initial_state=(True, np.ones(1)))
-
-#     print(np.shape(y))
-#     index = 4
-#     print(X[index, :])
-#     print(y[index, :])
-#     t = X[index, 0]
-#     lambd = X[index,1]
-#     exact = nbinom.pmf(np.arange(len(y[index,:])), 1, np.exp(-t*lambd))
-#     plt.plot(y[index,:])
-#     plt.plot(np.arange(len(y[index,:])), exact, marker = 'x', color = 'red')
-#     plt.show()
-
-# if __name__=='__main__':
-
-#     DATA_LENGTH = 16
-#     # shape (n_species, n_reactions)
-#     stoich_mat = propensities.stoich_mat.reshape(1, 1)
-#     crn = simulation.CRN(stoichiometric_mat= stoich_mat, propensities=np.array([propensities.lambda1]), n_params=1)
-#     dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 15, 20]))
-#     X, y = dataset.generate_data(data_length=DATA_LENGTH, n_trajectories=10**4, sobol_length=np.array([0.2]), initial_state=(True, 5*np.ones(1)))
-#     plt.plot(y[0,:100], label='y0')
-#     plt.plot(nbinom.pmf(np.arange(100), 5, np.exp(-X[0,0]*X[0,1])), label='y0exact')
-#     plt.plot(y[1,:100], label='y1')
-#     plt.plot(nbinom.pmf(np.arange(100), 5, np.exp(-X[1,0]*X[1,1])), label='y1exact')
-#     plt.legend()
-#     plt.show()
-#     print(X, y, np.shape(y), y[:,-1])
-
-# Bursting gene
-
-if __name__=='__main__':
-
-    DATA_LENGTH = 8
-    # shape (n_species, n_reactions)
-    stoich_mat = propensities.stoich_mat
-    crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=propensities.propensities, n_params=1)
-    dataset = CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 15, 20]), ind_species=1)
-    X, y = dataset.generate_data(data_length=DATA_LENGTH, n_trajectories=10**4, sobol_length=np.array([2]), ind_species=1)
-    # for k in range(8):
-    #     plt.plot(y[k,:])
-    # plt.plot(y)
-    plt.show()
-    print(X, y[:,-1], y[:,2], np.shape(y))
-
-    # 6 min

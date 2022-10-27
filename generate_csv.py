@@ -19,7 +19,7 @@ if __name__ == '__main__':
     stoich_mat = propensities.stoich_mat #.reshape(1, 1)
     crn = simulation.CRN(stoichiometric_mat= stoich_mat, propensities=propensities.propensities, n_params=N_PARAMS)
     dataset = generate_data.CRN_Dataset(crn=crn, sampling_times=np.array([5, 10, 15, 20]), ind_species = 1)
-    X, y = dataset.generate_data(data_length=DATA_LENGTH, n_trajectories=10**4, sobol_length=np.array([20]), ind_species=1)
+    X, y = dataset.generate_data(data_length=DATA_LENGTH, n_trajectories=10**4, sobol_end=np.array([20]), ind_species=1)
 
     # writing CSV files
     somme = 0
