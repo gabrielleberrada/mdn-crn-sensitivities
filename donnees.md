@@ -126,6 +126,13 @@ Poisson distribution
 
 Time to generate data (4096 samples) for r=5: 6h 49min 5s (pause 20 min)
 
+## Bursting gene
+
+Sobol length : $[20.]$.
+Initial state: $[0]$.
+
+Around 14h.
+
 ## Notes
 
 ### Calcul de $\Phi_n(0,...,0,C_r)$

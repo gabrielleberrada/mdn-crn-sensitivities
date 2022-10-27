@@ -13,7 +13,7 @@ class NeuralNetwork(nn.Module):
     def __init__(self, 
                 n_comps: int, 
                 n_params: int, 
-                n_hidden: int = 128,
+                n_hidden: int =128,
                 mixture: str ='NB') -> None:
         """
         Inputs:
@@ -21,25 +21,29 @@ class NeuralNetwork(nn.Module):
         'n_params': number of parameters in input, excluding time parameter. 
         'n_hidden': number of neurons in the hidden layer.
         'mixture': type of mixture to compute.
-                    'NB': Negative Binomial Mixture
-                    'Poisson': Poisson Mixture
+                    'NB': Negative Binomial Mixture. Requires parameters w, r and p.
+                    'Poisson': Poisson Mixture. Requires parameters w and r. 
         Output:
         The neural network structure.
         """
         super(NeuralNetwork, self).__init__()
+        self.mixture = mixture
         self.n_comps = n_comps
         self.num_params = n_params
         self.hidden_layer = nn.Linear(1 + n_params, n_hidden)
         self.hidden_actf = F.relu
         # initializing with Glorot Uniform method
         nn.init.xavier_uniform_(self.hidden_layer.weight)
+        # weights layer
         self.MNBOutputLayer1 = nn.Linear(n_hidden, n_comps)
         self.output_actf1 = nn.Softmax(dim=-1)
         nn.init.xavier_uniform_(self.MNBOutputLayer1.weight)
+        # parameters layer
         self.MNBOutputLayer2 = nn.Linear(n_hidden, n_comps)
         self.output_actf2 = F.relu
         nn.init.xavier_uniform_(self.MNBOutputLayer2.weight)
         if mixture == 'NB':
+            # success probabilities layer
             self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps)
             self.output_actf3 = torch.sigmoid
             nn.init.xavier_uniform_(self.MNBOutputLayer3.weight)
@@ -72,29 +76,38 @@ class NeuralNetwork(nn.Module):
 
 # Negative Binomial mixtures
 
-def nbpdf(r: torch.tensor, 
-        p: torch.tensor, 
+def nbpdf(params: Tuple,
         k: torch.tensor, 
-        eps:float =1e-5
+        mixture: str,
+        eps:float =1e-5,
         ) -> torch.tensor:
     """
     Inputs: A tuple of three vectors.
-            'r': count parameters of successes.
-            'p': success probabilities.
+            'params': parameters needed to define the probability distribution.
             'k': points at which to evaluate the pdf.
+            'mixture': name of the chosen distribution for the mixture.
             'eps': corrective term since a negative binomial cannot be evaluated at p=1.0
     Output: The pdf of a negative binomial distribution NB(r, p) evaluated at k.
     """
-    #NB distribution
-    # Here r is the number of successes but pytorch understands it as the number of failures.
-    corrected_p = 1 - p
-    corrected_p[corrected_p == 1.] -= eps
-    distr = torch.distributions.negative_binomial.NegativeBinomial(r, corrected_p)
-    #
+    # NB distribution
+    if mixture == 'NB':
+        # Here r is the number of successes but pytorch understands it as the number of failures.
+        r, p = params
+        corrected_p = 1 - p
+        corrected_p[corrected_p == 1.] -= eps
+        distr = torch.distributions.negative_binomial.NegativeBinomial(r, corrected_p)
+        prob = distr.log_prob(k)
     # Poisson distribution
-    # p[p==0] += eps
-    # distr = torch.distributions.poisson.Poisson(torch.div(torch.mul(p,r), 1-p))
-    return torch.exp(distr.log_prob(k))
+    if mixture == 'Poisson':
+        # Here p is the rate of the process.
+        r = params[0]
+        corrected_r = r.clone()
+        corrected_r[corrected_r < eps] += eps
+        distr = torch.distributions.poisson.Poisson(corrected_r)
+        prob = distr.log_prob(k)
+        # to avoid errors with very small probabilities
+        prob[prob < -10] = -10
+    return torch.exp(prob)
 
 
 def mix_nbpdf(model: NeuralNetwork, 
@@ -103,17 +116,17 @@ def mix_nbpdf(model: NeuralNetwork,
             ) -> torch.tensor:
     """
     Computes the predicted distribution of the model at input points 'x' and evaluates its pdf at points 'yy'.
-    'rr', 'pp', 'ww' are parameters of the distribution mixture.
-        'rr': count parameters.
-        'pp': success probabilities.
+    'params', 'ww' are parameters of the distribution mixture.
+        'params': parameters to define the distribution.
         'ww': weights.
     
     Inputs: 'x': input points, [t, param1, ...].
             'yy': points at which to evaluate the pdf.
     Output: The pdf of a mixture of distributions evaluated at k.
     """
-    ww, rr, pp = model.forward(x)
-    ret = torch.mul(ww, nbpdf(rr, pp, yy))
+    output = model.forward(x)
+    ww, params = output[0], output[1:]
+    ret = torch.mul(ww, nbpdf(params, yy, mixture=model.mixture))
     return torch.sum(ret, dim=-1)
 
 
@@ -125,7 +138,8 @@ def loss_kldivergence(x: torch.tensor,
                     ) -> float:
     """
     Computes the Kullback-Leibler divergence of 
-    the predicted distribution of the model at input points 'x' and of the corresponding outputs.
+    the predicted distribution of the model at input points 'x' 
+    and of the corresponding outputs.
     """
     y_size = y.size()
     if len(y_size) == 1:
@@ -136,8 +150,9 @@ def loss_kldivergence(x: torch.tensor,
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])
     pred = mix_nbpdf(model, x, mat_k)
     p = pred.permute(1,0)
-    p[p<1e-12]=1e-12
-    y[y<1e-12]=1e-12
+    # log gradient is not defined near 0.
+    p[p<1e-10]=1e-10
+    y[y<1e-10]=1e-10
     kl_loss = nn.KLDivLoss(reduction='sum')
     return kl_loss(torch.log(p), y)
 
@@ -284,7 +299,6 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
     for x, y in trainer.train_loader:
         model.zero_grad()
         loss_y = mean_loss(x, y, model, loss)
-        # print(loss_y)
         loss_y.backward()
         optimizer.step()
     trainer.update_losses()
@@ -321,4 +335,3 @@ def train_NN(model: NeuralNetwork,
     pbar.close()
     print(f'Learning rate: {trainer.args.lr},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}')
     return trainer.train_losses, trainer.valid_losses
-
