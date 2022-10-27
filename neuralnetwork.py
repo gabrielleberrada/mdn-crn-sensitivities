@@ -309,7 +309,8 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
 def train_NN(model: NeuralNetwork, 
             train_data: Tuple[torch.tensor, torch.tensor], 
             valid_data: Tuple[torch.tensor, torch.tensor], 
-            loss: Callable=loss_kldivergence, 
+            loss: Callable =loss_kldivergence,
+            print_results: bool =True, 
             **kwargs) -> Tuple[list[float], list[float]]:
     """
     Trains the neural network using the given training data and validation data. 
@@ -333,5 +334,6 @@ def train_NN(model: NeuralNetwork,
         train_round(trainer, loss)
         trainer.iteration += 1
     pbar.close()
-    print(f'Learning rate: {trainer.args.lr},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}')
+    if print_results:
+        print(f'Learning rate: {trainer.args.lr},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}')
     return trainer.train_losses, trainer.valid_losses
