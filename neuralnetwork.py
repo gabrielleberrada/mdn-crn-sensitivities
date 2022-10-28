@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 from typing import Callable, Tuple
+import convert_csv
 
 
 class NeuralNetwork(nn.Module):
@@ -242,7 +243,8 @@ class NNTrainer:
         self.lr_updates = [0]
         self.args = args
         self.model = model
-        self.opt = args.optimizer
+        self.opt = args.optimizer(model.parameters(), lr=self.args.lr, weight_decay=self.args.l2_reg)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, self.args.max_rounds)
         self.iteration = 0
         self.update_losses()
 
@@ -255,7 +257,7 @@ class NNTrainer:
         self.train_losses.append(float(train_loss.detach().numpy()))
         self.valid_losses.append(float(valid_loss.detach().numpy()))
 
-    def should_decrease_lr(self, n_rounds: int =50, tol: float =0.005) -> bool:
+    def early_stopping(self, tolerance: int =50, min_delta: float =0.005) -> bool:
         """
         Indicates to reduce the learning rate if at least n_rounds have passed since the last decrease 
         and if the mean validation loss has changed by less than tol% in the last n_rounds rounds.
@@ -265,8 +267,8 @@ class NNTrainer:
         """
         losses = self.valid_losses
         round = self.iteration
-        if round > (self.lr_updates[-1] + n_rounds):
-            return torch.mean(torch.tensor(losses[-n_rounds//2:])).item() > (torch.mean(torch.tensor(losses[-n_rounds:-n_rounds//2])).item() * (1-tol))
+        if round > (self.lr_updates[-1] + tolerance):
+            return torch.mean(torch.tensor(losses[-tolerance//2:])).item() > (torch.mean(torch.tensor(losses[-tolerance:-tolerance//2])).item() * (1-min_delta))
         return False
 
     def __iter__(self):
@@ -277,14 +279,9 @@ class NNTrainer:
         At each iteration, updates the learning rate if needed.
         """
         iter = len(self.train_losses)
+        # early stopping
         if iter >= self.args.max_rounds:
             raise StopIteration
-        if self.should_decrease_lr():
-            new_lr = self.args.lr / 2
-            if new_lr < self.args.min_lr:
-                raise StopIteration
-            self.lr_updates.append(iter)
-            self.args.lr = new_lr
         return iter+1, self
 
 
@@ -295,12 +292,16 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
     Performs one training epoch ie train on each datum.
     """
     model = trainer.model
-    optimizer = trainer.opt(model.parameters(), lr=trainer.args.lr, weight_decay=trainer.args.l2_reg)
+    optimizer = trainer.opt
+    scheduler = trainer.scheduler
     for x, y in trainer.train_loader:
         model.zero_grad()
         loss_y = mean_loss(x, y, model, loss)
         loss_y.backward()
         optimizer.step()
+    scheduler.step()
+    trainer.args.lr = scheduler.get_last_lr()[0]
+    trainer.lr_updates.append(scheduler.get_last_lr()[0])
     trainer.update_losses()
 
 
@@ -337,3 +338,4 @@ def train_NN(model: NeuralNetwork,
     if print_results:
         print(f'Learning rate: {trainer.args.lr},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}')
     return trainer.train_losses, trainer.valid_losses
+
