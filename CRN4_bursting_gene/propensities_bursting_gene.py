@@ -1,10 +1,9 @@
 import numpy as np
 
-# x = (g_on, RNA)
-# kon = 0.05*alpha
-# koff = 0.15*alpha
-# kr = 5
-# gamma = 0.05
+# theta1 = 0.05*alpha
+# theta2 = 0.15*alpha
+# theta3 = 5
+# theta4 = 0.05
 
 # R1
 def lambda1(params, x):
@@ -23,5 +22,4 @@ def lambda4(params, x):
     return 0.05*x[1]
 
 propensities = np.array([lambda1, lambda2, lambda3, lambda4])
-# g_on, g_off, RNA
 stoich_mat = np.array([[1., 0.], [-1., 0.], [0., 1.], [0., -1.]]).T

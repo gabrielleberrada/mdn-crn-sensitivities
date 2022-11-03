@@ -4,29 +4,24 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 from typing import Callable, Tuple
-import convert_csv
 
 
 class NeuralNetwork(nn.Module):
-    """
-    Builds a neural network.
-    """
+    """Class to build a Mixture Density Network.
+
+    Args:
+        - **n_comps** (int): Number of components of the mixture in output.
+        - **n_params** (int): Number of CRN parameters in input, excluding time parameter. 
+        - **n_hidden** (int, optional): Number of neurons in the hidden layer. Defaults to 128.
+        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial mixture. Can also be 'Poisson' for a Poisson mixture.
+        - **print_info** (bool, optional): If True, prints 'Mixture Density Network created' once the network is built. Defaults to True.
+    """                
     def __init__(self, 
                 n_comps: int, 
                 n_params: int, 
                 n_hidden: int =128,
-                mixture: str ='NB') -> None:
-        """
-        Inputs:
-        'n_comps': number of components in output.
-        'n_params': number of parameters in input, excluding time parameter. 
-        'n_hidden': number of neurons in the hidden layer.
-        'mixture': type of mixture to compute.
-                    'NB': Negative Binomial Mixture. Requires parameters w, r and p.
-                    'Poisson': Poisson Mixture. Requires parameters w and r. 
-        Output:
-        The neural network structure.
-        """
+                mixture: str ='NB',
+                print_info: bool=True):
         super(NeuralNetwork, self).__init__()
         self.mixture = mixture
         self.n_comps = n_comps
@@ -48,19 +43,26 @@ class NeuralNetwork(nn.Module):
             self.MNBOutputLayer3 = nn.Linear(n_hidden, n_comps)
             self.output_actf3 = torch.sigmoid
             nn.init.xavier_uniform_(self.MNBOutputLayer3.weight)
-        print('Neural Network created.')
+        if print_info:
+            print('Mixture Density Network created.')
 
-    def forward(self, input: torch.tensor) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
-        """
-        Input: the input data to process.
-        Output: A tuple of three vectors.
-                'layer_ww': mixture weights.
+    def forward(self, input: torch.tensor) -> Tuple[torch.tensor]:
+        """Runs the forward function of the Mixture Density Network.
+
+        Args:
+            - **input** (torch.tensor[float]): The input data to process.
+
+        Returns:
+            - A tuple of three tensors.
+                - **layer_ww**: Mixture weights.
+
                 If Negative Binomial Mixture:
-                    'layer_rr': count parameters.
-                    'layer_pp': success probabilities.
+                    - **layer_rr**: Count parameters.
+                    - **layer_pp**: Success probabilities.
+
                 If Poisson Mixture:
-                    'layer_rr': rate parameters.
-        """
+                    - **layer_rr**: Rate parameters.
+        """        
         x = torch.log10(input)
         x = self.hidden_layer(x)
         x = self.hidden_actf(x)
@@ -77,19 +79,22 @@ class NeuralNetwork(nn.Module):
 
 # Negative Binomial mixtures
 
-def nbpdf(params: Tuple,
+def distr_pdf(params: Tuple,
         k: torch.tensor, 
         mixture: str,
         eps:float =1e-5,
         ) -> torch.tensor:
-    """
-    Inputs: A tuple of three vectors.
-            'params': parameters needed to define the probability distribution.
-            'k': points at which to evaluate the pdf.
-            'mixture': name of the chosen distribution for the mixture.
-            'eps': corrective term since a negative binomial cannot be evaluated at p=1.0
-    Output: The pdf of a negative binomial distribution NB(r, p) evaluated at k.
-    """
+    """Computes the pdf of the components of the mixture.
+
+    Args:
+        - **params** (Tuple): Parameters needed to define the probability distribution.
+        - **k** (torch.tensor): Points at which to evaluate the pdf.
+        - **mixture** (str): Name of the chosen distribution for the mixture.
+        - **eps** (float, optional): Corrective term since a negative binomial cannot be evaluated at p=1.0. Defaults to 1e-5.
+
+    Returns:
+        - The pdf of the distribution evaluated at k.
+    """    
     # NB distribution
     if mixture == 'NB':
         # Here r is the number of successes but pytorch understands it as the number of failures.
@@ -111,23 +116,33 @@ def nbpdf(params: Tuple,
     return torch.exp(prob)
 
 
-def mix_nbpdf(model: NeuralNetwork, 
+def mix_pdf(model: NeuralNetwork, 
             x: torch.tensor, 
             yy: torch.tensor
             ) -> torch.tensor:
-    """
-    Computes the predicted distribution of the model at input points 'x' and evaluates its pdf at points 'yy'.
-    'params', 'ww' are parameters of the distribution mixture.
-        'params': parameters to define the distribution.
-        'ww': weights.
+    """Computes the predicted distribution of the Neural Network at input points **x** and evaluates its pdf at points **yy**.
     
-    Inputs: 'x': input points, [t, param1, ...].
-            'yy': points at which to evaluate the pdf.
-    Output: The pdf of a mixture of distributions evaluated at k.
+    Parameters of the distribution mixture:
+        - **ww**: Weights of the mixture.
+        - **params**: Parameters to define the distribution.
+
+    A distribution mixture evaluated at point k is given by:
+
+    .. math::
+
+        q(k) = \sum_i w_i Distr(n, params_i)
+
+    Args:
+        - **model** (NeuralNetwork): Mixture Density Network to use.
+        - **x** (torch.tensor): Input points, [t, param1, ...].
+        - **yy** (torch.tensor): Points at which to evaluate the pdf.
+
+    Returns:
+        - The pdf of a mixture of distributions evaluated at k.
     """
     output = model.forward(x)
     ww, params = output[0], output[1:]
-    ret = torch.mul(ww, nbpdf(params, yy, mixture=model.mixture))
+    ret = torch.mul(ww, distr_pdf(params, yy, mixture=model.mixture))
     return torch.sum(ret, dim=-1)
 
 
@@ -137,10 +152,21 @@ def loss_kldivergence(x: torch.tensor,
                     y: torch.tensor, 
                     model: NeuralNetwork
                     ) -> float:
-    """
-    Computes the Kullback-Leibler divergence of 
-    the predicted distribution of the model at input points 'x' 
-    and of the corresponding outputs.
+    r"""Computes the Kullback-Leibler divergence of the predicted distribution of the Neural Network at input points **x** and of the corresponding outputs.
+
+   For tensors of the same shape :math:`y_{pred}` and :math:`y_{target}`:
+
+    .. math::
+
+        KL(y_{pred}, y_{target}) = y_{target} \log \bigl(\frac{y_{target}}{y_{pred}}\bigl)
+
+    Args:
+        - **x** (torch.tensor): Vector of inputs.
+        - **y** (torch.tensor): Corresponding vector of outputs :math:`y_{target}`.
+        - **model** (NeuralNetwork): Mixture Density Network to use.
+
+    Returns:
+        - The Kullback-Leibler divergence value.
     """
     y_size = y.size()
     if len(y_size) == 1:
@@ -149,7 +175,7 @@ def loss_kldivergence(x: torch.tensor,
         dim0 = y_size[0]
     # to provide a set of points at which to evaluate the pdf for each input point.
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])
-    pred = mix_nbpdf(model, x, mat_k)
+    pred = mix_pdf(model, x, mat_k)
     p = pred.permute(1,0)
     # log gradient is not defined near 0.
     p[p<1e-10]=1e-10
@@ -161,9 +187,21 @@ def loss_hellinger(x: torch.tensor,
                 y: torch.tensor, 
                 model: NeuralNetwork
                 ) -> float:
-    """
-    Computes the Hellinger distance from the predicted distribution points 
-    of the model at input points 'x' to the corresponding outputs 'y'.
+    """Computes the Hellinger distance of the predicted distribution of the Neural Network at input points **x** and of the corresponding outputs.
+
+    For tensors of the same shape :math:`y_{pred}` and :math:`y_{target}`:
+
+    .. math::
+
+        H^2(y_{pred}, y_{target}) = 1 - \sum_i \sqrt(y_{pred, i})\sqrt(y_{target, i})
+
+    Args:
+        - **x** (torch.tensor): Vector of inputs.
+        - **y** (torch.tensor): Corresponding vector of outputs.
+        - **model** (NeuralNetwork): Mixture Density Network to use.
+
+    Returns:
+        - :math:`H(y_{pred}, y)` (float): Hellinger distance between the predicted distribution of the Neural Network at input points **x** and the expected output **y**.
     """
     y_size = y.size()
     if len(y_size) == 1:
@@ -172,7 +210,7 @@ def loss_hellinger(x: torch.tensor,
         dim0 = y_size[0]
     # to provide a set of points at which to evaluate the pdf for each input point.
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])    
-    pred = mix_nbpdf(model, x, mat_k)
+    pred = mix_pdf(model, x, mat_k)
     # computes the Hellinger distance step by step
     sqrt1 = torch.sqrt(pred.permute(1,0)*y)
     sqrt1 = sqrt1.sum(dim=-1)
@@ -188,108 +226,116 @@ def mean_loss(X: torch.tensor,
             model: NeuralNetwork, 
             loss: Callable =loss_kldivergence
             ) -> float:
-    """
-    Computes the average loss over a batch. 
-    
-    Input:  'X': vector of inputs
-            'y': corresponding vector of outputs.
+    """Computes the average loss over a batch.
+
+    Args:
+        - **X** (torch.tensor): Vector of inputs.
+        - **y** (torch.tensor): Corresponding vector of outputs.
+        - **model** (NeuralNetwork): Mixture Density Network to use.
+        - **loss** (Callable, optional): Loss to use. Defaults to loss_kldivergence.
+
+    Returns:
+        - Average loss between the predicted distribution of the Neural Network at input points **x** and the expected output **y**.
     """
     ret = loss(X, y, model)
     return ret / len(X)
 
 
-# Training Neural Net
+# Training Mixture Density Network
+class NNTrainer:
+    """Class to train the Mixture Density Network.
 
-class TrainArgs:
+    Hyperparameters and parameters are saved in the dictionary `args`.
+
+    Args:
+        - **model** (NeuralNetwork): Mixture Density Network to use.
+        - **train_data** (Tuple[torch.tensor, torch.tensor]): Training dataset.
+        - **valid_data** (Tuple[torch.tensor, torch.tensor]): Validation dataset.
+        - :math:`l_r` (float, optional): Current learning rate. Defaults to 0.01.
+        - **l2_reg** (float, optional): L2-regularization term. Defaults to 0.
+        - **max_rounds** (int, optional): Maximal number of training rounds. Defaults to 1_000.
+        - **batchsize** (int, optional): Number of elements in a batch. Defaults to 100.
+        - **optimizer** (Callable, optional): Optimizer to use. Defaults to torch.optim.Adam.
     """
-    Class for training hyperparameters.
-    """
-    def __init__(self, 
+    def __init__(self,
+                model: NeuralNetwork,
                 train_data: Tuple[torch.tensor, torch.tensor], 
                 valid_data: Tuple[torch.tensor, torch.tensor], 
                 lr: float =0.01, 
-                l2_reg: float =0., 
-                max_rounds: int =1_000, 
-                min_lr: float =0.01/32,
+                l2_reg: float =0.,
+                max_rounds: int =1_000,
                 batchsize: int =100, 
                 optimizer: Callable =torch.optim.Adam
-                ) -> None:
-        self.lr = np.float64(lr)            # Current learning rate
-        self.l2_reg = np.float64(l2_reg)    # L2 regularisation weight
-        self.max_rounds = max_rounds        # Maximal number of training rounds
-        self.min_lr = np.float64(min_lr)    # Minimial learning rate
-        if batchsize == 0:
-            batchsize = len(train_data[0])
-        self.batchsize = batchsize
-        self.optimizer = optimizer
-        self.train_data = train_data
-        self.valid_data = valid_data
-
-
-class NNTrainer:
-    """
-    Class for data generated while training the network.
-    """
-    def __init__(self, 
-                args: TrainArgs, 
-                model: NeuralNetwork
-                ) -> None:
-        # divides the dataset into batches.
-        train_loader = torch.utils.data.DataLoader(dataset=torch.utils.data.TensorDataset(args.train_data[0], args.train_data[1]), 
-                                                batch_size=args.batchsize, shuffle=True)
-        self.train_loader = train_loader
+                ):               
+        self.args = {
+            'train_data': train_data,
+            'valid_data': valid_data,
+            'lr': lr,
+            'l2_reg': l2_reg,
+            'max_rounds': max_rounds,
+            'batchsize': batchsize,
+            'optimizer': optimizer
+        }
+        # divides the dataset into shuffled batches.
+        self.train_loader = torch.utils.data.DataLoader(dataset=torch.utils.data.TensorDataset(self.args['train_data'][0], 
+                                                                                        self.args['train_data'][1]), 
+                                                    batch_size=self.args['batchsize'], shuffle=True)
         self.train_losses = []
         self.valid_losses = []
         self.lr_updates = [0]
-        self.args = args
         self.model = model
-        self.opt = args.optimizer(model.parameters(), lr=self.args.lr, weight_decay=self.args.l2_reg)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, self.args.max_rounds)
+        self.opt = self.args['optimizer'](model.parameters(), lr=self.args['lr'], weight_decay=self.args['l2_reg'])
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, self.args['max_rounds'])
         self.iteration = 0
         self.update_losses()
 
-    def update_losses(self) -> None:
+    def update_losses(self):
         """
-        Computes training and validation losses at each iteration.
+        Computes training and validation losses at each iteration and saves them.
         """
-        train_loss = mean_loss(self.args.train_data[0], self.args.train_data[1], self.model, loss=loss_kldivergence)
-        valid_loss = mean_loss(self.args.valid_data[0], self.args.valid_data[1], self.model, loss=loss_kldivergence)
+        train_loss = mean_loss(self.args['train_data'][0], self.args['train_data'][1], self.model, loss=loss_kldivergence)
+        valid_loss = mean_loss(self.args['valid_data'][0], self.args['valid_data'][1], self.model, loss=loss_kldivergence)
         self.train_losses.append(float(train_loss.detach().numpy()))
         self.valid_losses.append(float(valid_loss.detach().numpy()))
 
-    def early_stopping(self, tolerance: int =50, min_delta: float =0.005) -> bool:
-        """
-        Indicates to reduce the learning rate if at least n_rounds have passed since the last decrease 
-        and if the mean validation loss has changed by less than tol% in the last n_rounds rounds.
-        Inputs: 'n_rounds': minimal number of rounds betwwen two learning rate updates.
-                'tol': tolerance threshold of learning rate variations.
-        Outputs: A boolean stating if the learning rate should be decreased.
-        """
-        losses = self.valid_losses
-        round = self.iteration
-        if round > (self.lr_updates[-1] + tolerance):
-            return torch.mean(torch.tensor(losses[-tolerance//2:])).item() > (torch.mean(torch.tensor(losses[-tolerance:-tolerance//2])).item() * (1-min_delta))
+    def early_stopping(self, patience: int =20, delta: float =1e-5) -> bool:
+        """Computes early stopping when the Neural Network does not improve to avoid overfitting.
+        If **patience** number of rounds pass without getting the validation loss at least closer than **delta** to the best validation loss achieved,
+        stops the training.
+
+        Args:
+            - **patience** (int, optional): Number of events needed without improvement to stop the training. Defaults to 20.
+            - **delta** (float, optional): Minimum value difference between the lowest and the second lowest results. Defaults to 1e-5.
+
+        Returns:
+            - A boolean stating if the training should be stopped.
+        """    
+        if len(self.valid_losses) < patience:
+            return False
+        losses = np.array(self.valid_losses[-patience:])
+        losses[0] += delta
+        if np.argmin(losses) == 0:
+            return True
         return False
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        """
-        At each iteration, updates the learning rate if needed.
-        """
         iter = len(self.train_losses)
-        # early stopping
-        if iter >= self.args.max_rounds:
+        if iter >= self.args['max_rounds'] or self.early_stopping():
             raise StopIteration
         return iter+1, self
 
 
 # Training rounds
 
-def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
-    """
-    Performs one training epoch ie train on each datum.
+def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence):
+    """Performs one training epoch.
+
+    Args:
+        - **trainer** (NNTrainer): Training structure.
+        - **loss** (Callable, optional): Loss to use for optimization. Defaults to loss_kldivergence.
     """
     model = trainer.model
     optimizer = trainer.opt
@@ -298,9 +344,12 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence) -> None:
         model.zero_grad()
         loss_y = mean_loss(x, y, model, loss)
         loss_y.backward()
+        # gradient clip to tackle exploding gradient.
+        nn.utils.clip_grad_norm_(model.parameters(), 10.)
         optimizer.step()
+    # updates learning rate
     scheduler.step()
-    trainer.args.lr = scheduler.get_last_lr()[0]
+    trainer.args['lr'] = scheduler.get_last_lr()[0]
     trainer.lr_updates.append(scheduler.get_last_lr()[0])
     trainer.update_losses()
 
@@ -312,30 +361,38 @@ def train_NN(model: NeuralNetwork,
             valid_data: Tuple[torch.tensor, torch.tensor], 
             loss: Callable =loss_kldivergence,
             print_results: bool =True, 
+            print_info: bool =True,
             **kwargs) -> Tuple[list[float], list[float]]:
-    """
-    Trains the neural network using the given training data and validation data. 
-    
-    Inputs: 'train_data': tuples '(X_train, y_train)' of data to train the neural network on.
-                        'X_train': tensor of input points.
-                        'y_train': tensor of corresponding outputs.
-            'valid_data': tuples of data to validate the neural network on.
-                        'X_valid': tensor of input points.
-                        'y_valid': tensor of corresponding outputs.
-            'kwargs': other arguments for hyperparameters.
-    Outputs:    Training and validation losses for each epoch.
-                Prints the learning rate, the train and valid losses at the end of the training.
-    """
-    args = TrainArgs(train_data, valid_data, **kwargs)
-    trainer = NNTrainer(args, model)
-    pbar = tqdm(total=args.max_rounds, desc='Training ...', position=0)
+    """Trains the Neural Network.
+
+    Args:
+        - **model** (NeuralNetwork): Mixture Density Network to use.
+        - **train_data** (Tuple[torch.tensor, torch.tensor]): tuple **(X_train, y_train)** of data to train the Neural Network on.
+
+                        - **X_train**: Tensor of input data.
+                        - **y_train**: Tensor of expected outputs.
+        - **valid_data** (Tuple[torch.tensor, torch.tensor]): tuple **(X_valid, y_valid)** of data to validate the Neural Network on.
+
+                        - **X_valid**: Tensor of input data.
+                        - **y_valid**: Tensor of expected outputs.
+        - **loss** (Callable, optional): Loss to use for optimization. Defaults to loss_kldivergence.
+        - **print_results** (bool, optional): If True, prints the final results (learning rate, train and valid losses at the end of the training). Defaults to True.
+        - **print_info** (bool, optional): If True, prints a progress bar. Defaults to True.
+
+    Returns:
+        - Training and validation losses for each epoch.
+    """            
+    trainer = NNTrainer(model, train_data, valid_data, **kwargs) # not sure
+    if print_info:
+        pbar = tqdm(total=trainer.args['max_rounds'], desc='Training ...', position=0)
     for _ in trainer:
-        pbar.update(1)
-        # learning rate updates during iteration
+        if print_info:
+            pbar.update(1)
         train_round(trainer, loss)
         trainer.iteration += 1
-    pbar.close()
+    if print_info:
+        pbar.close()
     if print_results:
-        print(f'Learning rate: {trainer.args.lr},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}')
+        print(f"Learning rate: {trainer.args['lr']},\nTrain loss: {trainer.train_losses[-1]},\n Valid loss: {trainer.valid_losses[-1]}")
     return trainer.train_losses, trainer.valid_losses
 

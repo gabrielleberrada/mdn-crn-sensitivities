@@ -7,25 +7,23 @@ import simulation
 from tqdm import tqdm
 from typing import Tuple, Union
 import matplotlib.pyplot as plt
-from CRN4_bursting_gene import propensities_bursting_gene as propensities
 
 class CRN_Dataset:
-
+    """Class to build a dataset of SSA for a specified CRN.
+    """
     def __init__(self, 
             crn: simulation.CRN, 
             sampling_times: list[float], 
             n_trajectories: int =10**3, 
             ind_species: int =0):
-        """
-        Initializes parameters to build our dataset.
+        """Initializes parameters to build the dataset.
 
-        Inputs: 'crn': Chemical Reaction Network to work on.
-                'sampling_times': Times to sample.
-                'n_trajectories': Number of trajectories to compute. 
-                                Can also be defined when calling the 'generate_data' function.
-                'ind_species': Index of the species of interest. 
-                            The distribution generated will be the one of that species.
-        """
+        Args:
+            - **crn** (simulation.CRN): Chemical Reaction Network to work on.
+            - **sampling_times** (list[float]): Times to sample.
+            - :math:`n_{trajectories}` (int, optional): Number of trajectories to compute. Can also be defined when calling the ``generate_data`` function. Defaults to 10**3.
+            - **ind_species** (int, optional): Index of the species of interest. The distribution generated will be the one of that species. Defaults to 0.
+        """        
         self.crn = crn
         self.n_params = crn.n_params
         self.n_species = crn.n_species
@@ -35,24 +33,20 @@ class CRN_Dataset:
         self.initial_state = np.zeros(self.n_species)
 
 
-    def samples_probs(self, params: np.ndarray):
-        """
-        Runs n_trajectories of the SSA simulation for the parameters in input and deducts the corresponding distribution
-        for the species indexed by 'ind_species'.
+    def samples_probs(self, params: np.ndarray[float]) -> Tuple[list[float], int]:
+        """Runs :math:`n_{trajectories}` of the SSA for the parameters in input and deducts the corresponding distribution 
+        for the species indexed by **ind_species**.
 
-        Inputs: 'params': the parameters of the propensities.
+        Args:
+            - **params** (np.ndarray[float]): The parameters of the propensities.
 
-        Outputs:
-            'samples': list of the distributions for the corresponding species at times time_samples.
-                        This list begins with time and parameters: [t, param1, ..., paramK, distr]
-                        in order to keep parameters linked to the distribution.
-            'max_value': maximum value reached during simulations + number of parameters + 1 (for time).
-                        Will be useful to standardize each data length to turn the data list into a tensor.
+        Returns:
+            - **samples**: List of the distributions for the corresponding species at times time_samples. This list begins with time and parameters: [t, param1, ..., paramK, distr]
+            - **max_value**: Maximum value reached during simulations + number of parameters + 1 (for time). Will be useful to standardize each data length to turn the data list into a tensor.
         """
-        
         res = []
         for i in range(self.n_trajectories):
-            _, samples = self.crn.simulation(self.initial_state.copy(),
+            _, samples = self.crn.step(self.initial_state.copy(),
                                             params, 
                                             self.sampling_times, self.sampling_times[-1])
             # print(i)
@@ -72,36 +66,44 @@ class CRN_Dataset:
         # + 1 for time
         return samples, max_value + self.n_params + 1
 
-    def set_length(self, onedim_tab: np.ndarray, length: int):
-        """
-        Inputs: 'onedim_tab': array to extend. In our case, 1D array.
-                'length': wanted length of array.
+    def set_length(self, onedim_tab: np.ndarray[float], length: int) -> np.ndarray[float]:
+        """Adds zero at the end of an array to adjust its length.
 
-        Output: An array of length 'length' equal to 'onedim_tab' array completed by zeros at the end.
-        """
+        Args:
+            - **onedim_tab** (np.ndarray[float]): Array to extend. In this case, 1D array.
+
+            - **length** (int): Wanted length of array.
+
+        Returns:
+            - An array of length 'length' equal to 'onedim_tab' array completed by zeros at the end.
+        """        
         return onedim_tab + [0] * max(length - len(onedim_tab), 0)
 
     def generate_data(self, 
                     data_length: int, 
                     n_trajectories: int =10**4, 
-                    sobol_end: float =2.,
                     sobol_start: float =0.,
+                    sobol_end: float =2.,
                     ind_species: Union[int, np.ndarray] =0,
-                    initial_state: Tuple[bool, np.ndarray] =(False, None)):
-        """
-        Generates a training, validation or test dataset.
-        We use multiprocessing to run simulations in parallel to compute faster.
+                    initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray[float]]:
+        r"""Generates a training, validation or test dataset.
+        Uses multiprocessing to run simulations in parallel and to compute faster.
         Parameters are generated from the Sobol Sequence.
 
-        Inputs: 'data_length': length of data expected in outputs.
-                'n_trajectories': number of trajectories to compute to build the distribution.
-                'sobol_length': upper bound of the hypercube [0, length]^N in which each set of parameters lie.
-                'ind_species': index of the species of which to compute the distribution.
-        
-        Output: A tuple of arrays '(X, y)'. 
-                Each entry of 'X' is an input to the neural network of the form '[t, params...]'
-                The corresponding entry of 'y' is the expected probability distribution for these parameters.
-        """
+        Args:
+            - **data_length** (int): Length of data expected in outputs.
+            - :math:`n_{trajectories}` (int, optional): Number of trajectories to compute to build the distribution. Defaults to 10**4.
+            - **sobol_start** (float, optional): Lower boundary of the parameters samples. Defaults to 0.
+            - **sobol_end** (float, optional): Upper boundary of the parameters samples. Defaults to 2.
+            - **ind_species** (Union[int, np.ndarray], optional): Index of the species of which to compute the distribution. Defaults to 0.
+            - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None).
+
+        Returns:
+            - **(X, y)**:
+
+                - Each entry of **X** is an input to the neural network of the form **[t, params...]**
+                - The corresponding entry of **y** is the expected probability distribution for these parameters.
+        """                    
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
         if initial_state[0]:
@@ -120,7 +122,7 @@ class CRN_Dataset:
         # print('params')
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            res = list(tqdm(executor.map(self.samples_probs, params), total = len(params), desc='Generating data ...'))
+            res = list(tqdm(executor.map(self.samples_probs, params), total=len(params), desc='Generating data ...'))
         print('Simulations done.')
         distributions = []
         max_value = 0

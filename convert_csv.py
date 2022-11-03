@@ -4,36 +4,36 @@ import torch
 
 
 def array_to_csv(arr: np.ndarray, file_name: str):
-    """
-    Save an array in a CSV file.
-    
-    Inputs: 'arr': array to save.
-            'file_name': name of the CSV file to create.
-    """
-    df = pd.DataFrame(arr)
-    df.to_csv(f'{file_name}.csv', header=False, index=False)
+        """Saves an array in a CSV file.
+
+        Args:
+            - **arr** (np.ndarray): Array to save.
+            - **file_name** (str): Name of the CSV file to create.
+        """        
+        df = pd.DataFrame(arr)
+        df.to_csv(f'{file_name}.csv', mode='a', header=False, index=False)
 
 
-def csv_to_array(file_name: str):
-    """
-    Load an array from a CSV file.
+def csv_to_array(file_name: str) -> np.ndarray:
+        """Loads an array from a CSV file.
 
-    Inputs: 'file_name': name of the CSV file to load.
-            'num_columns': expected number of columns.
+        Args:
+            - **file_name** (str): Name of the CSV file to load.
 
-    Output: an array containing the information from the CSV file.
-    """
-    return np.array((pd.read_csv(file_name, header=None)).values)
+        Returns:
+            - An array containing the information from the CSV file.
+        """        
+        return np.array((pd.read_csv(file_name, header=None)).values)
 
-def csv_to_tensor(file_name: str):
-    """
-    Load an array from a CSV file.
+def csv_to_tensor(file_name: str) -> torch.tensor:
+        """Loads an array from a CSV file.
 
-    Inputs: 'file_name': name of the CSV file to load.
-            'num_columns': expected number of columns.
+        Args:
+            - **file_name** (str): Name of the CSV file to load.
 
-    Output: a tensor containing the information from the CSV file.
-    """
-    return torch.tensor((pd.read_csv(file_name, header=None)).values, dtype=torch.float32)
+        Returns:
+            - A tensor containing the information from the CSV file.
+        """        
+        return torch.tensor((pd.read_csv(file_name, header=None)).values, dtype=torch.float32)
 
 
