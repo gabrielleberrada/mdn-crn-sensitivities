@@ -24,7 +24,7 @@ def load_MDN_model(file_path: str) -> neuralnetwork.NeuralNetwork:
         - **file_path** (str): Path of the file in which the parameters of the model are saved.
 
     Returns:
-        - **MDNmodel** (neuralnetwork.NeuralNetwork): Loaded Mixture Density Network model.
+        - Loaded Mixture Density Network model.
     """    
     loader = torch.load(file_path)
     MDNmodel = neuralnetwork.NeuralNetwork(loader['n_comps'],

@@ -8,7 +8,7 @@ class CRN:
     Args:
         - **stoichiometric_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
         - **propensities** (np.ndarray[Callable]): Propensities of the reactions.
-        - :math:`n_{params}` (int): Number of parameters required to define the propensities.
+        - **n_params** (int): Number of parameters required to define the propensities.
         - **exact** (bool, optional): If the exact distribution of the CRN is known. Defaults to False.
         - **exact_distr** (Tuple[Callable], optional): The exact distribution function, when known. Defaults to None.
         - **exact_sensitivities** (Tuple[Callable], optional): The exact sensitivities of probabilities with respect to the parameters, when known. Defaults to None.
@@ -68,8 +68,8 @@ class StochasticSimulation:
         - :math:`t_f` (float): Final time.
         - **sampling_times** (list[float]): Times at which to sample.
         - **propensities** (np.ndarray[Callable]): Propensities of the CRN.
-        - :math:`n_{species}` (int): Number of species involved.
-        - :math:`n_{reactions}` (int): Number of reactions that can occur.
+        - **n_species** (int): Number of species involved.
+        - **n_reactions** (int): Number of reactions that can occur.
         - **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.     
     """    
     def __init__(self,

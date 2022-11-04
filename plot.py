@@ -12,6 +12,7 @@ import simulation
 from typing import Callable, Tuple
 
 # Plot probability distributions or sensitivities of probabilities distributions
+
 def plot_model(to_pred: torch.tensor, 
             models: list[neuralnetwork.NeuralNetwork], 
             up_bound: int,
@@ -19,6 +20,7 @@ def plot_model(to_pred: torch.tensor,
             index_names: Tuple[str, str] =('Probabilities', 'Abundance of species S'), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
+            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]] = (False, np.zeros(1), [], 10, None),
             confidence_interval: bool =False,
             plot: Tuple[str, int] =('probabilities', None),
             save: Tuple[bool, str] =(False, None),
@@ -35,7 +37,16 @@ def plot_model(to_pred: torch.tensor,
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If first element is True, plots the expected results from the datasets for the chosen set of parameters. \
         The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If first element is True, plots the exact results for the chosen set of parameters. \
-        The second argument is the function that computes the exact results. Defaults to (False, None).
+        The second argument is the function that computes the exact results. Defaults to (False, None).        
+        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): If first element is True, plots the estimated results with the FSP method. \
+            Defaults to (False, np.zeros(1), [], 10, None).
+                
+                1. **fsp_estimation** (bool): Indicates whether to estimate the distribution with the FSP method.
+                2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
+                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
+                4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
+                5. **init_state** (np.ndarray[int], optional): If needed, initial state.        
+               
         - **confidence_interval** (bool, optional): If True, plots an estime of the central tendency and a confidence interval for that estimate. If False, plots each line. Defaults to False.
         - **plot** (Tuple[str, int], optional): First element is either 'probabilities' to plot a probability distribution, or 'sensitivities' to plot probability sensitivities distribution. \
         If it is 'sensitivities', second argument is the index of the parameter such that it plots the  sensitivities of probabilities with respect to this parameter. Defaults to ('probabilities', None).
@@ -56,14 +67,34 @@ def plot_model(to_pred: torch.tensor,
         preds.append(pred)
     if plot_test_result[0]:
         result = plot_test_result[1]
-        test_result = pd.DataFrame([np.squeeze(result.detach().numpy()), np.arange(up_bound)], index = index_names).transpose()
+        if torch.is_tensor(result):
+            result = result.detach().numpy()
+        test_result = pd.DataFrame([np.squeeze(result), np.arange(up_bound)], index = index_names).transpose()
         test_result['model'] = 'SSA simulation'
         preds.append(test_result)
+    if plot_fsp_result[0]:
+        crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(params))
+        stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+        if plot_fsp_result[4]:
+            init_state = plot_fsp_result[4]
+        else:
+            init_state = np.zeros(2*(plot_fsp_result[3]+1))
+            init_state[1] = 1
+            init_state = np.stack([init_state]*crn.n_reactions)
+        probs_fsp, stv_fsp = stv_calculator.get_sensitivities(init_state, 0, to_pred[0].numpy(), params.numpy(), t_eval=to_pred[0].numpy())
+        if plot[0] == 'probabilities':
+            length = min(up_bound, np.shape(probs_fsp)[0])
+            fsp_result = pd.DataFrame([probs_fsp[0, :up_bound], np.arange(length)], index = index_names).transpose()
+        elif plot[0] == 'sensitivities':
+            length = min(up_bound, np.shape(probs_fsp)[0])
+            fsp_result = pd.DataFrame([stv_fsp[0, :up_bound, plot[1]], np.arange(length)], index = index_names).transpose()
+        fsp_result['model'] = 'FSP estimation'
+        preds.append(fsp_result)
     if plot_exact_result[0]:
         parameters = []
         for tens in to_pred:
             parameters.append(tens.numpy())
-        exact_result = pd.DataFrame([[plot_exact_result[1](k, parameters) for k in range(up_bound)], 
+        exact_result = pd.DataFrame([[plot_exact_result[1](k, parameters) for k in range(up_bound)],
                                     np.arange(up_bound)], index = index_names).transpose()
         exact_result['model'] = 'exact result'
         preds.append(exact_result)
@@ -83,6 +114,7 @@ def multiple_plots(to_pred: list[torch.tensor],
             index_names: Tuple[str] =('Probabilities', 'Abundance of species S'),
             plot_test_result: Tuple[bool, torch.tensor] =(False, None),
             plot_exact_result: Tuple[bool, Callable] =(False, None),
+            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]] = (False, np.zeros(1), [], 10, None),
             confidence_interval: bool =False,
             plot: Tuple[str, int] =('probabilities', None),
             n_col: int =2,
@@ -92,26 +124,35 @@ def multiple_plots(to_pred: list[torch.tensor],
     See comments in the code to adapt it to your CRN.
 
     Args:
-        - **to_pred** (list[torch.tensor]): list of inputs.
-        - **models** (list[neuralnetwork.NeuralNetwork]): models to compute.
-        - **up_bound** (int): upper boundary of the estimated distribution.
-        - **n_comps** (int): number of components of the mixture.
-        - **index_names** (Tuple[str], optional): labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
-        - **plot_test_result** (Tuple[bool, torch.tensor], optional): if first element is True, plots the expected results from the datasets for the chosen set of parameters. \
+        - **to_pred** (list[torch.tensor]): List of inputs.
+        - **models** (list[neuralnetwork.NeuralNetwork]): Models to compute.
+        - **up_bound** (int): Upper boundary of the estimated distribution.
+        - **n_comps** (int): Number of components of the mixture.
+        - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
+        - **plot_test_result** (Tuple[bool, torch.tensor], optional): If first element is True, plots the expected results from the datasets for the chosen set of parameters. \
         The second argument is the expected results. Defaults to (False, None).
-        - **plot_exact_result** (Tuple[bool, Callable], optional): if first element is True, plots the exact results for the chosen set of parameters. \
+        - **plot_exact_result** (Tuple[bool, Callable], optional): If first element is True, plots the exact results for the chosen set of parameters. \
         The second argument is the function that computes the exact results. Defaults to (False, None).
-        - **confidence_interval** (bool, optional): if True, plots an estime of the central tendency and a confidence interval for that estimate. If False, plots each line. Defaults to False.
-        - **plot** (Tuple[str, int], optional): first element is either 'probabilities' to plot a probability distribution, or 'sensitivities' to plot probability sensitivities distribution. \
+        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): If first element is True, plots the estimated results with the FSP method. \
+            Defaults to (False, np.zeros(1), [], 10, None).
+                
+                1. **fsp_estimation** (bool): Indicates whether to estimate the distribution with the FSP method.
+                2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
+                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
+                4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
+                5. **init_state** (np.ndarray[int], optional): If needed, initial state.        
+
+        - **confidence_interval** (bool, optional): If True, plots an estime of the central tendency and a confidence interval for that estimate. If False, plots each line. Defaults to False.
+        - **plot** (Tuple[str, int], optional): First element is either 'probabilities' to plot a probability distribution, or 'sensitivities' to plot probability sensitivities distribution. \
         If it is 'sensitivities', second argument is the index of the parameter such that it plots the sensitivities of probabilities with respect to this parameter. \
         Defaults to ('probabilities', None).
-        - **n_col** (int, optional): number of columns to plot. Defaults to 2.
-        - **save** (Tuple[bool, str], optional): if first element is True, saves the file. Second element is the name of the file in which to save the plot. Defaults to (False, None).
+        - **n_col** (int, optional): Number of columns to plot. Defaults to 2.
+        - **save** (Tuple[bool, str], optional): If first element is True, saves the file. Second element is the name of the file in which to save the plot. Defaults to (False, None).
         - **crn_name** (str): Name of the CRN as a string, to use for the figure title.
     """          
     n = len(to_pred)
     if n == 1:
-            plot_model(to_pred[0], models, n_comps, up_bound, index_names, plot_test_result, plot_exact_result, confidence_interval, plot, save, crn_name)
+            plot_model(to_pred[0], models, n_comps, up_bound, index_names, plot_test_result, plot_exact_result, plot_fsp_result, confidence_interval, plot, save, crn_name)
     else:
         fig, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(12,12))
         for k, to_pred_ in enumerate(to_pred):
@@ -128,9 +169,29 @@ def multiple_plots(to_pred: list[torch.tensor],
                 preds.append(pred)
             if plot_test_result[0]:
                 result = plot_test_result[1][k]
-                test_result = pd.DataFrame([np.squeeze(result.detach().numpy()), np.arange(up_bound[k])], index = index_names).transpose()
+                if torch.is_tensor(result):
+                    result = result.detach().numpy()
+                test_result = pd.DataFrame([np.squeeze(result), np.arange(up_bound[k])], index = index_names).transpose()
                 test_result['model'] = 'SSA simulation'
                 preds.append(test_result)
+            if plot_fsp_result[0]:
+                crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(params))
+                stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+                if plot_fsp_result[4]:
+                    init_state = plot_fsp_result[4]
+                else:
+                    init_state = np.zeros(2*(plot_fsp_result[3]+1))
+                    init_state[1] = 1
+                    init_state = np.stack([init_state]*crn.n_reactions)
+                probs_fsp, stv_fsp = stv_calculator.get_sensitivities(init_state, 0, to_pred_[0].numpy(), params.numpy(), t_eval=to_pred_[0].numpy())
+                if plot[0] == 'probabilities':
+                    length = min(up_bound, np.shape(probs_fsp)[0])
+                    fsp_result = pd.DataFrame([probs_fsp[0, :up_bound], np.arange(length)], index = index_names).transpose()
+                elif plot[0] == 'sensitivities':
+                    length = min(up_bound, np.shape(probs_fsp)[0])
+                    fsp_result = pd.DataFrame([stv_fsp[0, :up_bound, plot[1]], np.arange(length)], index = index_names).transpose()
+                fsp_result['model'] = 'FSP estimation'
+                preds.append(fsp_result)
             if plot_exact_result[0]:
                 parameters = []
                 for tens in to_pred_:
@@ -157,6 +218,7 @@ def multiple_plots(to_pred: list[torch.tensor],
 
 
 # Plot Fisher information table
+
 def fi_table(time_samples: list[float], 
             params: list[float], 
             ind_param: int, 
@@ -169,27 +231,27 @@ def fi_table(time_samples: list[float],
     """Plots the fisher information table for one parameter.
 
     Args:
-        - **time_samples** (list[float]): sampling times.
-        - **params** (list[float]): parameters chosen for the CRN.
-        - **ind_param** (int): index of the parameter whose Fisher information is estimated.
-        - **models** (Tuple[bool, list[neuralnetwork.NeuralNetwork], int], optional): arguments to estimate the Fisher Information with neural network models. Defaults to (False, None, 3).
+        - **time_samples** (list[float]): Sampling times.
+        - **params** (list[float]): Parameters chosen for the CRN.
+        - **ind_param** (int): Index of the parameter whose Fisher information is estimated.
+        - **models** (Tuple[bool, list[neuralnetwork.NeuralNetwork], int], optional): Arguments to estimate the Fisher Information with neural network models. Defaults to (False, None, 3).
 
-                1. **model_estimation** (bool): indicates whether to estimate the Fisher Information with neural network models.
-                2. **models_list** (list[neuralnetwork.NeuralNetwork]): list of models from which to estimate the Fisher Information.
-                3. **n_comps** (int): number of components.
+                1. **model_estimation** (bool): Indicates whether to estimate the Fisher Information with neural network models.
+                2. **models_list** (list[neuralnetwork.NeuralNetwork]): List of models from which to estimate the Fisher Information.
+                3. **n_comps** (int): Number of components.
 
-        - **plot_exact** (Tuple[bool, Callable], optional): arguments to estimate the Fisher Information with its exact value. Defaults to (False, None).
+        - **plot_exact** (Tuple[bool, Callable], optional): Arguments to estimate the Fisher Information with its exact value. Defaults to (False, None).
                 
-                - **exact_value** (bool): indicates whether to calculate the exact value of the Fisher Information.
-                - **fisher_information_function** (Callable): function that computes the Fisher Information value
-        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): arguments to estimate the Fisher Information with the FSP method. Defaults to (False, np.zeros(1), [], 10, None).
+                - **exact_value** (bool): Indicates whether to calculate the exact value of the Fisher Information.
+                - **fisher_information_function** (Callable): Function that computes the Fisher Information value
+        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): Arguments to estimate the Fisher Information with the FSP method. Defaults to (False, np.zeros(1), [], 10, None).
                 
-                1. **fsp_estimation** (bool): indicates whether to estimate the Fisher Information with the FSP method.
-                2. **stoich_mat** (np.ndarray[int]): stoichiometric matrix of the CRN.
-                3. **propensities** (np.ndarray[Callable]): non-parameterized propensities of the CRN.
-                4. :math:`c_r`: value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
-                5. **init_state** (np.ndarray[int], optional): if needed, initial state.
-        - **up_bound** (int, optional): upper boundaries of the distribution to compute. Defaults to 100.
+                1. **fsp_estimation** (bool): Indicates whether to estimate the Fisher Information with the FSP method.
+                2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
+                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
+                4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
+                5. **init_state** (np.ndarray[int], optional): If needed, initial state.
+        - **up_bound** (int, optional): Upper boundaries of the distribution to compute. Defaults to 100.
         - **crn_name** (str, optional): Name of the CRN as a string, to use for the figure title.
         - **out_of_bounds_index** (int, optional): Index of the first time out of training range in **time_samples**.
     """            

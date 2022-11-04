@@ -1,7 +1,4 @@
 import numpy as np
-import torch
-import neuralnetwork
-import get_sensitivities
 
 def fisher_information_t(probs: np.ndarray, sensitivities: np.ndarray) -> np.ndarray:
     r"""Computes the Fisher Information at a single time point.

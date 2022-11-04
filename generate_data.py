@@ -90,7 +90,7 @@ class CRN_Dataset:
 
         Args:
             - **data_length** (int): Length of data expected in outputs.
-            - :math:`n_{trajectories}` (int, optional): Number of trajectories to compute to build the distribution. Defaults to 10**4.
+            - **n_trajectories** (int, optional): Number of trajectories to compute to build the distribution. Defaults to 10**4.
             - **sobol_start** (float, optional): Lower boundary of the parameters samples. Defaults to 0.
             - **sobol_end** (float, optional): Upper boundary of the parameters samples. Defaults to 2.
             - **ind_species** (Union[int, np.ndarray], optional): Index of the species of which to compute the distribution. Defaults to 0.

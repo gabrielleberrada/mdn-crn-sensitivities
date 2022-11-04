@@ -35,7 +35,7 @@ class StateSpaceEnumeration:
             - **n** (int): Dimension of the space.
 
         Returns:
-            -Result :math:`\Phi_n(z)` of the projection in :math:`\mathbb{N}`.
+            - Result :math:`\Phi_n(z)` of the projection in :math:`\mathbb{N}`.
         """        
         if n < 2:
             return x[0]
@@ -107,12 +107,17 @@ class SensitivitiesDerivation:
         n = self.n_states
         stoich_mat = self.crn.stoichiometric_mat[:,index]
         propensity = self.crn.propensities[index]
+        # might contain negative elements
         outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
         # propensity parameter is 1
         data = np.array(list(map(lambda x: propensity(np.ones(self.n_params), x), self.entries)))
+        #
+        rows = np.array([d[entry] for entry in self.entries])
         get_index = lambda key: d[key] if key in d else -1
-        rows = np.array([get_index(entry) for entry in self.entries])
-        columns = np.array([self.bijection.phi(output, self.n_species) for output in outputs])
+        # rows = np.array([get_index(entry) for entry in self.entries])
+        #
+        columns = np.array([get_index(output) for output in outputs])
+        # columns = np.array([self.bijection.phi(output, self.n_species) for output in outputs])
         compute_diags = np.vectorize(lambda i: -data[rows==i].sum())
         diags = compute_diags(np.arange(n))
         # truncation
@@ -137,7 +142,9 @@ class SensitivitiesDerivation:
         """        
         # creates the rate matrix for each reaction
         create_Bs = np.vectorize(lambda i: self.create_B(i))
-        Bs = create_Bs(np.arange(self.n_params))
+        #
+        Bs = create_Bs(np.arange(self.n_reactions))
+        # Bs = create_Bs(np.arange(self.n_params))
         return (Bs*params).sum()
 
     def constant_matrix(self, params: np.ndarray, index: int) -> np.ndarray:
@@ -152,11 +159,6 @@ class SensitivitiesDerivation:
         """        
         A = self.create_A(params)
         B = self.create_B(index)
-        # with np.printoptions(threshold=np.inf):
-        #     print(index, B.toarray().T)        
-        # if index == 0:
-        #     with np.printoptions(threshold=np.inf):
-        #         print(A.toarray().T)
         empty = sp.coo_matrix(A.shape)
         up = sp.hstack((A, empty))
         bottom = sp.hstack((B, A))
@@ -185,20 +187,18 @@ class SensitivitiesDerivation:
             - Bunch object as the output of the ``solve_ivp`` function applied to the set of linear ODEs.
         """        
         constant = sp.csr_matrix(self.constant_matrix(params, index))
-        # if index == 2:
-        #     print(index, constant.toarray())
         def f(t, x):
             return constant.dot(x)
         return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
 
 
     def get_sensitivities(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, t_eval: list[float]) -> Tuple[np.ndarray]:
-        r"""Computes probabilities and sensitivities with respect to each parameter of the CRN using FSP methods.
+        """Computes probabilities and sensitivities with respect to each parameter of the CRN using FSP methods.
 
         Args:
-            - **init_state** (np.ndarray): Array of dimensions N_tetax2N such that 
-                            init_state[i,:] is the initial states for the probabilities and sensitivities of the i-th reaction.
-                            The length of each initial state vector must be :math:`2(\frac{Cr(Cr+3)}{2}+1)` if :math:`n \leq 2`, else :math:`2(Cr+1)`.
+            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that \
+                            init_state[i,:] is the initial states for the probabilities and sensitivities of the i-th reaction.\
+                            The length of each initial state vector must be :math:`2(\\frac{Cr(Cr+3)}{2}+1)` if :math:`n \\leq 2`, else :math:`2(Cr+1)`.
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
             - **params** (np.ndarray): Propensity parameters.
@@ -206,7 +206,7 @@ class SensitivitiesDerivation:
 
         Returns:
             - The probabilities vector and probability sensitivities matrix for each time points.
-        """        
+        """
         sensitivities = []
         for i in range(self.n_reactions):
             solution = self.solve_ode(init_state[i,:], t0, tf, params, i, t_eval)['y']
@@ -221,179 +221,43 @@ class SensitivitiesDerivation:
 
 # Correction get_sensitivities
 
-# stoich_mat = np.array([[-2, 2], 
-#                         [2, -2],
-#                         [1, 0],
-#                         [-1, 0],
-#                         [0, 1],
-#                         [0, -1]]).T
+stoich_mat = np.array([[-2, 2], 
+                        [2, -2],
+                        [1, 0],
+                        [-1, 0],
+                        [0, 1],
+                        [0, -1]]).T
 
-# print(stoich_mat[0, 2], stoich_mat[1, 2])
+def lambda1(params, x):
+    return params[0]*x[0]*(x[0]-1)
 
-# def lambda1(params, x):
-#     return params[0]*x[0]*(x[0]-1)
+def lambda2(params, x):
+    return params[1]*x[1]*(x[1]-1)
 
-# def lambda2(params, x):
-#     return params[1]*x[1]*(x[1]-1)
+def lambda3(params, x):
+    return params[2]
 
-# def lambda3(params, x):
-#     return params[2]
+def lambda4(params, x):
+    return params[3]*x[0]
 
-# def lambda4(params, x):
-#     return params[3]*x[0]
+def lambda5(params, x):
+    return params[4]
 
-# def lambda5(params, x):
-#     return params[4]
-
-# def lambda6(params, x):
-#     return params[5]*x[1]
+def lambda6(params, x):
+    return params[5]*x[1]
 
 # propensities = np.array([lambda1, lambda2, lambda3, lambda4, lambda5, lambda6])
 # crn = simulation.CRN(stoich_mat, propensities, 6)
-# cr = 3
+# cr = 50
 # stv_calculator = SensitivitiesDerivation(crn, cr)
 # n_cr = int(cr*(cr+3)/2+1)
 # init_state_p = np.zeros(2*n_cr)
 # init_state_p[0] = 1
 # init_state = np.stack([init_state_p]*crn.n_reactions)
-# t = 1
+# t = 0.1
 # params = np.arange(6)
-# probs, _ = stv_calculator.get_sensitivities(init_state, 0., t, params, t_eval=[t])
-# print(probs[0,0], probs[0,3], probs[0,5])
+# probs, stv = stv_calculator.get_sensitivities(init_state, 0., t, params, t_eval=[t])
+# f = get_fi.fisher_information_t(probs[0,:], stv[0,:,:])
+# print(f)
+# print(probs[0,:12])
 # print(stv_calculator.bijection.bijection)
-
-
-
-
-# testing
-
-# def propensity1(params, x):
-#     return params[0]*x[1]
-
-# def propensity2(params, x):
-#     return params[1]*x[0]
-
-# stoich_mats = [stoich_mat1, stoich_mat2]
-# stoich_mats = np.array([[1, 0], [0, -1]])
-# propensities = [propensity1, propensity2]
-
-# crn = simulation.CRN(stoich_mats, propensities, 2)
-# sens = SensitivitiesDerivation(crn, 3)
-# print(sens.solve_ode(np.array([0., 0., 0.5, 0.5, 1., 2., 0., 1., 0., 0., 0.3, 0.1]), 0., 5., np.array([2., 3.]), 0, t_eval=np.arange(5)))
-# print(sens.solve_ode(np.zeros(20), 0., 5., np.array([2., 3.]), 0, t_eval=np.arange(5)))
-
-# 1 specy
-
-# def propensity1(params, x):
-#     return params[0]
-
-# def propensity2(params, x):
-#     return params[1]*x[0]
-
-# stoich_mats = np.array([1, -1]).reshape(1, 2)
-# propensities = [propensity1, propensity2]
-
-# crn = simulation.CRN(stoich_mats, propensities, 2)
-# sens = SensitivitiesDerivation(crn)
-# print((sens.solve_ode(np.zeros(10), 0., 5., np.array([2., 3.]), 0, t_eval=np.arange(5)))['y'].shape)
-# print(sens.get_sensitivities(np.zeros(10), 0., 5., np.array([2., 3.]), t_eval=np.arange(3))[0].shape)
-
-# A+B -> C
-
-# def propensity1(params, x):
-#     return params[0]*x[0]*x[1]
-
-
-# # stoich_mats = [stoich_mat1, stoich_mat2]
-# stoich_mats = np.array([-1, -1, 1]).reshape(3,1)
-# propensities = [propensity1]
-
-# crn = simulation.CRN(stoich_mats, [propensity1], 1)
-# sens = SensitivitiesDerivation(crn, cr=4)
-# print(sens.solve_ode(np.zeros(14), 0., 5., np.array([2.]), 0, t_eval=np.arange(5)))
-
-
-
-# test
-
-# probs = np.array([0., 0.4, 1.])
-# sensitivities = np.arange((6.)).reshape(3,2)
-# sensitivities[1,1] = 10
-# print('sensitivities', sensitivities)
-# print(fisher_information_t(probs, sensitivities))
-
-# # 1904.11583
-
-# stoich_mat = np.array([[2, -2], 
-#                         [-2, 2],
-#                         [0, 1],
-#                         [0, -1],
-#                         [1, 0],
-#                         [-1, 0]]).T
-
-# def lambda1(params, x):
-#     return params[0]*x[1]*(x[1]-1)
-
-# def lambda2(params, x):
-#     return params[1]*x[0]*(x[0]-1)
-
-# def lambda3(params, x):
-#     return params[2]
-
-# def lambda4(params, x):
-#     return params[3]*x[1]
-
-# def lambda5(params, x):
-#     return params[4]
-
-# def lambda6(params, x):
-#     return params[5]*x[0]
-
-# crn = simulation.CRN(stoich_mat, np.array([lambda1, lambda2, lambda3, lambda4, lambda5, lambda6]), 6)
-# sensitivities = SensitivitiesDerivation(crn, cr=50)
-
-# # initial states
-# init_state_p = np.zeros(1326)
-# init_state_p[0] = 1
-# init_state_s = np.zeros(1326)
-# init_state = np.stack([np.concatenate((init_state_p, init_state_s))]*crn.n_reactions)
-
-
-# init_state = np.zeros(132)
-# init_state[0]=1
-
-# print(sensitivities.solve_ode(init_state, 0., 5., np.arange(6), 4, t_eval=[0,1,2])['y'][66:,1])
-# print(sensitivities.solve_ode(init_state, 0., 5., np.arange(6), t_eval=[0,1,2])['y'][6:,1])
-# probs, sens = sensitivities.get_sensitivities(init_state, 0, 1, np.arange(6), t_eval = [0, 1])
-# print('probs', probs.shape, probs[0,:10], probs[1, :10])
-# print(sens, sens.shape)
-# # print(sens[1,:,2])
-# print('\nsensitivities', sens[1,:10, 2], sens.shape)
-# print('\nsensitivities', sens[1,:10,3], sens.shape)
-# print('\nsensitivities', sens[1,:10,4], sens.shape)
-# print('\nsensitivities', sens[1,:10,5], sens.shape)
-
-# print('shapes', probs.shape, sens.shape)
-# inversed_p = np.divide(np.ones_like(probs), probs, out=np.zeros_like(probs), where=probs!=0)
-# print('0,0')
-# res = 0
-# for l in range(10):
-#     res += inversed_p[1,l]*sens[1,l,0]*sens[1,l,0]
-# print(res)
-# print('1,1')
-# res = 0
-# for l in range(10):
-#     res += inversed_p[1,l]*sens[1,l,1]*sens[1,l,1]
-# print(res)
-# print('3,3')
-# res = 0
-# for l in range(10):
-#     res += inversed_p[1,l]*sens[1,l,3]*sens[1,l,3]
-# print(res)
-# print(fisher_information_t(probs[1,:], sens[1,:,:]))
-
-
-
-
-
-
