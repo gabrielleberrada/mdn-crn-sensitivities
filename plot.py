@@ -255,5 +255,5 @@ def fi_table(time_samples: list[float],
     table.set_fontsize(14)
     table.scale(0.4,1.6)
     plt.subplots_adjust(left=0.2, bottom=0.2)
-    fig.suptitle(f'Element of the Fisher Information with respect to parameter n°{ind_param} - {crn_name} with parameter values: {params.tolist()[0]}')
+    fig.suptitle(f'Element of the Fisher Information with respect to parameter n°{ind_param} - {crn_name} with parameter values: {params.tolist()}')
     plt.show()

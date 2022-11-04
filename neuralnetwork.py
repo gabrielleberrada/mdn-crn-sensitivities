@@ -256,6 +256,8 @@ class NNTrainer:
         - **max_rounds** (int, optional): Maximal number of training rounds. Defaults to 1_000.
         - **batchsize** (int, optional): Number of elements in a batch. Defaults to 100.
         - **optimizer** (Callable, optional): Optimizer to use. Defaults to torch.optim.Adam.
+        - **patience** (int, optional): Number of events needed without improvement to stop the training. Defaults to 20.
+        - **delta** (float, optional): Minimum value difference between the lowest and the second lowest results. Defaults to 1e-5.
     """
     def __init__(self,
                 model: NeuralNetwork,
@@ -265,7 +267,9 @@ class NNTrainer:
                 l2_reg: float =0.,
                 max_rounds: int =1_000,
                 batchsize: int =100, 
-                optimizer: Callable =torch.optim.Adam
+                optimizer: Callable =torch.optim.Adam,
+                patience: int =25,
+                delta: float =1e-5
                 ):               
         self.args = {
             'train_data': train_data,
@@ -287,6 +291,8 @@ class NNTrainer:
         self.opt = self.args['optimizer'](model.parameters(), lr=self.args['lr'], weight_decay=self.args['l2_reg'])
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, self.args['max_rounds'])
         self.iteration = 0
+        self.patience=patience
+        self.delta=delta
         self.update_losses()
 
     def update_losses(self):
@@ -298,22 +304,18 @@ class NNTrainer:
         self.train_losses.append(float(train_loss.detach().numpy()))
         self.valid_losses.append(float(valid_loss.detach().numpy()))
 
-    def early_stopping(self, patience: int =20, delta: float =1e-5) -> bool:
+    def early_stopping(self) -> bool:
         """Computes early stopping when the Neural Network does not improve to avoid overfitting.
         If **patience** number of rounds pass without getting the validation loss at least closer than **delta** to the best validation loss achieved,
         stops the training.
 
-        Args:
-            - **patience** (int, optional): Number of events needed without improvement to stop the training. Defaults to 20.
-            - **delta** (float, optional): Minimum value difference between the lowest and the second lowest results. Defaults to 1e-5.
-
         Returns:
             - A boolean stating if the training should be stopped.
         """    
-        if len(self.valid_losses) < patience:
+        if len(self.valid_losses) < self.patience:
             return False
-        losses = np.array(self.valid_losses[-patience:])
-        losses[0] += delta
+        losses = np.array(self.valid_losses[-self.patience:])
+        losses[0] += self.delta
         if np.argmin(losses) == 0:
             return True
         return False
