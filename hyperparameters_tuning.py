@@ -1,22 +1,14 @@
-import torch
 import numpy as np
 import convert_csv
-import neuralnetwork
 import concurrent.futures
-import hyperparameters_test
 from tqdm import tqdm
-from typing import Tuple
+from typing import Tuple, Callable
 
-def test_multiple_combs(lrs: list[float], 
+def test_multiple_combs(testing_function: Callable,
+                        lrs: list[float], 
                         max_rounds: list[int], 
                         batchsizes: list[int], 
                         n_hidden: int,
-                        n_comps: int,
-                        n_params: int,
-                        train_data: Tuple[torch.tensor],
-                        valid_data: Tuple[torch.tensor],
-                        test_data: Tuple[torch.tensor],
-                        mixture: str, 
                         file_name: str) -> Tuple[np.ndarray, np.ndarray]:
     """Tests all combinations of the given hyperparameters.
 
@@ -42,8 +34,9 @@ def test_multiple_combs(lrs: list[float],
     # all combinations
     comb = np.meshgrid(lrs, max_rounds, batchsizes, n_hidden)
     length = len(lrs) * len(max_rounds) * len(batchsizes) * len(n_hidden)
+    # multiprocessing
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        res = list(tqdm(executor.map(hyperparameters_test.test_comb,
+        res = list(tqdm(executor.map(testing_function,
                                      np.reshape(comb[0], length), 
                                      np.reshape(comb[1], length), 
                                      np.reshape(comb[2], length), 
@@ -55,5 +48,7 @@ def test_multiple_combs(lrs: list[float],
         losses[i,:] = [train_loss, valid_loss, test_loss]
         parameters[i,:] = params
         csv[i,:] = params + [train_loss, valid_loss, test_loss]
+    # saving results in CSV file
     convert_csv.array_to_csv(csv, file_name)
     return losses, parameters
+

@@ -164,7 +164,8 @@ def fi_table(time_samples: list[float],
             plot_exact: Tuple[bool, Callable] =(False, None), 
             plot_fsp: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]] = (False, np.zeros(1), [], 10, None),
             up_bound: int =100,
-            crn_name: str =''):
+            crn_name: str ='',
+            out_of_bounds_index: int =None):
     """Plots the fisher information table for one parameter.
 
     Args:
@@ -189,7 +190,8 @@ def fi_table(time_samples: list[float],
                 4. :math:`c_r`: value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
                 5. **init_state** (np.ndarray[int], optional): if needed, initial state.
         - **up_bound** (int, optional): upper boundaries of the distribution to compute. Defaults to 100.
-        - **crn_name** (str): Name of the CRN as a string, to use for the figure title.
+        - **crn_name** (str, optional): Name of the CRN as a string, to use for the figure title.
+        - **out_of_bounds_index** (int, optional): Index of the first time out of training range in **time_samples**.
     """            
     rows = [fr'$t={t}$' for t in time_samples]
     n_rows = len(time_samples)
@@ -246,6 +248,8 @@ def fi_table(time_samples: list[float],
         data = np.array(data).T
     else:
         data = np.stack(data, axis=-1)
+    if out_of_bounds_index != None:
+        data = np.insert(data.astype('str'), out_of_bounds_index, '...', axis=0)
     #plot
     fig, ax = plt.subplots(figsize=(10,3))
     fig.patch.set_visible(False)

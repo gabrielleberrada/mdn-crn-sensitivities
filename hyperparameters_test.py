@@ -1,6 +1,6 @@
 import neuralnetwork
-from typing import Tuple
 import torch
+from typing import Tuple
 
 def test_comb(lr: float, 
             max_rounds: int, 
@@ -30,11 +30,10 @@ def test_comb(lr: float,
         - Losses for the training, validation and testing datasets and a list of the hyperparameters used for the training.
     """    
     model = neuralnetwork.NeuralNetwork(n_comps=n_comps, n_params=n_params, n_hidden=n_hidden, print_info=False, mixture=mixture)
-    b = int(b)
-    n_round = int(n_round)
-    lr = float(lr)
-    train_losses, valid_losses = neuralnetwork.train_NN(model, train_data, valid_data, loss=neuralnetwork.loss_kldivergence, max_rounds=max_rounds, lr=lr, batchsize=b, print_results=False, print_info=False)
+    # converts np.int64 in int
+    batchsize = int(batchsize)
+    train_losses, valid_losses = neuralnetwork.train_NN(model, train_data, valid_data, loss=neuralnetwork.loss_kldivergence, max_rounds=max_rounds, lr=lr, batchsize=batchsize, print_results=False, print_info=False)
     test_loss = float(neuralnetwork.mean_loss(test_data[0], test_data[1], model, loss=neuralnetwork.loss_kldivergence).detach().numpy())
     train_loss = train_losses[-1]
     valid_loss = valid_losses[-1]
-    return train_loss, valid_loss, test_loss, [lr, n_round, b, n_hidden]
+    return train_loss, valid_loss, test_loss, [lr, max_rounds, batchsize, n_hidden]

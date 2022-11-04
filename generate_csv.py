@@ -51,7 +51,6 @@ if __name__ == '__main__':
                 'train4': 1_100, 'train5': 1_100, 'train6': 1_100, 'valid4': 100, 'valid5': 100, 'valid6': 100, 'test': 992}
     # shape (n_species, n_reactions)
     stoich_mat = propensities.stoich_mat #.reshape(1, 1)
-    # datasets = {'train1': 900, 'valid1': 100, 'test': 24}
     N_PARAMS = 1
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,

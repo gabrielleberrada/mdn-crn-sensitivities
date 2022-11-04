@@ -26,6 +26,7 @@ class NeuralNetwork(nn.Module):
         self.mixture = mixture
         self.n_comps = n_comps
         self.num_params = n_params
+        self.n_hidden = n_hidden
         self.hidden_layer = nn.Linear(1 + n_params, n_hidden)
         self.hidden_actf = F.relu
         # initializing with Glorot Uniform method
@@ -100,6 +101,7 @@ def distr_pdf(params: Tuple,
         # Here r is the number of successes but pytorch understands it as the number of failures.
         r, p = params
         corrected_p = 1 - p
+        # to avoid errors with very small probabilities
         corrected_p[corrected_p == 1.] -= eps
         distr = torch.distributions.negative_binomial.NegativeBinomial(r, corrected_p)
         prob = distr.log_prob(k)
@@ -211,7 +213,7 @@ def loss_hellinger(x: torch.tensor,
     # to provide a set of points at which to evaluate the pdf for each input point.
     mat_k = torch.arange(y_size[-1]).repeat(dim0,model.n_comps,1).permute([2,0,1])    
     pred = mix_pdf(model, x, mat_k)
-    # computes the Hellinger distance step by step
+    # computing the Hellinger distance step by step
     sqrt1 = torch.sqrt(pred.permute(1,0)*y)
     sqrt1 = sqrt1.sum(dim=-1)
     normalization = pred.sum(dim=0) * y.sum(dim=-1)
@@ -242,6 +244,7 @@ def mean_loss(X: torch.tensor,
 
 
 # Training Mixture Density Network
+
 class NNTrainer:
     """Class to train the Mixture Density Network.
 
@@ -346,10 +349,10 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence):
         model.zero_grad()
         loss_y = mean_loss(x, y, model, loss)
         loss_y.backward()
-        # gradient clip to tackle exploding gradient.
+        # clipping gradients to tackle exploding gradient.
         nn.utils.clip_grad_norm_(model.parameters(), 10.)
         optimizer.step()
-    # updates learning rate
+    # updating learning rate
     scheduler.step()
     trainer.args['lr'] = scheduler.get_last_lr()[0]
     trainer.lr_updates.append(scheduler.get_last_lr()[0])
@@ -384,7 +387,7 @@ def train_NN(model: NeuralNetwork,
     Returns:
         - Training and validation losses for each epoch.
     """            
-    trainer = NNTrainer(model, train_data, valid_data, **kwargs) # not sure
+    trainer = NNTrainer(model, train_data, valid_data, **kwargs)
     if print_info:
         pbar = tqdm(total=trainer.args['max_rounds'], desc='Training ...', position=0)
     for _ in trainer:

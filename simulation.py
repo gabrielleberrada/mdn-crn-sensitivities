@@ -47,14 +47,15 @@ class CRN:
         Returns:
             - **sampling_times** (np.ndarray[float]): Times at which samplings were done.
             - **samples** (np.ndarray[float]): Samples at the sampling times.
-        """   
+        """
+        self.state = init_state
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
         lambdas = set_parameters(self.propensities, params)
         simulations = StochasticSimulation(init_state, tf, sampling_times, lambdas, self.n_species, self.n_reactions, self.stoichiometric_mat)
         if method == 'SSA':
             return simulations.SSA()
         else:
-            return simulation.mNRM()
+            return simulations.mNRM()
 
 
 
@@ -84,7 +85,7 @@ class StochasticSimulation:
         self.n_reactions = n_reactions
         self.time = 0
         self.samples = []
-        self.sampling_times = sampling_times # to check
+        self.sampling_times = sampling_times
         self.current_state = x0
         self.propensities = propensities
         self.stoich_mat = stoich_mat
@@ -121,7 +122,7 @@ class StochasticSimulation:
             self.current_state += self.stoich_mat[:, ind_reaction]
         return self.sampling_times, self.samples
 
-        def mNRM(self):
-            """Computes the mNRM.
-            """
-            pass
+    def mNRM(self):
+        """Computes the mNRM.
+        """
+        pass

@@ -49,9 +49,7 @@ class CRN_Dataset:
             _, samples = self.crn.step(self.initial_state.copy(),
                                             params, 
                                             self.sampling_times, self.sampling_times[-1])
-            # print(i)
             res.append(samples)
-        # print("done")
         res = np.array(res)
         max_value = int(np.max(res))
         # Counts of events for each species
@@ -86,8 +84,8 @@ class CRN_Dataset:
                     sobol_end: float =2.,
                     ind_species: Union[int, np.ndarray] =0,
                     initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray[float]]:
-        r"""Generates a training, validation or test dataset.
-        Uses multiprocessing to run simulations in parallel and to compute faster.
+        r"""Generates a dataset which can be used for training, validation or testing of the Neural Network.
+        Uses multiprocessing to run multiple simulations in parallel and to compute faster.
         Parameters are generated from the Sobol Sequence.
 
         Args:
@@ -119,7 +117,6 @@ class CRN_Dataset:
         params = sobol.random(n_elts)*(sobol_end-sobol_start)+sobol_start # array of n_elts of parameters set, each set of length n_params
         # to avoid all zeros
         params[np.count_nonzero(params, axis=1) == 0] = sobol.random()*(sobol_end-sobol_start)+sobol_start
-        # print('params')
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
             res = list(tqdm(executor.map(self.samples_probs, params), total=len(params), desc='Generating data ...'))
