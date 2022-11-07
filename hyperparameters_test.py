@@ -15,7 +15,7 @@ def test_comb(lr: float,
     """Trains a Mixture Density Network on the input data with the given hyperparameters.
 
     Args:
-        - :math:`lr` (float): Learning rate to begin the training with.
+        - :math:`l_r` (float): Learning rate to begin the training with.
         - **max_rounds** (int): Maximal number of training rounds.
         - **batchsize** (int): Number of elements in a batch.
         - **n_hidden** (int): Number of neurons in the hidden layer.

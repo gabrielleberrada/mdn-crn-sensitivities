@@ -73,7 +73,7 @@ def plot_model(to_pred: torch.tensor,
         test_result['model'] = 'SSA simulation'
         preds.append(test_result)
     if plot_fsp_result[0]:
-        crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(params))
+        crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(to_pred[1:]))
         stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
         if plot_fsp_result[4]:
             init_state = plot_fsp_result[4]
@@ -81,12 +81,11 @@ def plot_model(to_pred: torch.tensor,
             init_state = np.zeros(2*(plot_fsp_result[3]+1))
             init_state[1] = 1
             init_state = np.stack([init_state]*crn.n_reactions)
-        probs_fsp, stv_fsp = stv_calculator.get_sensitivities(init_state, 0, to_pred[0].numpy(), params.numpy(), t_eval=to_pred[0].numpy())
+        probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp_result[5], init_state, to_pred[1:].numpy(), to_pred[0].numpy())
+        length = min(up_bound, np.shape(probs_fsp)[0])
         if plot[0] == 'probabilities':
-            length = min(up_bound, np.shape(probs_fsp)[0])
             fsp_result = pd.DataFrame([probs_fsp[0, :up_bound], np.arange(length)], index = index_names).transpose()
         elif plot[0] == 'sensitivities':
-            length = min(up_bound, np.shape(probs_fsp)[0])
             fsp_result = pd.DataFrame([stv_fsp[0, :up_bound, plot[1]], np.arange(length)], index = index_names).transpose()
         fsp_result['model'] = 'FSP estimation'
         preds.append(fsp_result)
@@ -175,7 +174,7 @@ def multiple_plots(to_pred: list[torch.tensor],
                 test_result['model'] = 'SSA simulation'
                 preds.append(test_result)
             if plot_fsp_result[0]:
-                crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(params))
+                crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(to_pred_[1:]))
                 stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
                 if plot_fsp_result[4]:
                     init_state = plot_fsp_result[4]
@@ -183,12 +182,11 @@ def multiple_plots(to_pred: list[torch.tensor],
                     init_state = np.zeros(2*(plot_fsp_result[3]+1))
                     init_state[1] = 1
                     init_state = np.stack([init_state]*crn.n_reactions)
-                probs_fsp, stv_fsp = stv_calculator.get_sensitivities(init_state, 0, to_pred_[0].numpy(), params.numpy(), t_eval=to_pred_[0].numpy())
+                probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp_result[5], init_state, to_pred[1:].numpy(), to_pred[0].numpy())
+                length = min(up_bound, np.shape(probs_fsp)[0])
                 if plot[0] == 'probabilities':
-                    length = min(up_bound, np.shape(probs_fsp)[0])
                     fsp_result = pd.DataFrame([probs_fsp[0, :up_bound], np.arange(length)], index = index_names).transpose()
                 elif plot[0] == 'sensitivities':
-                    length = min(up_bound, np.shape(probs_fsp)[0])
                     fsp_result = pd.DataFrame([stv_fsp[0, :up_bound, plot[1]], np.arange(length)], index = index_names).transpose()
                 fsp_result['model'] = 'FSP estimation'
                 preds.append(fsp_result)
@@ -224,7 +222,7 @@ def fi_table(time_samples: list[float],
             ind_param: int, 
             models: Tuple[bool, list[neuralnetwork.NeuralNetwork], int] =(False, None, 3),
             plot_exact: Tuple[bool, Callable] =(False, None), 
-            plot_fsp: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]] = (False, np.zeros(1), [], 10, None),
+            plot_fsp: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int], int] = (False, np.zeros(1), [], 10, None, 0),
             up_bound: int =100,
             crn_name: str ='',
             out_of_bounds_index: int =None):
@@ -250,7 +248,8 @@ def fi_table(time_samples: list[float],
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
                 4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
-                5. **init_state** (np.ndarray[int], optional): If needed, initial state.
+                5. **init_state** (np.ndarray[int]): If needed, initial state. By default, put None.
+                6. **ind_species** (int): Index of the species of interest.
         - **up_bound** (int, optional): Upper boundaries of the distribution to compute. Defaults to 100.
         - **crn_name** (str, optional): Name of the CRN as a string, to use for the figure title.
         - **out_of_bounds_index** (int, optional): Index of the first time out of training range in **time_samples**.
@@ -261,7 +260,6 @@ def fi_table(time_samples: list[float],
     if models[0]:
         probabilities_m = np.zeros((len(time_samples),up_bound))
         stv_m = np.zeros((len(time_samples),up_bound, len(params)))
-        x = torch.arange(up_bound).repeat(1, models[2],1).permute([2,0,1])
         for model in models[1]:
             for i, t in enumerate(time_samples):
                 to_pred = torch.concat((torch.tensor([t]), torch.tensor(params)))
@@ -285,7 +283,7 @@ def fi_table(time_samples: list[float],
             init_state = np.zeros(2*(plot_fsp[3]+1))
             init_state[1] = 1
             init_state = np.stack([init_state]*crn.n_reactions)
-        probs_fsp, stv_fsp = stv_calculator.get_sensitivities(init_state, 0, time_samples[-1], params.numpy(), t_eval=time_samples)
+        probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp[5], init_state, params.numpy(), time_samples)
         fsp_fi = np.zeros(n_rows)
         for i in range(n_rows):
             fim = get_fi.fisher_information_t(probs_fsp[i,:], stv_fsp[i,:,:])

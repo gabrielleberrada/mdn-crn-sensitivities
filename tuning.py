@@ -19,7 +19,7 @@ valid_data = [X_valid1, y_valid1]
 test_data = [X_test, y_test]
 
 N_COMPS = 3
-MIXTURE = 'NB'
+MIXTURE = 'Poisson'
 
 def testing_function(lr, max_rounds, batchsize, n_hidden):
     return hyperparameters_test.test_comb(lr, 
@@ -39,9 +39,9 @@ def testing_function(lr, max_rounds, batchsize, n_hidden):
 # n_hidden = [128]
 
 n_rounds = [300, 500]
-lrs = [0.005, 0.001]
+lrs = [0.01, 0.005, 0.001]
 batchsizes = [32, 64, 128]
 n_hidden = [128, 256]
 
 if __name__ == '__main__':
-    hyperparameters_tuning.test_multiple_combs(testing_function, lrs, n_rounds, batchsizes, n_hidden, 'test_function')
+    hyperparameters_tuning.test_multiple_combs(testing_function, lrs, n_rounds, batchsizes, n_hidden, 'CRN3_optimisation_Poisson')
