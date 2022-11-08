@@ -6,6 +6,7 @@ class CRN:
     """Class to specify the CRN to work on.
 
     Args:
+        - **init_state** (np.ndarray[int]): Initial state.
         - **stoichiometric_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
         - **propensities** (np.ndarray[Callable]): Propensities of the reactions.
         - **n_params** (int): Number of parameters required to define the propensities.
@@ -14,12 +15,15 @@ class CRN:
         - **exact_sensitivities** (Tuple[Callable], optional): The exact sensitivities of probabilities with respect to the parameters, when known. Defaults to None.
     """    
     def __init__(self, 
+                init_state: np.ndarray[int],
                 stoichiometric_mat: np.ndarray[int], 
                 propensities: np.ndarray[Callable], 
                 n_params: int, 
                 exact: bool =False, 
                 exact_distr: Tuple[Callable] =None, 
-                exact_sensitivities_prob: Tuple[Callable] =None):       
+                exact_sensitivities_prob: Tuple[Callable] =None):
+        self.init_state = init_state
+        self.current_state = self.init_state       
         # stoichiometric_mat has shape (n_species, n_reactions)
         self.stoichiometric_mat = stoichiometric_mat
         self.n_species, self.n_reactions = np.shape(stoichiometric_mat)
@@ -29,33 +33,58 @@ class CRN:
         if exact:
             self.exact_distr = exact_distr
             self.exact_sensitivities_prob = exact_sensitivities_prob
+        self.time = 0
+        self.sampling_times = []
+        self.sampling_states = []
 
     def step(self, 
             init_state: np.ndarray[int], 
             params: np.ndarray[float], 
             sampling_times: np.ndarray[float], 
             tf: float,
-            method: str = 'SSA') -> Tuple[np.ndarray[float], np.ndarray[float]]: 
-        """Simulate the specified CRN with stochastic simulations.
+            method: str ='SSA') -> Tuple[np.ndarray[float], np.ndarray[float]]: 
+        """Simulates the specified CRN with stochastic simulations.
 
         Args:
             - **init_state** (np.ndarray[int]): Initial state of the CRN when starting the simulation
             - **params** (np.ndarray[float]): Parameters associated to the propensities.
             - **sampling_times** (np.ndarray[float]): Times at which to sample.
             - :math:`t_f` (float): Final time at which to end the simulation.
+            - **method** (str): Method to use for the simulation. Defaults to "SSA".
 
         Returns:
             - **sampling_times** (np.ndarray[float]): Times at which samplings were done.
             - **samples** (np.ndarray[float]): Samples at the sampling times.
         """
-        self.state = init_state
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
         lambdas = set_parameters(self.propensities, params)
-        simulations = StochasticSimulation(init_state, tf, sampling_times, lambdas, self.n_species, self.n_reactions, self.stoichiometric_mat)
+        simulations = StochasticSimulation(init_state, self.time, tf, sampling_times, lambdas, self.n_species, self.n_reactions, self.stoichiometric_mat)
         if method == 'SSA':
-            return simulations.SSA()
+            samples = simulations.SSA()
         else:
-            return simulations.mNRM()
+            samples = simulations.mNRM()
+        self.sampling_times += sampling_times
+        self.sampling_states += samples
+        self.current_state = simulations.current_state
+        self.time = tf
+        return sampling_times, samples
+    
+    def simulation(self, sampling_times: np.ndarray[float], time_slots: list[float], params_per_slots: list[np.ndarray[float]], method="SSA"):
+        """Computes a simulation with different steps.
+
+        Args:
+            - **sampling_times** (np.ndarray[float]): Time at which to sample.
+            - **time_slots** (list[float]): List of changing times of the parameters. Does not contain the initial time.
+            - **params_per_slots** (list[np.ndarray[float]]): List of parameters to use at each time slot.
+            - **method** (str, optional): Method to use for the simulation. Defaults to "SSA".
+        """      
+        for i, t in enumerate(time_slots):
+            self.step(init_state=self.current_state, 
+                    params=params_per_slots[i], 
+                    sampling_times=sampling_times[(sampling_times>self.time) & (sampling_times <= t)], # sampling times in the time slot
+                    tf=t, 
+                    method=method)
+        pass
 
 
 
@@ -65,8 +94,9 @@ class StochasticSimulation:
     
     Args:
         - :math:`x_0` (np.ndarray[int]): Initial state.
+        - :math:`t_0` (float): Initial time.
         - :math:`t_f` (float): Final time.
-        - **sampling_times** (list[float]): Times at which to sample.
+        - **sampling_times** (np.ndarray[float]): Times at which to sample.
         - **propensities** (np.ndarray[Callable]): Propensities of the CRN.
         - **n_species** (int): Number of species involved.
         - **n_reactions** (int): Number of reactions that can occur.
@@ -74,8 +104,9 @@ class StochasticSimulation:
     """    
     def __init__(self,
                 x0: np.ndarray[int], 
+                t0: float,
                 tf: float, 
-                sampling_times: list[float], 
+                sampling_times: np.ndarray[float], 
                 propensities: np.ndarray[Callable], 
                 n_species: int, 
                 n_reactions: int, 
@@ -83,7 +114,7 @@ class StochasticSimulation:
         self.final_time = tf
         self.n_species = n_species
         self.n_reactions = n_reactions
-        self.time = 0
+        self.time = t0
         self.samples = []
         self.sampling_times = sampling_times
         self.current_state = x0
@@ -95,7 +126,7 @@ class StochasticSimulation:
         """Computes the SSA until the final time.
 
         Returns:
-            - **sampling_times** (np.ndarray[float]): Times at which samplings were done.
+            - **sampling_times** (np.ndarray[float]): Times at which samplings must be done.
             - **samples** (np.ndarray[float]): Samples at the sampling times.
         """        
         while True:
@@ -120,7 +151,7 @@ class StochasticSimulation:
                 self.samples.append(list(self.current_state))
             # updating state
             self.current_state += self.stoich_mat[:, ind_reaction]
-        return self.sampling_times, self.samples
+        return self.samples
 
     def mNRM(self):
         """Computes the mNRM.
