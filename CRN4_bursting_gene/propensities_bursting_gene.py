@@ -22,6 +22,6 @@ def lambda4(params, x):
     return 0.05*x[1]
 
 propensities = np.array([lambda1, lambda2, lambda3, lambda4])
-stoich_mat = np.array([[1., 0.], [-1., 0.], [0., 1.], [0., -1.]]).T
+stoich_mat = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]]).T
 
 init_state = np.array([0, 0])

@@ -2,7 +2,7 @@ import simulation
 import generate_data
 import convert_csv
 import numpy as np
-from CRN4_bursting_gene import propensities_bursting_gene as propensities
+from CRN2_production_degradation import propensities_production_degradation as propensities
 from typing import Union
 
 def generate_csv(crn_name: str,
@@ -30,8 +30,7 @@ def generate_csv(crn_name: str,
         - **n_trajectories** (int): Number of trajectories to do for each set of parameters
         - **sobol_up_bounds** (Union[float, np.ndarray[float]]): Upper boundaries of the generated parameters.
         - **sobol_low_bounds** (Union[float, np.ndarray[float]]): Lower boundaries of the generated parameters.
-    """                         
-    datasets = {}
+    """
     data_length = sum(datasets.values())
     crn = simulation.CRN(init_state=init_state, stoichiometric_mat=stoich_mat, propensities=propensities, n_params=n_params)
     dataset = generate_data.CRN_Dataset(crn=crn, sampling_times=sampling_times, ind_species=ind_species)
@@ -48,18 +47,19 @@ def generate_csv(crn_name: str,
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'bursting_gene'
-    datasets = {'train1': 1_100, 'train2': 1_100, 'train3': 1_100, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 496}
-    N_PARAMS = 1
+    CRN_NAME = 'TEST'
+    datasets = {'test': 4}
+    # datasets = {'train1': 1_100, 'train2': 1_100, 'train3': 1_100, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 496}
+    N_PARAMS = 2
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
                 n_params=N_PARAMS,
                 init_state=propensities.init_state,
-                stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
+                stoich_mat=propensities.stoich_mat.reshape((1,2)), # shape (n_species, n_reactions)
                 propensities=propensities.propensities,
                 sampling_times=np.array([5, 10, 15, 20]),
-                ind_species=1,
+                ind_species=0,
                 n_trajectories=10**4,
-                sobol_up_bounds=np.array([1., 3., 0.05, 5.]),
-                sobol_low_bounds=0.,)
+                sobol_up_bounds=np.array([1., 2.]),
+                sobol_low_bounds=0.)
 

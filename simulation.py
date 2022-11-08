@@ -34,8 +34,8 @@ class CRN:
             self.exact_sensitivities_prob = exact_sensitivities_prob
         self.time = 0
         self.current_state = self.init_state 
-        self.sampling_times = []
-        self.sampling_states = []
+        self.sampling_times = np.empty(0)
+        self.sampling_states = np.empty((0, self.n_species))
 
     def step(self, 
             init_state: np.ndarray[int], 
@@ -63,8 +63,8 @@ class CRN:
             samples = simulations.SSA()
         else:
             samples = simulations.mNRM()
-        self.sampling_times += sampling_times
-        self.sampling_states += samples
+        self.sampling_times = np.concatenate((self.sampling_times, sampling_times))
+        self.sampling_states = np.concatenate((self.sampling_states, samples))
         self.current_state = simulations.current_state
         self.time = tf
     
@@ -87,8 +87,8 @@ class CRN:
 
     def reset(self):
         self.current_state = self.init_state
-        self.sampling_times = []
-        self.sampling_states = []
+        self.sampling_times = np.empty(0)
+        self.sampling_states = np.empty((0, self.n_species))
         self.time = 0
 
 
@@ -155,7 +155,7 @@ class StochasticSimulation:
                 self.samples.append(list(self.current_state))
             # updating state
             self.current_state += self.stoich_mat[:, ind_reaction]
-        return self.samples
+        return np.array(self.samples)
 
     def mNRM(self):
         """Computes the mNRM.
