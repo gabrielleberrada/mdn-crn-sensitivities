@@ -9,27 +9,24 @@ from typing import Tuple, Union
 
 class CRN_Dataset:
     """Class to build a dataset of SSA for a specified CRN.
+
+    Args:
+        - **crn** (simulation.CRN): Chemical Reaction Network to work on.
+        - **sampling_times** (list[float]): Times to sample.
+        - :math:`n_{trajectories}` (int, optional): Number of trajectories to compute. Can also be defined when calling the ``generate_data`` function. Defaults to 10**3.
+        - **ind_species** (int, optional): Index of the species of interest. The distribution generated will be the one of that species. Defaults to 0.
     """
     def __init__(self, 
             crn: simulation.CRN, 
             sampling_times: list[float], 
             n_trajectories: int =10**3, 
             ind_species: int =0):
-        """Initializes parameters to build the dataset.
-
-        Args:
-            - **crn** (simulation.CRN): Chemical Reaction Network to work on.
-            - **sampling_times** (list[float]): Times to sample.
-            - :math:`n_{trajectories}` (int, optional): Number of trajectories to compute. Can also be defined when calling the ``generate_data`` function. Defaults to 10**3.
-            - **ind_species** (int, optional): Index of the species of interest. The distribution generated will be the one of that species. Defaults to 0.
-        """        
         self.crn = crn
         self.n_params = crn.n_params
         self.n_species = crn.n_species
         self.sampling_times = sampling_times
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
-        self.initial_state = np.zeros(self.n_species)
 
 
     def samples_probs(self, params: np.ndarray[float]) -> Tuple[list[float], int]:
@@ -82,8 +79,7 @@ class CRN_Dataset:
                     n_trajectories: int =10**4, 
                     sobol_start: float =0.,
                     sobol_end: float =2.,
-                    ind_species: Union[int, np.ndarray] =0,
-                    initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray[float]]:
+                    ind_species: Union[int, np.ndarray] =0) -> Tuple[np.ndarray[float]]:
         r"""Generates a dataset which can be used for training, validation or testing of the Neural Network.
         Uses multiprocessing to run multiple simulations in parallel and to compute faster.
         Parameters are generated from the Sobol Sequence.
@@ -94,7 +90,6 @@ class CRN_Dataset:
             - **sobol_start** (float, optional): Lower boundary of the parameters samples. Defaults to 0.
             - **sobol_end** (float, optional): Upper boundary of the parameters samples. Defaults to 2.
             - **ind_species** (Union[int, np.ndarray], optional): Index of the species of which to compute the distribution. Defaults to 0.
-            - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None).
 
         Returns:
             - **(X, y)**:
@@ -104,10 +99,6 @@ class CRN_Dataset:
         """                    
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
-        if initial_state[0]:
-            self.initial_state = initial_state[1]
-        else:
-            self.initial_state = np.zeros(self.n_species, dtype=np.float32)
         n_params = self.crn.n_params
         start = time.time()
         sobol = qmc.Sobol(n_params)
