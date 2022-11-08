@@ -45,11 +45,11 @@ class CRN_Dataset:
         """
         res = []
         for i in range(self.n_trajectories):
-            self.crn.step(self.initial_state.copy(),
-                        params, 
-                        self.sampling_times, 
-                        self.sampling_times[-1])
+            self.crn.simulation(self.sampling_times,
+                        [self.sampling_times[-1]],
+                        params)
             res.append(self.crn.sampling_states)
+            self.crn.reset() # resetting crn to repeat simulation
         res = np.array(res)
         max_value = int(np.max(res))
         # Counts of events for each species

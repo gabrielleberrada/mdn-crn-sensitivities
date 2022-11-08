@@ -13,7 +13,8 @@ def sensitivities(input: torch.tensor, model: neuralnetwork.NeuralNetwork, lengt
         - **with_probs** (bool, optional): If True, also returns the probability distribution. Defaults to False.
 
     Returns:
-        - The sensitivities of probabilities matrix with respect to the time and to the input parameters. If `with_probs` is True, also returns the probability distribution.
+        - The sensitivities of probabilities matrix with respect to the time and to the input parameters. \
+            If `with_probs` is True, also returns the probability distribution.
     """    
     def f(input, length_output=length_output):
         mat_k = torch.arange(length_output).repeat(1,model.n_comps,1).permute([2,0,1])

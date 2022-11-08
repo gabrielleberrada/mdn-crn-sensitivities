@@ -22,8 +22,7 @@ class CRN:
                 exact: bool =False, 
                 exact_distr: Tuple[Callable] =None, 
                 exact_sensitivities_prob: Tuple[Callable] =None):
-        self.init_state = init_state
-        self.current_state = self.init_state       
+        self.init_state = init_state      
         # stoichiometric_mat has shape (n_species, n_reactions)
         self.stoichiometric_mat = stoichiometric_mat
         self.n_species, self.n_reactions = np.shape(stoichiometric_mat)
@@ -34,6 +33,7 @@ class CRN:
             self.exact_distr = exact_distr
             self.exact_sensitivities_prob = exact_sensitivities_prob
         self.time = 0
+        self.current_state = self.init_state 
         self.sampling_times = []
         self.sampling_states = []
 
@@ -67,25 +67,29 @@ class CRN:
         self.sampling_states += samples
         self.current_state = simulations.current_state
         self.time = tf
-        return sampling_times, samples
     
-    def simulation(self, sampling_times: np.ndarray[float], time_slots: list[float], params_per_slots: list[np.ndarray[float]], method="SSA"):
+    def simulation(self, sampling_times: np.ndarray[float], time_slots: list[float], parameters: np.ndarray[float], method: str ="SSA"):
         """Computes a simulation with different steps.
 
         Args:
             - **sampling_times** (np.ndarray[float]): Time at which to sample.
             - **time_slots** (list[float]): List of changing times of the parameters. Does not contain the initial time.
-            - **params_per_slots** (list[np.ndarray[float]]): List of parameters to use at each time slot.
+            - **parameters** (np.ndarray[float]): Parameters to use for the simulation. \
+                Has form :math:`[\\theta_1, \\theta_2, ..., \\theta_{N_{species}}, \\xi_{1,1}, ..., \\xi_{1, N_{species}}, \\xi_{2,1}, ..., \\xi_{N_{time_slots}, N_{species}]`.
             - **method** (str, optional): Method to use for the simulation. Defaults to "SSA".
         """      
         for i, t in enumerate(time_slots):
             self.step(init_state=self.current_state, 
-                    params=params_per_slots[i], 
+                    params=np.concatenate((parameters[:self.n_params], parameters[self.n_params*i:self.n_params*(i+1)])),
                     sampling_times=sampling_times[(sampling_times>self.time) & (sampling_times <= t)], # sampling times in the time slot
-                    tf=t, 
+                    tf=t,
                     method=method)
-        pass
 
+    def reset(self):
+        self.current_state = self.init_state
+        self.sampling_times = []
+        self.sampling_states = []
+        self.time = 0
 
 
 class StochasticSimulation:
