@@ -6,7 +6,6 @@ import concurrent.futures
 import simulation
 from tqdm import tqdm
 from typing import Tuple, Union
-import matplotlib.pyplot as plt
 
 class CRN_Dataset:
     """Class to build a dataset of SSA for a specified CRN.
