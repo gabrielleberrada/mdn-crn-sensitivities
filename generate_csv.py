@@ -29,7 +29,6 @@ def generate_csv(crn_name: str,
         - **sobol_up_bounds** (Union[float, np.ndarray[float]]): upper boundaries of the generated parameters.
         - **sobol_low_bounds** (Union[float, np.ndarray[float]]): lower boundaries of the generated parameters.
     """                         
-    datasets = {}
     data_length = sum(datasets.values())
     crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=propensities, n_params=n_params)
     dataset = generate_data.CRN_Dataset(crn=crn, sampling_times=sampling_times, ind_species=ind_species)
@@ -47,11 +46,10 @@ def generate_csv(crn_name: str,
 if __name__ == '__main__':
 
     CRN_NAME = 'bursting_gene'
-    datasets = {'train1': 1_100, 'train2': 1_100, 'train3': 1_100, 'valid1': 100, 'valid2': 100, 'valid3': 100, 
-                'train4': 1_100, 'train5': 1_100, 'train6': 1_100, 'valid4': 100, 'valid5': 100, 'valid6': 100, 'test': 992}
+    datasets = {'train1': 1_100, 'train2': 1_100, 'train3': 1_100, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 496}
     # shape (n_species, n_reactions)
     stoich_mat = propensities.stoich_mat #.reshape(1, 1)
-    N_PARAMS = 1
+    N_PARAMS = 4
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
                 n_params=N_PARAMS,
@@ -59,7 +57,7 @@ if __name__ == '__main__':
                 propensities=propensities.propensities,
                 sampling_times=np.array([5, 10, 15, 20]),
                 ind_species=1,
-                n_trajectories=1e4,
-                sobol_up_bounds=np.array([20.]),
-                sobol_low_bounds=0.,)
+                n_trajectories=10**4,
+                sobol_up_bounds=np.array([1., 3., 5., 0.05]),
+                sobol_low_bounds=[0.],)
 

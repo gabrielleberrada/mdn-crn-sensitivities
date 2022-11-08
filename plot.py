@@ -20,7 +20,7 @@ def plot_model(to_pred: torch.tensor,
             index_names: Tuple[str, str] =('Probabilities', 'Abundance of species S'), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]] = (False, np.zeros(1), [], 10, None),
+            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int], int] = (False, np.zeros(1), [], 10, None, 0),
             confidence_interval: bool =False,
             plot: Tuple[str, int] =('probabilities', None),
             save: Tuple[bool, str] =(False, None),
@@ -45,8 +45,8 @@ def plot_model(to_pred: torch.tensor,
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
                 4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
-                5. **init_state** (np.ndarray[int], optional): If needed, initial state.        
-               
+                5. **init_state** (np.ndarray[int], optional): Initial state. If not specified, the initial state is set to :math:`(0,..,0)`. 
+                6. **ind_species** (int): Index of the species of interest.
         - **confidence_interval** (bool, optional): If True, plots an estime of the central tendency and a confidence interval for that estimate. If False, plots each line. Defaults to False.
         - **plot** (Tuple[str, int], optional): First element is either 'probabilities' to plot a probability distribution, or 'sensitivities' to plot probability sensitivities distribution. \
         If it is 'sensitivities', second argument is the index of the parameter such that it plots the  sensitivities of probabilities with respect to this parameter. Defaults to ('probabilities', None).
@@ -75,14 +75,16 @@ def plot_model(to_pred: torch.tensor,
     if plot_fsp_result[0]:
         crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(to_pred[1:]))
         stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+        init_state = np.zeros(2*stv_calculator.n_states)
         if plot_fsp_result[4]:
-            init_state = plot_fsp_result[4]
+            # inital state is specified
+            init_state[stv_calculator.bijection.bijection.inverse[plot_fsp_result[4]]] = 1
         else:
-            init_state = np.zeros(2*(plot_fsp_result[3]+1))
-            init_state[1] = 1
-            init_state = np.stack([init_state]*crn.n_reactions)
-        probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp_result[5], init_state, to_pred[1:].numpy(), to_pred[0].numpy())
-        length = min(up_bound, np.shape(probs_fsp)[0])
+            # by default, no species at the beginning
+            init_state[0] = 1
+        init_state = np.stack([init_state]*crn.n_reactions)
+        probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp_result[5], init_state, to_pred[:1].numpy(), to_pred[1:].numpy())
+        length = min(up_bound, plot_fsp_result[3])
         if plot[0] == 'probabilities':
             fsp_result = pd.DataFrame([probs_fsp[0, :up_bound], np.arange(length)], index = index_names).transpose()
         elif plot[0] == 'sensitivities':
@@ -113,7 +115,7 @@ def multiple_plots(to_pred: list[torch.tensor],
             index_names: Tuple[str] =('Probabilities', 'Abundance of species S'),
             plot_test_result: Tuple[bool, torch.tensor] =(False, None),
             plot_exact_result: Tuple[bool, Callable] =(False, None),
-            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]] = (False, np.zeros(1), [], 10, None),
+            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int], int] = (False, np.zeros(1), [], 10, None, 0),
             confidence_interval: bool =False,
             plot: Tuple[str, int] =('probabilities', None),
             n_col: int =2,
@@ -139,8 +141,8 @@ def multiple_plots(to_pred: list[torch.tensor],
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
                 4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
-                5. **init_state** (np.ndarray[int], optional): If needed, initial state.        
-
+                5. **init_state** (np.ndarray[int], optional): Initial state. If not specified, the initial state is set to :math:`(0,..,0)`.
+                6. **ind_species** (int): Index of the species of interest.
         - **confidence_interval** (bool, optional): If True, plots an estime of the central tendency and a confidence interval for that estimate. If False, plots each line. Defaults to False.
         - **plot** (Tuple[str, int], optional): First element is either 'probabilities' to plot a probability distribution, or 'sensitivities' to plot probability sensitivities distribution. \
         If it is 'sensitivities', second argument is the index of the parameter such that it plots the sensitivities of probabilities with respect to this parameter. \
@@ -176,18 +178,20 @@ def multiple_plots(to_pred: list[torch.tensor],
             if plot_fsp_result[0]:
                 crn = simulation.CRN(plot_fsp_result[1], plot_fsp_result[2], len(to_pred_[1:]))
                 stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+                init_state = np.zeros(2*stv_calculator.n_states)
                 if plot_fsp_result[4]:
-                    init_state = plot_fsp_result[4]
+                    # inital state is specified
+                    init_state[stv_calculator.bijection.bijection.inverse[plot_fsp_result[4]]] = 1
                 else:
-                    init_state = np.zeros(2*(plot_fsp_result[3]+1))
-                    init_state[1] = 1
-                    init_state = np.stack([init_state]*crn.n_reactions)
-                probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp_result[5], init_state, to_pred[1:].numpy(), to_pred[0].numpy())
-                length = min(up_bound, np.shape(probs_fsp)[0])
+                    # by default, no species at the beginning
+                    init_state[0] = 1
+                init_state = np.stack([init_state]*crn.n_reactions)
+                probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp_result[5], init_state, to_pred_[:1].numpy(), to_pred_[1:].numpy())
+                length = min(up_bound[k], plot_fsp_result[3])
                 if plot[0] == 'probabilities':
-                    fsp_result = pd.DataFrame([probs_fsp[0, :up_bound], np.arange(length)], index = index_names).transpose()
+                    fsp_result = pd.DataFrame([probs_fsp[0, :up_bound[k]], np.arange(length)], index = index_names).transpose()
                 elif plot[0] == 'sensitivities':
-                    fsp_result = pd.DataFrame([stv_fsp[0, :up_bound, plot[1]], np.arange(length)], index = index_names).transpose()
+                    fsp_result = pd.DataFrame([stv_fsp[0, :up_bound[k], plot[1]], np.arange(length)], index = index_names).transpose()
                 fsp_result['model'] = 'FSP estimation'
                 preds.append(fsp_result)
             if plot_exact_result[0]:
@@ -248,7 +252,7 @@ def fi_table(time_samples: list[float],
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometric matrix of the CRN.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensities of the CRN.
                 4. :math:`c_r`: Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
-                5. **init_state** (np.ndarray[int]): If needed, initial state. By default, put None.
+                5. **init_state** (np.ndarray[int], optional): Initial state. If not specified, the initial state is set to :math:`(0,..,0)`.
                 6. **ind_species** (int): Index of the species of interest.
         - **up_bound** (int, optional): Upper boundaries of the distribution to compute. Defaults to 100.
         - **crn_name** (str, optional): Name of the CRN as a string, to use for the figure title.
@@ -277,13 +281,15 @@ def fi_table(time_samples: list[float],
     if plot_fsp[0]:
         crn = simulation.CRN(plot_fsp[1], plot_fsp[2], len(params))
         stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp[3])
+        init_state = np.zeros(2*stv_calculator.n_states)
         if plot_fsp[4]:
-            init_state = plot_fsp[4]
+            # inital state is specified
+            init_state[stv_calculator.bijection.bijection.inverse[plot_fsp[4]]] = 1
         else:
-            init_state = np.zeros(2*(plot_fsp[3]+1))
-            init_state[1] = 1
-            init_state = np.stack([init_state]*crn.n_reactions)
-        probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp[5], init_state, params.numpy(), time_samples)
+            # by default, no species at the beginning
+            init_state[0] = 1
+        init_state = np.stack([init_state]*crn.n_reactions)
+        probs_fsp, stv_fsp = stv_calculator.marginal(plot_fsp[5], init_state, time_samples, params)
         fsp_fi = np.zeros(n_rows)
         for i in range(n_rows):
             fim = get_fi.fisher_information_t(probs_fsp[i,:], stv_fsp[i,:,:])
@@ -310,6 +316,7 @@ def fi_table(time_samples: list[float],
         data = np.stack(data, axis=-1)
     if out_of_bounds_index != None:
         data = np.insert(data.astype('str'), out_of_bounds_index, '...', axis=0)
+        rows.insert(out_of_bounds_index, '...')
     #plot
     fig, ax = plt.subplots(figsize=(10,3))
     fig.patch.set_visible(False)
@@ -319,5 +326,5 @@ def fi_table(time_samples: list[float],
     table.set_fontsize(14)
     table.scale(0.4,1.6)
     plt.subplots_adjust(left=0.2, bottom=0.2)
-    fig.suptitle(f'Element of the Fisher Information with respect to parameter n°{ind_param} - {crn_name} with parameter values: {params.tolist()}')
+    fig.suptitle(f'Element of the Fisher Information with respect to parameter n°{ind_param} - {crn_name} with parameter values: {params}')
     plt.show()

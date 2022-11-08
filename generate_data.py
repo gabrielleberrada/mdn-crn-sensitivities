@@ -74,7 +74,7 @@ class CRN_Dataset:
 
         Returns:
             - An array of length 'length' equal to 'onedim_tab' array completed by zeros at the end.
-        """        
+        """   
         return onedim_tab + [0] * max(length - len(onedim_tab), 0)
 
     def generate_data(self, 
