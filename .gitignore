@@ -16,3 +16,9 @@ CRN4_bursting_gene/copie
 CRN4_bursting_gene/images
 CRN4_bursting_gene/trash
 .DS_Store
+donnees.md
+optimisation_nn.ipynb
+**/*.jpeg
+**/*.pt
+docs/
+losses/
