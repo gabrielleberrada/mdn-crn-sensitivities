@@ -12,7 +12,7 @@ class CRN:
         - **n_params** (int): Number of parameters required to define the propensities.
         - **exact** (bool, optional): If the exact distribution of the CRN is known. Defaults to False.
         - **exact_distr** (Tuple[Callable], optional): The exact distribution function, when known. Defaults to None.
-        - **exact_sensitivities** (Tuple[Callable], optional): The exact sensitivities of probabilities with respect to the parameters, when known. Defaults to None.
+        - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of probabilities with respect to the parameters, when known. Defaults to None.
     """    
     def __init__(self, 
                 init_state: np.ndarray[int],
@@ -33,12 +33,11 @@ class CRN:
             self.exact_distr = exact_distr
             self.exact_sensitivities_prob = exact_sensitivities_prob
         self.time = 0
-        self.current_state = self.init_state 
+        self.current_state = self.init_state
         self.sampling_times = np.empty(0)
         self.sampling_states = np.empty((0, self.n_species))
 
-    def step(self, 
-            init_state: np.ndarray[int], 
+    def step(self,  
             params: np.ndarray[float], 
             sampling_times: np.ndarray[float], 
             tf: float,
@@ -46,7 +45,6 @@ class CRN:
         """Simulates the specified CRN with stochastic simulations.
 
         Args:
-            - **init_state** (np.ndarray[int]): Initial state of the CRN when starting the simulation
             - **params** (np.ndarray[float]): Parameters associated to the propensities.
             - **sampling_times** (np.ndarray[float]): Times at which to sample.
             - :math:`t_f` (float): Final time at which to end the simulation.
@@ -58,7 +56,7 @@ class CRN:
         """
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
         lambdas = set_parameters(self.propensities, params)
-        simulations = StochasticSimulation(init_state, self.time, tf, sampling_times, lambdas, self.n_species, self.n_reactions, self.stoichiometric_mat)
+        simulations = StochasticSimulation(self.current_state, self.time, tf, sampling_times, lambdas, self.n_species, self.n_reactions, self.stoichiometric_mat)
         if method == 'SSA':
             samples = simulations.SSA()
         else:
@@ -80,16 +78,17 @@ class CRN:
         """      
         for i, t in enumerate(time_slots):
             self.step(init_state=self.current_state, 
-                    params=np.concatenate((parameters[:self.n_params], parameters[self.n_params*i:self.n_params*(i+1)])),
+                    params=np.concatenate((parameters[:self.n_params], parameters[self.n_params*(i+1):self.n_params*(i+2)])),
                     sampling_times=sampling_times[(sampling_times>self.time) & (sampling_times <= t)], # sampling times in the time slot
                     tf=t,
                     method=method)
 
     def reset(self):
+        self.time = 0
         self.current_state = self.init_state
         self.sampling_times = np.empty(0)
         self.sampling_states = np.empty((0, self.n_species))
-        self.time = 0
+
 
 
 class StochasticSimulation:
