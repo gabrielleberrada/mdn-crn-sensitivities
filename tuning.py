@@ -2,9 +2,9 @@ import convert_csv
 import hyperparameters_test
 import hyperparameters_tuning
 
-FILE_NAME = 'CRN3_explosive_production/data'
-CRN_NAME = 'explosive_production'
-NUM_PARAMS = 1
+FILE_NAME = 'CRN4_bursting_gene'
+CRN_NAME = 'bursting_gene'
+NUM_PARAMS = 4
 
 # loading data
 X_train1 = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_train1.csv')
@@ -19,7 +19,7 @@ valid_data = [X_valid1, y_valid1]
 test_data = [X_test, y_test]
 
 N_COMPS = 3
-MIXTURE = 'Poisson'
+MIXTURE = 'NB'
 
 def testing_function(lr, max_rounds, batchsize, n_hidden):
     return hyperparameters_test.test_comb(lr, 
@@ -33,15 +33,11 @@ def testing_function(lr, max_rounds, batchsize, n_hidden):
                     N_COMPS,
                     MIXTURE)
 
-# n_rounds = [10]
-# lrs = [0.01]
-# batchsizes = [128]
-# n_hidden = [128]
 
-n_rounds = [300, 500]
+n_rounds = [300, 500, 700]
 lrs = [0.01, 0.005, 0.001]
 batchsizes = [32, 64, 128]
-n_hidden = [128, 256]
+n_hidden = [64, 128, 256]
 
 if __name__ == '__main__':
-    hyperparameters_tuning.test_multiple_combs(testing_function, lrs, n_rounds, batchsizes, n_hidden, 'CRN3_optimisation_Poisson')
+    hyperparameters_tuning.test_multiple_combs(testing_function, lrs, n_rounds, batchsizes, n_hidden, 'CRN4_optimisation_newdata')

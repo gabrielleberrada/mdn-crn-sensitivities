@@ -212,7 +212,7 @@ class SensitivitiesDerivation:
         return probs, np.stack(sensitivities, axis=-1)
 
 
-    def marginal(self, ind_species: int, init_state: np.ndarray[int], time_samples: list[float], params: np.ndarray[float]) -> Tuple[np.ndarray[float]]:
+    def marginal(self, ind_species: int, init_state: np.ndarray[int], time_samples: list[float], params: np.ndarray[float], t0: float =0) -> Tuple[np.ndarray[float]]:
         """Computes the marginal probabilities and the marginal sensitivities of probabilities.
 
         Args:
@@ -223,6 +223,7 @@ class SensitivitiesDerivation:
                             It can also be found in attribute `n_states`.
             - **time_samples** (list[float]): Time at which to store the computed solution.
             - **params** (np.ndarray[float]): Propensity parameters.
+            - :math:`t_0` (float, optional): Initialization time. By default, 0.
 
         Returns:
             - (Tuple[np.ndarray[float]]): The first element is marginal probability vector for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. \
@@ -230,7 +231,7 @@ class SensitivitiesDerivation:
         """        
         marginal_probs = np.zeros((len(time_samples), self.cr+1))
         marginal_sensitivities = np.zeros((len(time_samples), self.cr+1, len(params)))
-        probs, s = self.get_sensitivities(init_state, 0., time_samples[-1], params, t_eval=time_samples)
+        probs, s = self.get_sensitivities(init_state, t0, time_samples[-1], params, t_eval=time_samples)
         for n, state in self.bijection.bijection.items():
             for i, _ in enumerate(time_samples):
                 marginal_probs[i, state[ind_species]] += probs[i, n]
@@ -257,52 +258,3 @@ class SensitivitiesDerivation:
         for ind in ind_species:
             marginal_probs[ind], marginal_stv[ind] = self.marginal(ind, init_state, time_samples, params)
         return marginal_probs, marginal_stv
-
-
-
-
-# Correction get_sensitivities
-
-stoich_mat = np.array([[-2, 2], 
-                        [2, -2],
-                        [1, 0],
-                        [-1, 0],
-                        [0, 1],
-                        [0, -1]]).T
-
-def lambda1(params, x):
-    return params[0]*x[0]*(x[0]-1)
-
-def lambda2(params, x):
-    return params[1]*x[1]*(x[1]-1)
-
-def lambda3(params, x):
-    return params[2]
-
-def lambda4(params, x):
-    return params[3]*x[0]
-
-def lambda5(params, x):
-    return params[4]
-
-def lambda6(params, x):
-    return params[5]*x[1]
-
-# propensities = np.array([lambda1, lambda2, lambda3, lambda4, lambda5, lambda6])
-# crn = simulation.CRN(stoich_mat, propensities, 6)
-# cr = 100
-# stv_calculator = SensitivitiesDerivation(crn, cr)
-# n_cr = int(cr*(cr+3)/2+1)
-# init_state_p = np.zeros(2*n_cr)
-# init_state_p[0] = 1
-# init_state = np.stack([init_state_p]*crn.n_reactions)
-# t = 0.03
-# params = np.array([10, 2, 5, 1, 3, 7])
-# print(stv_calculator.marginal(0, init_state, [0, 0.01, 0.1], params, 'sensitivities')[:,:10,:])
-# probs, stv = stv_calculator.get_sensitivities(init_state, 0., t, params, t_eval=[t])
-# print(probs.shape, stv.shape)
-# f = get_fi.fisher_information_t(probs[0,:], stv[0,:,:])
-# print(f)
-# print(probs[0,:15])
-# print(stv_calculator.bijection.bijection)
-# print(stv_calculator.marginal(1, init_state, [t], params)[0][0, :15])

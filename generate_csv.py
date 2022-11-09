@@ -2,7 +2,7 @@ import simulation
 import generate_data
 import convert_csv
 import numpy as np
-from CRN4_bursting_gene import propensities_bursting_gene as propensities
+from CRN2_production_degradation import propensities_production_degradation as propensities
 from typing import Union
 
 def generate_csv(crn_name: str,
@@ -45,19 +45,17 @@ def generate_csv(crn_name: str,
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'bursting_gene'
-    datasets = {'train1': 1_100, 'train2': 1_100, 'train3': 1_100, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 496}
-    # shape (n_species, n_reactions)
-    stoich_mat = propensities.stoich_mat #.reshape(1, 1)
-    N_PARAMS = 4
+    CRN_NAME = 'test'
+    datasets = {'train': 4}
+    N_PARAMS = 2
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
                 n_params=N_PARAMS,
-                stoich_mat=stoich_mat,
+                stoich_mat=propensities.stoich_mat.reshape(1, 2),# shape (n_species, n_reactions)
                 propensities=propensities.propensities,
                 sampling_times=np.array([5, 10, 15, 20]),
-                ind_species=1,
+                ind_species=0,
                 n_trajectories=10**4,
-                sobol_up_bounds=np.array([1., 3., 5., 0.05]),
-                sobol_low_bounds=[0.],)
+                sobol_up_bounds=np.array([2., 1.]),
+                sobol_low_bounds=[0.])
 
