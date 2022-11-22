@@ -7,7 +7,7 @@ def save_MDN_model(MDNmodel: neuralnetwork.NeuralNetwork, file_path: str):
     and the type of output mixture.
 
     Args:
-        - **MDNmodel** (neuralnetwork.NeuralNetwork): Mixture Density Network model to save.
+        - **MDNmodel** (neuralnetwork.NeuralNetwork): MDN model to save.
         - **file_path** (str): Path of the file to save the parameters in.
     """    
     torch.save({'model_state_dict': MDNmodel.state_dict(),
@@ -24,7 +24,7 @@ def load_MDN_model(file_path: str) -> neuralnetwork.NeuralNetwork:
         - **file_path** (str): Path of the file in which the parameters of the model are saved.
 
     Returns:
-        - Loaded Mixture Density Network model.
+        - Loaded MDN model.
     """    
     loader = torch.load(file_path)
     MDNmodel = neuralnetwork.NeuralNetwork(loader['n_comps'],

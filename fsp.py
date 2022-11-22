@@ -12,8 +12,8 @@ class StateSpaceEnumeration:
     Computes functions :math:`\Phi` and :math:`\Phi^{-1}` to project the state space on the set of integers and conversely.
 
     Args:
-        - :math:`c_r` (int): Value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.
-        - **dim** (int): Dimensions of the initial space.
+        - :math:`c_r` (int): Value such that the projection of :math:`(0, .., 0, c_r)` is the last element of the projected truncated space.
+        - **dim** (int): Dimensions of the initial state-space.
     """   
     def __init__(self, cr: int, dim: int):     
         # we choose to always start at cl=0
@@ -28,7 +28,8 @@ class StateSpaceEnumeration:
         self.n_states = self.ub - self.lb + 1
     
     def phi(self, x: np.ndarray, n: int) -> int:
-        r"""Recurrent function that computes the projection :math:`\Phi: \mathbb{N}^{dim} \rightarrow \mathbb{N}` as defined in :cite:`gupta2017projection`.
+        r"""Recurrent function which computes the projection :math:`\Phi: \mathbb{N}^{dim} \rightarrow \mathbb{N}` 
+        as defined in :cite:`gupta2017projection`.
 
         Args:
             - **x** (np.ndarray): Vector in :math:`\mathbb{N}^n`.
@@ -45,7 +46,8 @@ class StateSpaceEnumeration:
             return self.phi(np.array([self.phi(x[:-1], n-1), x[-1]]), 2)
 
     def phi_inverse(self, z: int, n: int) -> Tuple[int]:
-        r"""Recurrent function that computes the inversed projection :math:`\Phi^{-1}: \mathbb{N} \rightarrow \mathbb{N}^{dim}` as defined in :cite:`gupta2017projection`.
+        r"""Recurrent function which computes the inversed projection :math:`\Phi^{-1}: \mathbb{N} \rightarrow \mathbb{N}^{dim}` 
+        as defined in :cite:`gupta2017projection`.
 
         Args:
             - **z** (int): Input.
@@ -75,12 +77,13 @@ class StateSpaceEnumeration:
 
 
 class SensitivitiesDerivation:
-    r"""Class to compute the probability sensitivities and probabilities with the FSP method.
+    r"""Class to compute the sensitivities and probabilities with the FSP method.
     Based on :cite:`fox2019fspfim`.
     
     Args:
         - **crn** (simulation.CRN): the CRN to study.
-        - :math:`c_r` (int, optional): value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space.. Defaults to 4.  
+        - :math:`c_r` (int, optional): value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space. 
+          Defaults to :math:`4`.  
     """
     def __init__(self, crn: simulation.CRN, cr: int =4):     
         self.cr = cr
@@ -94,13 +97,13 @@ class SensitivitiesDerivation:
         self.n_states = len(self.entries)
 
     def create_B(self, index: int) -> np.ndarray:
-        r"""Computes the :math:`B_i` matrix for the parameter n°index as defined in :cite:`fox2019fspfim`.
+        r"""Computes the matrix :math:`B_i` for the parameter n°index as defined in :cite:`fox2019fspfim`.
 
         Args:
-            - **index** (int): index of the reaction occuring.
+            - **index** (int): index of the occuring reaction.
 
         Returns:
-            - The rate matrix :math:`B_i` for the reaction n°index over the truncated state-space.
+            - Rate matrix :math:`B_i` for the reaction n°index over the truncated state-space.
         """
         d = self.bijection.bijection.inverse
         n = self.n_states
@@ -131,7 +134,7 @@ class SensitivitiesDerivation:
         r"""Computes the matrix **A** as defined in :cite:`fox2019fspfim`.
 
         Args:
-            - **params** (np.ndarray): Propensity parameters.
+            - **params** (np.ndarray): Parameters of the propensity functions.
 
         Returns:
             - The rate matrix **A** over the truncated state-space.
@@ -145,7 +148,7 @@ class SensitivitiesDerivation:
         r"""Computes the matrix **C** as defined in :cite:`fox2019fspfim`.
 
         Args:
-            - **params** (np.ndarray): Propensity parameters.
+            - **params** (np.ndarray): Parameters of the propensity functions.
             - **index** (int): Index of the reaction occuring.
 
         Returns:
@@ -175,9 +178,9 @@ class SensitivitiesDerivation:
 
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
-            - **params** (np.ndarray): Propensity parameters.
-            - **index** (int): Index of the reaction occuring.
-            - :math:`t_{eval}` (list[float]): Times at which to store the computed solution
+            - **params** (np.ndarray): Parameters of the propensity functions.
+            - **index** (int): Index of the occuring reaction.
+            - :math:`t_{eval}` (list[float]): Times to save the computed solution.
 
         Returns:
             - Bunch object as the output of the ``solve_ivp`` function applied to the set of linear ODEs.
@@ -188,21 +191,26 @@ class SensitivitiesDerivation:
         return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
 
 
-    def get_sensitivities(self, init_state: np.ndarray[int], t0: float, tf: float, params: np.ndarray[float], t_eval: list[float]) -> Tuple[np.ndarray]:
-        """Computes probabilities and sensitivities with respect to each parameter of the CRN using FSP methods.
+    def get_sensitivities(self, 
+                        init_state: np.ndarray[int], 
+                        t0: float, tf: float, 
+                        params: np.ndarray[float], 
+                        t_eval: list[float]) -> Tuple[np.ndarray]:
+        """Computes probabilities and sensitivities with respect to each parameter of the CRN using the FSP method.
 
         Args:
-            - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that \
-                            init_state[i,:] is the initial states for the probabilities and sensitivities of the i-th reaction.\
-                            The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` if :math:`n = 2`, else :math:`2(Cr+1)`.\
+            - **init_state** (np.ndarray[int]): Array of shape :math:`(N_\\theta, 2N)` such that \
+                            init_state[i,:] is the initial state for the probabilities and sensitivities of the i-th reaction.\
+                            The shape of each initial state vector is the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
+                            if :math:`n = 2`, else :math:`2(Cr+1)`.\
                             It can also be found in attribute `n_states`.
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
-            - **params** (np.ndarray[float]): Propensity parameters.
-            - :math:`t_{eval}` (list[float]): Times at which to store the computed solution.
+            - **params** (np.ndarray[float]): Parameters of the propensity functions.
+            - :math:`t_{eval}` (list[float]): Times to svae the computed solution.
 
         Returns:
-            - The probabilities vector and probability sensitivities matrix for each time points.
+            - The probability vector and sensitivities of probability mass functions matrix for each time point.
         """
         sensitivities = []
         for i in range(self.n_reactions):
@@ -212,22 +220,29 @@ class SensitivitiesDerivation:
         return probs, np.stack(sensitivities, axis=-1)
 
 
-    def marginal(self, ind_species: int, init_state: np.ndarray[int], time_samples: list[float], params: np.ndarray[float], t0: float =0) -> Tuple[np.ndarray[float]]:
-        """Computes the marginal probabilities and the marginal sensitivities of probabilities.
+    def marginal(self, 
+                ind_species: int, 
+                init_state: np.ndarray[int], 
+                time_samples: list[float], 
+                params: np.ndarray[float], 
+                t0: float =0) -> Tuple[np.ndarray[float]]:
+        """Computes marginal probabilities and marginal sensitivities of probability mass functions.
 
         Args:
             - **ind_species** (int): Index of the species of interest.
             - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that \
-                            init_state[i,:] is the initial states for the probabilities and sensitivities of the i-th reaction.\
-                            The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` if :math:`n = 2`, else :math:`2(Cr+1)`.\
+                            init_state[i,:] is the initial states for the probabilities and sensitivities for the i-th reaction.\
+                            The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
+                            if :math:`n = 2`, else :math:`2(Cr+1)`.\
                             It can also be found in attribute `n_states`.
-            - **time_samples** (list[float]): Time at which to store the computed solution.
-            - **params** (np.ndarray[float]): Propensity parameters.
+            - **time_samples** (list[float]): Times to save the computed solution.
+            - **params** (np.ndarray[float]): Parameters of the propensity functions.
             - :math:`t_0` (float, optional): Initialization time. By default, 0.
 
         Returns:
-            - (Tuple[np.ndarray[float]]): The first element is marginal probability vector for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. \
-                    The second element is the marginal sensitivities of probabilities matrix for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, n_{params})`.
+            - (Tuple[np.ndarray[float]]): The first element is marginal probability vector for the species of interest at each time, \
+                of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. The second element is the marginal sensitivities of probability mass \
+                function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, n_{params})`.
         """        
         marginal_probs = np.zeros((len(time_samples), self.cr+1))
         marginal_sensitivities = np.zeros((len(time_samples), self.cr+1, len(params)))
@@ -243,15 +258,16 @@ class SensitivitiesDerivation:
 
         Args:
             - **ind_species** (list[int]): List of index of the species of interest.
-            - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that \
-                            init_state[i,:] is the initial states for the probabilities and sensitivities of the i-th reaction.\ 
-                            The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` if :math:`n = 2`, else :math:`2(Cr+1)`. \
-                            It can also be found in attribute `n_states`.
-            - **time_samples** (list[float]): Time at which to store the computed solution.
-            - **params** (np.ndarray[float]): Propensity parameters.
+            - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that 
+              init_state[i,:] is the initial states for the probabilities and sensitivities for the i-th reaction. 
+              The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` 
+              if :math:`n = 2`, else :math:`2(Cr+1)`. It can also be found in attribute `n_states`.
+            - **time_samples** (list[float]): Times to save the computed solution.
+            - **params** (np.ndarray[float]): Parameters of the propensity functions.
 
         Returns:
-            - (dict): Each key of the dictionary is the index of one species. Its value is the marginal distribution as returned by the function ``marginal`` for this species.
+            - (dict): Each key of the dictionary is the index of one species. Its value is the marginal distribution as returned by \
+                the function ``marginal`` for this species.
         """        
         marginal_probs = {}
         marginal_stv = {}

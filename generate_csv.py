@@ -2,8 +2,8 @@ import simulation
 import generate_data
 import convert_csv
 import numpy as np
-from CRN2_production_degradation import propensities_production_degradation as propensities
-from typing import Union
+from CRN5_isomeric_pd import propensities
+from typing import Union, Tuple
 
 def generate_csv(crn_name: str,
                 datasets: dict,
@@ -14,30 +14,40 @@ def generate_csv(crn_name: str,
                 ind_species: int,
                 n_trajectories: int,
                 sobol_up_bounds: Union[float, np.ndarray[float]],
-                sobol_low_bounds: Union[float, np.ndarray[float]]):
-    """Generate datasets from SSA simulations and save them in CSV files.
+                sobol_low_bounds: Union[float, np.ndarray[float]],
+                initial_state: Tuple[bool, np.ndarray] =(False, None),
+                method: str ='SSA'):
+    """Generates datasets from Stochastic Simulations and save them in CSV files.
 
     Args:
-        - **crn_name** (str): name of the CRN for the filenames.
-        - **datasets** (dict): dictionary whose keys are the name of the datasets and whose values are the corresponding length.
-        - **n_params** (int): number of parameters for this CRN.
-        - **stoich_mat** (np.ndarray): stoichiometric matrix of the CRN.
-        - **propensities** (np.ndarray): non-parameterized propensities of the CRN.
-        - **sampling_times** (list[float]): sampling times.
-        - **ind_species** (int): index of species to study
-        - **n_trajectories** (int): number of trajectories to do for each set of parameters
-        - **sobol_up_bounds** (Union[float, np.ndarray[float]]): upper boundaries of the generated parameters.
-        - **sobol_low_bounds** (Union[float, np.ndarray[float]]): lower boundaries of the generated parameters.
+        - **crn_name** (str): Name of the CRN to use for the filenames.
+        - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
+        - **n_params** (int): Number of parameters for this CRN.
+        - **stoich_mat** (np.ndarray): Stoichiometric matrix of the CRN.
+        - **propensities** (np.ndarray): Non-parameterized propensities of the CRN.
+        - **sampling_times** (list[float]): Sampling times.
+        - **ind_species** (int): Index of species to study
+        - **n_trajectories** (int): Number of trajectories to do for each set of parameters
+        - **sobol_up_bounds** (Union[float, np.ndarray[float]]): Upper boundaries of the generated parameters.
+        - **sobol_low_bounds** (Union[float, np.ndarray[float]]): Lower boundaries of the generated parameters.
+        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None).
+        - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
     """                         
     data_length = sum(datasets.values())
+    n_times = len(sampling_times)
     crn = simulation.CRN(stoichiometric_mat=stoich_mat, propensities=propensities, n_params=n_params)
-    dataset = generate_data.CRN_Dataset(crn=crn, sampling_times=sampling_times, ind_species=ind_species)
-    X, y = dataset.generate_data(data_length=data_length, n_trajectories=n_trajectories, sobol_end=sobol_up_bounds, sobol_start=sobol_low_bounds, ind_species=ind_species)
+    dataset = generate_data.CRN_Dataset(crn=crn, sampling_times=sampling_times, ind_species=ind_species, method=method)
+    X, y = dataset.generate_data(data_length=data_length, 
+                                n_trajectories=n_trajectories, 
+                                sobol_end=sobol_up_bounds, 
+                                sobol_start=sobol_low_bounds, 
+                                ind_species=ind_species, 
+                                initial_state=initial_state)
     # writing CSV files
     somme = 0
     for key, value in datasets.items():
-        convert_csv.array_to_csv(X[4*somme:4*(somme+value),:], f'X_{crn_name}_{key}')
-        convert_csv.array_to_csv(y[4*somme:4*(somme+value),:], f'y_{crn_name}_{key}')
+        convert_csv.array_to_csv(X[n_times*somme:n_times*(somme+value),:], f'X_{crn_name}_{key}')
+        convert_csv.array_to_csv(y[n_times*somme:n_times*(somme+value),:], f'y_{crn_name}_{key}')
         somme += value
     print('done')
 
@@ -45,17 +55,18 @@ def generate_csv(crn_name: str,
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'test'
-    datasets = {'train': 4}
-    N_PARAMS = 2
+    CRN_NAME = 'CRN5'
+    datasets = {'train1': 1_100, 'train2': 1_100, 'train3': 1_100, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 496}
+    N_PARAMS = 6
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
                 n_params=N_PARAMS,
-                stoich_mat=propensities.stoich_mat.reshape(1, 2),# shape (n_species, n_reactions)
+                stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
                 propensities=propensities.propensities,
                 sampling_times=np.array([5, 10, 15, 20]),
                 ind_species=0,
                 n_trajectories=10**4,
-                sobol_up_bounds=np.array([2., 1.]),
-                sobol_low_bounds=[0.])
+                sobol_up_bounds=np.array([1., 1., 1., 0.5, 1., 0.5]),
+                sobol_low_bounds=np.array([0.]),
+                initial_state=(True, np.array([1, 2])))
 

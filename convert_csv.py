@@ -21,7 +21,7 @@ def csv_to_array(file_name: str) -> np.ndarray:
             - **file_name** (str): Name of the CSV file to load.
 
         Returns:
-            - An array containing the information from the CSV file.
+            - An array loaded from the CSV file.
         """        
         return np.array((pd.read_csv(file_name, header=None)).values)
 
@@ -32,7 +32,7 @@ def csv_to_tensor(file_name: str) -> torch.tensor:
             - **file_name** (str): Name of the CSV file to load.
 
         Returns:
-            - A tensor containing the information from the CSV file.
+            - A tensor loaded from the CSV file.
         """        
         return torch.tensor((pd.read_csv(file_name, header=None)).values, dtype=torch.float32)
 

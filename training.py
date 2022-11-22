@@ -18,10 +18,10 @@ data_train = [X_train, y_train]
 data_valid = [X_valid, y_valid]
 data_test = [X_test, y_test]
 
-LR = 0.001
+LR = 0.005
 N_ITER  = 700
 BATCHSIZE = 32
-N_HIDDEN = 512
+N_HIDDEN = 256
 MIXTURE = 'NB'
 
 model = neuralnetwork.NeuralNetwork(n_comps, num_params, n_hidden=N_HIDDEN, mixture=MIXTURE)

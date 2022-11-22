@@ -3,18 +3,20 @@ import numpy as np
 def fisher_information_t(probs: np.ndarray, sensitivities: np.ndarray) -> np.ndarray:
     r"""Computes the Fisher Information at a single time point.
 
-    As defined in :cite:`fox2019fspfim`:
+    In the case of a finite state-space, we can enumerate its elements as :math:`\{ x_t^1, x_t^2, ..., x_t^{N_{\max}} \}`. We then have:
 
     .. math::
-        \mathcal{I}(\theta)_{ij} = \sum_{l=1}^N \frac{1}{p(x_l;\theta)}S_{li}S_{lj}
+        \forall (i,j) \in [\![1, M]\!]^2, 
+        [\mathcal{I}_t^\theta]_{ij} = \sum_{\ell=1}^{N_{\max}} \frac{1}{p_\ell(t,\theta)}[S_t^\theta]_{\ell i}[S_t^\theta]_{\ell j}
 
     Args:
-        - **probs** (np.ndarray): The probability vector of dimension :math:`(N,)`.
-        - **sensitivities** (np.ndarray): The sensitivities of probabilities matrix of dimensions :math:`(N, N_{\theta})`, where :math:`N` is the number of species and:math:`N_{\theta}` is the number of parameters.
+        - **probs** (np.ndarray): The probability vector of shape :math:`(N_{\max},)`.
+        - **sensitivities** (np.ndarray): The sensitivities of probability matrix of shape :math:`(N_{\max}, M)`
 
     Returns:
-        - The Fisher Information estimated by the model at a single time point. It has dimensions :math:`(N_{\theta}, N_{\theta})`.
+        - The Fisher Information estimated by the model at a single time point. It has shape :math:`(M,M)`.
     """
+    # probs[probs<1e-15]=0
     inversed_p = np.divide(np.ones_like(probs), probs, out=np.zeros_like(probs), where=probs!=0)
     pS = np.zeros_like(sensitivities)
     for l, pl in enumerate(inversed_p):
@@ -28,15 +30,16 @@ def fisher_information(ntime_samples: int, probs: np.ndarray, sensitivities:np.n
     As defined in :cite:`fox2019fspfim`:
 
     .. math::
-        \mathcal{I}(\theta)_{ij} = \sum_{k=1}^{N_t} \sum_{l=1}^N \frac{1}{p(x_l;t_k,\theta)}S_{li}(t_k)S_{lk}(t_k)
+        \forall (i,j) \in [\![1, M]\!]^2, 
+        [\mathcal{I}_t^\theta]_{ij} = \sum_{k=1}^{N_t} [\mathcal{I}_{t_k}^\theta]_{ij} \sum_{\ell=1}^{N_{\max}} \frac{1}{p_\ell(t_k,\theta)}[S_{t_k}^\theta]_{\ell i}[S_{t_k}^\theta]_{\ell j}
 
     Args:
         - **ntime_samples** (int): Number of time samples :math:`N_t`.
-        - **probs** (np.ndarray): The probability vector of dimension :math:`(N_t, N)`.
-        - **sensitivities** (np.ndarray): The sensitivities of probabilities matrix of dimensions :math:`(N_t, N, N_{\theta})`, where :math:`N` is the number of species and:math:`N_{\theta}` is the number of parameters.
+        - **probs** (np.ndarray): The probability vector of shape :math:`(N_t, N_{\max})`.
+        - **sensitivities** (np.ndarray): The sensitivities of probability matrix of shape :math:`(N_t, N_{\max}, M)`.
 
     Returns:
-        - The Fisher Information estimated by the model for different time points. It has dimensions :math:`(N_{\theta}, N_{\theta})`.
+        - The Fisher Information estimated by the model at different time points. It has shape :math:`(M, M)`.
     """
     f_inf = np.zeros((sensitivities.shape[-1], sensitivities.shape[-1]))
     for t in range(ntime_samples):
