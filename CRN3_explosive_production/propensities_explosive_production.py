@@ -8,3 +8,5 @@ stoich_mat = np.array([1.])
 propensities = np.array([lambda1])
 
 init_state = (5,)
+
+ind_species = 0

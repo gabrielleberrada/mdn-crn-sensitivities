@@ -12,8 +12,7 @@ class NeuralNetwork(nn.Module):
 
     Args:
         - **n_comps** (int): Number of components of the output mixture.
-        - **n_params** (int): Number of parameters in input, excluding time parameter. In our case, \
-            it corresponds to the number of parameters of the propensity functions.
+        - **n_params** (int): Number of parameters in input :math:`M`, excluding time parameter.
         - **n_hidden** (int, optional): Number of neurons in the hidden layer. Defaults to :math:`128`.
         - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial mixture. \
             Can also be 'Poisson' for a Poisson mixture.
@@ -54,7 +53,7 @@ class NeuralNetwork(nn.Module):
         """Runs the forward function of the Mixture Density Network.
 
         Args:
-            - **input** (torch.tensor[float]): The input parameters to predict.
+            - **input** (torch.tensor[float]): The input parameters to predict: :math:`[t, \theta_1, ..., \theta_M]`.
 
         Returns:
             - A tuple of three tensors.
@@ -94,11 +93,11 @@ def distr_pdf(params: Tuple,
         - **params** (Tuple): Parameters needed to define the probability distribution.
         - **k** (torch.tensor): Points at which to evaluate the pdf.
         - **mixture** (str): Name of the chosen distribution for the mixture.
-        - **eps** (float, optional): Corrective term since a negative binomial cannot be evaluated at :math:`p=1.0`. \
+        - **eps** (float, optional): Corrective term since a Negative Binomial cannot be evaluated at :math:`p=1.0`. \
             Defaults to :math:`10^{-5}`.
 
     Returns:
-        - The pdf of the distribution evaluated at k.
+        - The pdf of the distribution evaluated at **k**.
     """    
     # NB distribution
     if mixture == 'NB':
@@ -132,7 +131,7 @@ def mix_pdf(model: NeuralNetwork,
         - **ww**: Weights of the mixture.
         - **params**: Parameters to define the distribution.
 
-    A distribution mixture evaluated at point k is given by:
+    A distribution mixture evaluated at point **k** is given by:
 
     .. math::
 
@@ -144,7 +143,7 @@ def mix_pdf(model: NeuralNetwork,
         - **yy** (torch.tensor): Points at which to evaluate the pdf.
 
     Returns:
-        - The pdf of a mixture of distributions evaluated at k.
+        - The pdf of a mixture of distributions evaluated at **k**.
     """
     output = model.forward(x)
     ww, params = output[0], output[1:]
@@ -172,7 +171,8 @@ def loss_kldivergence(x: torch.tensor,
         - **model** (NeuralNetwork): Mixture Density Network model.
 
     Returns:
-        - The Kullback-Leibler divergence value.
+        - :math:`KL(y, \hat{y})`: Kullback-Leibler divergence between the predicted fistribution of the Neural Network at input
+          points **x** and the expected output **y**.
     """
     y_size = y.size()
     if len(y_size) == 1:
@@ -209,8 +209,8 @@ def loss_hellinger(x: torch.tensor,
         - **model** (NeuralNetwork): Mixture Density Network model.
 
     Returns:
-        - :math:`H(y, \hat{y})` (float): Hellinger distance between the predicted distribution of the Neural Network at input points **x** \
-            and the expected output **y**.
+        - :math:`H(y, \hat{y})`: Hellinger distance between the predicted distributions of the Neural Network at input points **X** \
+            and the expected outputs **y**.
     """
     y_size = y.size()
     if len(y_size) == 1:
@@ -261,14 +261,14 @@ class NNTrainer:
         - **model** (NeuralNetwork): Mixture Density Network model.
         - **train_data** (Tuple[torch.tensor, torch.tensor]): Training dataset.
         - **valid_data** (Tuple[torch.tensor, torch.tensor]): Validation dataset.
-        - :math:`l_r` (float, optional): Initial learning rate. Defaults to :math:`0.01`.
+        - :math:`l_r` (float, optional): Initial learning rate. Defaults to :math:`0.005`.
         - **l2_reg** (float, optional): L2-regularization term. Defaults to :math:`0`.
-        - **max_rounds** (int, optional): Maximal number of epochs. Defaults to :math:`1000`.
-        - **batchsize** (int, optional): Number of elements in a batch. Defaults to :math:`100`.
+        - **max_rounds** (int, optional): Maximal number of epochs. Defaults to :math:`700`.
+        - **batchsize** (int, optional): Number of elements in a batch. Defaults to :math:`64`.
         - **optimizer** (Callable, optional): Chosen optimizer. Defaults to torch.optim.Adam.
         - **add_early_stopping** (Tuple[bool, int, float], optional): Defaults to (False, :math:`50`, :math:`10^{-6}`).  
         
-            - (bool): If True, use the early stopping regularization. Defaults to False.            
+            - (bool): If True, uses the early stopping regularization. Defaults to False.            
             - **patience** (int): Patience level. \
                 At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that \
                 of the last :math:`n_p` epochs. Defaults to :math:`50`.
@@ -279,12 +279,12 @@ class NNTrainer:
                 model: NeuralNetwork,
                 train_data: Tuple[torch.tensor, torch.tensor], 
                 valid_data: Tuple[torch.tensor, torch.tensor], 
-                lr: float =0.01, 
+                lr: float =0.005, 
                 l2_reg: float =0.,
-                max_rounds: int =1_000,
-                batchsize: int =100, 
+                max_rounds: int =700,
+                batchsize: int =64, 
                 optimizer: Callable =torch.optim.Adam,
-                add_early_stopping: Tuple[bool, int, float] =(False, 50, 1e-6)
+                add_early_stopping: Tuple[bool, int, float] =(False, None, 1e-6)
                 ):               
         self.args = {
             'train_data': train_data,
@@ -329,7 +329,7 @@ class NNTrainer:
 
         Returns:
             - A boolean stating if the training should be stopped.
-        """    
+        """
         if len(self.valid_losses) < self.args['patience']:
             return False
         losses = np.array(self.valid_losses[-self.args['patience']:])

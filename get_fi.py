@@ -39,7 +39,7 @@ def fisher_information(ntime_samples: int, probs: np.ndarray, sensitivities:np.n
         - **sensitivities** (np.ndarray): The sensitivities of probability matrix of shape :math:`(N_t, N_{\max}, M)`.
 
     Returns:
-        - The Fisher Information estimated by the model at different time points. It has shape :math:`(M, M)`.
+        - The Fisher Information estimated by the model. It has shape :math:`(M, M)`.
     """
     f_inf = np.zeros((sensitivities.shape[-1], sensitivities.shape[-1]))
     for t in range(ntime_samples):

@@ -36,11 +36,11 @@ class CRN_Dataset:
 
 
     def samples_probs(self, params: np.ndarray[float]) -> Tuple[list[float], int]:
-        r"""Runs :math:`n_{\text{trajectories}}` of the SSA for the parameters in input and deducts the corresponding distribution 
+        r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the corresponding distribution 
         for the species indexed by **ind_species**.
 
         Args:
-            - **params** (np.ndarray[float]): Parameters of the propensity functions.
+            - **params** (np.ndarray[float]): Parameters associated to the propensity functions.
 
         Returns:
             - **samples**: List of the distributions for the corresponding species at sampling times. 
@@ -87,8 +87,8 @@ class CRN_Dataset:
                     sobol_end: Union[float, list[float]] =2.,
                     ind_species: Union[int, np.ndarray] =0,
                     initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray[float]]:
-        r"""Generates a dataset which can be used for training, validation or testing of the Neural Network.
-        Uses multiprocessing to run multiple simulations in parallel and to compute faster.
+        r"""Generates a dataset which can be used for training, validation or testing.
+        Uses multiprocessing to run multiple simulations in parallel.
         Parameters are generated from the Sobol Sequence (Low Discrepancy Sequence).
 
         Args:

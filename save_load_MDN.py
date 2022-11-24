@@ -8,7 +8,7 @@ def save_MDN_model(MDNmodel: neuralnetwork.NeuralNetwork, file_path: str):
 
     Args:
         - **MDNmodel** (neuralnetwork.NeuralNetwork): MDN model to save.
-        - **file_path** (str): Path of the file to save the parameters in.
+        - **file_path** (str): Path of the file in which to save the parameters.
     """    
     torch.save({'model_state_dict': MDNmodel.state_dict(),
                 'n_comps': MDNmodel.n_comps,

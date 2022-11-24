@@ -1,11 +1,10 @@
 import convert_csv
 import neuralnetwork
 
-n_comps = 4
-num_params = 2
+FILE_NAME = 'CRN4_bursting_gene/data'
+NAME = 'bursting_gene'
 
-FILE_NAME = 'CRN2_production_degradation/data'
-NAME = 'production_degradation'
+N_PARAMS = 4
 
 X_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{NAME}_train1.csv')
 y_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{NAME}_train1.csv')
@@ -21,10 +20,11 @@ data_test = [X_test, y_test]
 LR = 0.005
 N_ITER  = 700
 BATCHSIZE = 32
-N_HIDDEN = 256
+N_HIDDEN = 128
+N_COMPS = 4
 MIXTURE = 'NB'
 
-model = neuralnetwork.NeuralNetwork(n_comps, num_params, n_hidden=N_HIDDEN, mixture=MIXTURE)
+model = neuralnetwork.NeuralNetwork(n_comps=N_COMPS, n_params=N_PARAMS, n_hidden=N_HIDDEN, mixture=MIXTURE)
 trainer_test = neuralnetwork.train_NN(model, data_train, data_valid, loss=neuralnetwork.loss_kldivergence, max_rounds=N_ITER, lr=LR, batchsize=BATCHSIZE)
 
 print("Training dataset")
@@ -38,4 +38,3 @@ print(f'Hellinger : {neuralnetwork.mean_loss(X_valid, y_valid, model, loss=neura
 print("\nTest dataset")
 print(f"KLD : {neuralnetwork.mean_loss(X_test, y_test, model, loss=neuralnetwork.loss_kldivergence)}")
 print(f'Hellinger : {neuralnetwork.mean_loss(X_test, y_test, model, loss=neuralnetwork.loss_hellinger)}')
-

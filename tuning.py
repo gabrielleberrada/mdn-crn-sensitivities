@@ -15,7 +15,7 @@ y_valid1 = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_valid1.csv')
 train_data = [X_train1, y_train1]
 valid_data = [X_valid1, y_valid1]
 
-N_COMPS = 3
+N_COMPS = 4
 MIXTURE = 'NB'
 
 def testing_function(lr, max_rounds, batchsize, n_hidden):
@@ -27,12 +27,33 @@ def testing_function(lr, max_rounds, batchsize, n_hidden):
                     valid_data,
                     NUM_PARAMS,
                     N_COMPS,
+                    (False, None, None),
                     MIXTURE)
 
-n_rounds = [300, 500, 700]
-lrs = [0.1, 0.005, 0.001]
-batchsizes = [32, 64, 128]
-n_hidden = [128, 256, 512]
+def testing_function2(lr, max_rounds, batchsize, n_hidden, patience, delta):
+    return hyperparameters_test.test_comb(lr, 
+                    max_rounds,
+                    batchsize,
+                    n_hidden,
+                    train_data,
+                    valid_data,
+                    NUM_PARAMS,
+                    N_COMPS,
+                    (True, patience, delta),
+                    MIXTURE)
+
+
+EARLY_STOPPING = True
+n_rounds = [300, 500]
+lrs = [0.005, 0.001]
+batchsizes = [32]
+n_hidden = [256]
+patience = [50, 60]
+delta = [0, 1e-6, 1e-5]
+
 
 if __name__ == '__main__':
-    hyperparameters_tuning.test_multiple_combs(testing_function, lrs, n_rounds, batchsizes, n_hidden, 'CRN5_optimisation')
+    if EARLY_STOPPING:
+        hyperparameters_tuning.test_multiple_combs(testing_function2, lrs, n_rounds, batchsizes, n_hidden, (True, patience, delta), 'CRN5_optimisation_early_stopping2')
+    else:
+        hyperparameters_tuning.test_multiple_combs(testing_function, lrs, n_rounds, batchsizes, n_hidden, (False, None, None), 'CRN5_optimisation_early_stopping2')

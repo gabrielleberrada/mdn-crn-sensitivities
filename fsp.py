@@ -12,7 +12,7 @@ class StateSpaceEnumeration:
     Computes functions :math:`\Phi` and :math:`\Phi^{-1}` to project the state space on the set of integers and conversely.
 
     Args:
-        - :math:`c_r` (int): Value such that the projection of :math:`(0, .., 0, c_r)` is the last element of the projected truncated space.
+        - :math:`C_r` (int): Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
         - **dim** (int): Dimensions of the initial state-space.
     """   
     def __init__(self, cr: int, dim: int):     
@@ -28,7 +28,7 @@ class StateSpaceEnumeration:
         self.n_states = self.ub - self.lb + 1
     
     def phi(self, x: np.ndarray, n: int) -> int:
-        r"""Recurrent function which computes the projection :math:`\Phi: \mathbb{N}^{dim} \rightarrow \mathbb{N}` 
+        r"""Recurrent function which computes the projection :math:`\Phi: \mathbb{N}^n \rightarrow \mathbb{N}` 
         as defined in :cite:`gupta2017projection`.
 
         Args:
@@ -36,7 +36,7 @@ class StateSpaceEnumeration:
             - **n** (int): Dimension of the space.
 
         Returns:
-            - Result :math:`\Phi_n(z)` of the projection in :math:`\mathbb{N}`.
+            - Result :math:`\Phi_n(x)` of the projection in :math:`\mathbb{N}`.
         """        
         if n < 2:
             return x[0]
@@ -46,7 +46,7 @@ class StateSpaceEnumeration:
             return self.phi(np.array([self.phi(x[:-1], n-1), x[-1]]), 2)
 
     def phi_inverse(self, z: int, n: int) -> Tuple[int]:
-        r"""Recurrent function which computes the inversed projection :math:`\Phi^{-1}: \mathbb{N} \rightarrow \mathbb{N}^{dim}` 
+        r"""Recurrent function which computes the inversed projection :math:`\Phi^{-1}: \mathbb{N} \rightarrow \mathbb{N}^n` 
         as defined in :cite:`gupta2017projection`.
 
         Args:
@@ -82,7 +82,7 @@ class SensitivitiesDerivation:
     
     Args:
         - **crn** (simulation.CRN): the CRN to study.
-        - :math:`c_r` (int, optional): value such that :math:`(0, .., 0, c_r)` is the last value in the truncated space. 
+        - :math:`C_r` (int, optional): value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. 
           Defaults to :math:`4`.  
     """
     def __init__(self, crn: simulation.CRN, cr: int =4):     
@@ -97,13 +97,13 @@ class SensitivitiesDerivation:
         self.n_states = len(self.entries)
 
     def create_B(self, index: int) -> np.ndarray:
-        r"""Computes the matrix :math:`B_i` for the parameter n°index as defined in :cite:`fox2019fspfim`.
+        r"""Computes the matrix :math:`B_i` for the **index**-th reaction as defined in :cite:`fox2019fspfim`.
 
         Args:
             - **index** (int): index of the occuring reaction.
 
         Returns:
-            - Rate matrix :math:`B_i` for the reaction n°index over the truncated state-space.
+            - Rate matrix :math:`B_i` for the **index**-th reaction over the truncated state-space.
         """
         d = self.bijection.bijection.inverse
         n = self.n_states
@@ -135,6 +135,7 @@ class SensitivitiesDerivation:
 
         Args:
             - **params** (np.ndarray): Parameters of the propensity functions.
+              Here, we assume that the i-th parameter corresponds to the i-th reaction.
 
         Returns:
             - The rate matrix **A** over the truncated state-space.
@@ -174,7 +175,7 @@ class SensitivitiesDerivation:
                     which is stored in the attribute `n_states`.
 
             .. math::
-                2(\\frac{Cr(Cr+3)}{2}+1) \\text{ if } n = 2 \\text{, else } 2(Cr+1)
+                2\big(\\frac{Cr(Cr+3)}{2}+1\big) \\text{ if } n = 2 \\text{, else } 2(Cr+1)
 
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
@@ -203,7 +204,7 @@ class SensitivitiesDerivation:
                             init_state[i,:] is the initial state for the probabilities and sensitivities of the i-th reaction.\
                             The shape of each initial state vector is the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
                             if :math:`n = 2`, else :math:`2(Cr+1)`.\
-                            It can also be found in attribute `n_states`.
+                            This value can also be found in attribute `n_states`.
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
             - **params** (np.ndarray[float]): Parameters of the propensity functions.
@@ -231,7 +232,7 @@ class SensitivitiesDerivation:
         Args:
             - **ind_species** (int): Index of the species of interest.
             - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that \
-                            init_state[i,:] is the initial states for the probabilities and sensitivities for the i-th reaction.\
+                            init_state[i,:] is the initial state for the probabilities and sensitivities for the i-th reaction.\
                             The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
                             if :math:`n = 2`, else :math:`2(Cr+1)`.\
                             It can also be found in attribute `n_states`.
@@ -242,7 +243,7 @@ class SensitivitiesDerivation:
         Returns:
             - (Tuple[np.ndarray[float]]): The first element is marginal probability vector for the species of interest at each time, \
                 of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. The second element is the marginal sensitivities of probability mass \
-                function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, n_{params})`.
+                function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
         """        
         marginal_probs = np.zeros((len(time_samples), self.cr+1))
         marginal_sensitivities = np.zeros((len(time_samples), self.cr+1, len(params)))

@@ -42,7 +42,7 @@ def plot_model(to_pred: torch.tensor,
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method.
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. :math:`c_r`: Integer such that the projection of :math:`(0, .., 0, c_r)` is the last element of the projected truncated space.
+                4. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
                 6. **ind_species** (int): Index of the species of interest.
         - **plot** (Tuple[str, int], optional): The first argument is either 'probabilities' to plot a probability distribution, or 'sensitivities' 
@@ -137,7 +137,7 @@ def multiple_plots(to_pred: list[torch.tensor],
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method.
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. :math:`c_r`: Value such that the projection of :math:`(0, .., 0, c_r)` is the last element of the projected truncated space.
+                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 6. **ind_species** (int): Index of the species of interest.
         - **plot** (Tuple[str, int], optional): The first argument is either 'probabilities' to plot a probability distribution, or 'sensitivities' 
@@ -149,7 +149,7 @@ def multiple_plots(to_pred: list[torch.tensor],
     """          
     n = len(to_pred)
     if n == 1:
-            plot_model(to_pred[0], models, n_comps, up_bound, index_names, plot_test_result, plot_exact_result, plot_fsp_result, plot, save, crn_name)
+            plot_model(to_pred[0], models, up_bound, n_comps, index_names, plot_test_result, plot_exact_result, plot_fsp_result, plot, save)
     else:
         _, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(12,12))
         # in case there is only one row
@@ -247,7 +247,7 @@ def fi_table(time_samples: list[float],
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method.
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. :math:`c_r`: Value such that the projection of :math:`(0, .., 0, c_r)` is the last element of the projected truncated space.
+                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 6. **ind_species** (int): Index of the species of interest.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
@@ -363,14 +363,14 @@ def fi_barplots(time_samples: list[float],
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method.
                 2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. :math:`c_r`: Value such that the projection of :math:`(0, .., 0, c_r)` is the last element of the projected truncated space.
+                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 6. **ind_species** (int): Index of the species of interest.
-        - **up_bound** (int, optional): Upper boundaru of the predicted distribution. Defaults to 200.
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
           The second argument is the name of the file in which to save the plot. Defaults to (False, None).
         - **colors** (list[str], optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
-        - **mean** (bool): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value.
+        - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """            
     n_rows = len(time_samples)
     preds=[]

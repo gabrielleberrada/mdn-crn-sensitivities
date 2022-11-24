@@ -6,11 +6,11 @@ class CRN:
     """Class to specify the CRN to work on.
 
     Args:
-        - **stoichiometric_mat** (np.ndarray[int]): Stoichiometry matrix. It has shape (N_species, N_reactions).
+        - **stoichiometric_mat** (np.ndarray[int]): Stoichiometry matrix. It has shape (N, N_reactions).
         - **propensities** (np.ndarray[Callable]): Propensity functions.
         - **n_params** (int): Number of parameters required to define the propensity functions.
-        - **exact** (bool, optional): If the exact distribution of the CRN is known. Defaults to False.
-        - **exact_distr** (Tuple[Callable], optional): The exact distribution function, when known. Defaults to None.
+        - **exact** (bool, optional): If True, the exact distribution of the CRN is known. Defaults to False.
+        - **exact_distr** (Tuple[Callable], optional): The exact probability mass function, when known. Defaults to None.
         - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of the mass function, when known. \
             Defaults to None.
     """    
@@ -37,13 +37,13 @@ class CRN:
             sampling_times: np.ndarray[float], 
             tf: float,
             method: str = 'SSA') -> Tuple[np.ndarray[float], np.ndarray[float]]: 
-        """Simulates the specified CRN with stochastic simulations.
+        """Simulates the specified CRN.
 
         Args:
             - **init_state** (np.ndarray[int]): Initial state of the CRN when starting the simulation.
-            - **params** (np.ndarray[float]): Parameters associated to the propensities.
+            - **params** (np.ndarray[float]): Parameters associated to the propensity functions.
             - **sampling_times** (np.ndarray[float]): Times to sample.
-            - :math:`t_f` (float): Time to end the simulations.
+            - :math:`t_f` (float): Time to end the simulation.
             - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
 
         Returns:
@@ -71,14 +71,14 @@ class CRN:
 
 class StochasticSimulation:
     """
-    Class to simulate a CRN using Stochastic Simulations.
+    Class to simulate a CRN.
     
     Args:
         - :math:`x_0` (np.ndarray[int]): Initial state.
         - :math:`t_f` (float): Final time.
         - **sampling_times** (list[float]): Times to sample.
         - **propensities** (np.ndarray[Callable]): Propensity functions.
-        - **n_species** (int): Number of species involved.
+        - **n_species** (int): :math:`N`, Number of species involved.
         - **n_reactions** (int): Number of reactions that can occur.
         - **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.     
     """    
