@@ -162,7 +162,7 @@ class SensitivitiesDerivation:
         bottom = sp.hstack((B, A))
         return sp.vstack((up, bottom))
 
-    def solve_ode(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, index: int, t_eval: list[float]):
+    def solve_ode(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, index: int, t_eval: list):
         """Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
 
         .. math::
@@ -181,7 +181,7 @@ class SensitivitiesDerivation:
             - :math:`t_f` (float): Final time.
             - **params** (np.ndarray): Parameters of the propensity functions.
             - **index** (int): Index of the occuring reaction.
-            - :math:`t_{eval}` (list[float]): Times to save the computed solution.
+            - :math:`t_{eval}` (list): Times to save the computed solution.
 
         Returns:
             - Bunch object as the output of the ``solve_ivp`` function applied to the set of linear ODEs.
@@ -193,22 +193,22 @@ class SensitivitiesDerivation:
 
 
     def get_sensitivities(self, 
-                        init_state: np.ndarray[int], 
+                        init_state: np.ndarray, 
                         t0: float, tf: float, 
-                        params: np.ndarray[float], 
-                        t_eval: list[float]) -> Tuple[np.ndarray]:
+                        params: np.ndarray, 
+                        t_eval: list) -> Tuple[np.ndarray]:
         """Computes probabilities and sensitivities with respect to each parameter of the CRN using the FSP method.
 
         Args:
-            - **init_state** (np.ndarray[int]): Array of shape :math:`(N_\\theta, 2N)` such that \
+            - **init_state** (np.ndarray): Array of shape :math:`(N_\\theta, 2N)` such that \
                             init_state[i,:] is the initial state for the probabilities and sensitivities of the i-th reaction.\
                             The shape of each initial state vector is the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
                             if :math:`n = 2`, else :math:`2(Cr+1)`.\
                             This value can also be found in attribute `n_states`.
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
-            - **params** (np.ndarray[float]): Parameters of the propensity functions.
-            - :math:`t_{eval}` (list[float]): Times to svae the computed solution.
+            - **params** (np.ndarray): Parameters of the propensity functions.
+            - :math:`t_{eval}` (list): Times to svae the computed solution.
 
         Returns:
             - The probability vector and sensitivities of probability mass functions matrix for each time point.
@@ -223,25 +223,25 @@ class SensitivitiesDerivation:
 
     def marginal(self, 
                 ind_species: int, 
-                init_state: np.ndarray[int], 
-                time_samples: list[float], 
-                params: np.ndarray[float], 
-                t0: float =0) -> Tuple[np.ndarray[float]]:
+                init_state: np.ndarray, 
+                time_samples: list, 
+                params: np.ndarray, 
+                t0: float =0) -> Tuple[np.ndarray]:
         """Computes marginal probabilities and marginal sensitivities of probability mass functions.
 
         Args:
             - **ind_species** (int): Index of the species of interest.
-            - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that \
+            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that \
                             init_state[i,:] is the initial state for the probabilities and sensitivities for the i-th reaction.\
                             The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
                             if :math:`n = 2`, else :math:`2(Cr+1)`.\
                             It can also be found in attribute `n_states`.
-            - **time_samples** (list[float]): Times to save the computed solution.
-            - **params** (np.ndarray[float]): Parameters of the propensity functions.
+            - **time_samples** (list): Times to save the computed solution.
+            - **params** (np.ndarray): Parameters of the propensity functions.
             - :math:`t_0` (float, optional): Initialization time. By default, 0.
 
         Returns:
-            - (Tuple[np.ndarray[float]]): The first element is marginal probability vector for the species of interest at each time, \
+            - (Tuple[np.ndarray]): The first element is marginal probability vector for the species of interest at each time, \
                 of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. The second element is the marginal sensitivities of probability mass \
                 function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
         """        
@@ -254,17 +254,17 @@ class SensitivitiesDerivation:
                 marginal_sensitivities[i, state[ind_species], :] += s[i, n, :]
         return marginal_probs, marginal_sensitivities
 
-    def marginals(self, ind_species: list[int], init_state: np.ndarray[int], time_samples: list[float], params: np.ndarray[float]):
+    def marginals(self, ind_species: list, init_state: np.ndarray, time_samples: list, params: np.ndarray):
         """Computes marginal distributions for multiple species.
 
         Args:
-            - **ind_species** (list[int]): List of index of the species of interest.
-            - **init_state** (np.ndarray[int]): Array of dimensions :math:`(N_\\theta, 2N)` such that 
+            - **ind_species** (list): List of index of the species of interest.
+            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that 
               init_state[i,:] is the initial states for the probabilities and sensitivities for the i-th reaction. 
               The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` 
               if :math:`n = 2`, else :math:`2(Cr+1)`. It can also be found in attribute `n_states`.
-            - **time_samples** (list[float]): Times to save the computed solution.
-            - **params** (np.ndarray[float]): Parameters of the propensity functions.
+            - **time_samples** (list): Times to save the computed solution.
+            - **params** (np.ndarray): Parameters of the propensity functions.
 
         Returns:
             - (dict): Each key of the dictionary is the index of one species. Its value is the marginal distribution as returned by \

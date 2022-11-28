@@ -5,26 +5,26 @@ from tqdm import tqdm
 from typing import Tuple, Callable
 
 def test_multiple_combs(testing_function: Callable,
-                        lrs: list[float], 
-                        max_rounds: list[int], 
-                        batchsizes: list[int], 
-                        n_hidden: list[int],
-                        early_stopping: Tuple[bool, list[int], list[float]],
-                        file_name: str) -> Tuple[np.ndarray, np.ndarray]:
+                        lrs: list, 
+                        max_rounds: list, 
+                        batchsizes: list, 
+                        n_hidden: list,
+                        early_stopping: Tuple[bool, list, list],
+                        file_name: str) -> Tuple[np.ndarray]:
     r"""Tests all combinations of the given hyperparameters.
 
     Args:
-        - **lrs** (list[float]): List of learning rates to try.
-        - **max_rounds** (list[int]): List of maximal number of training rounds to try.
-        - **batchsizes** (list[int]): List of batchsizes to try.
-        - **n_hidden** (list[int]): List of number of hidden layer neurons to try.
-        - **early_stopping** (Tuple[bool, list[int], list[float]]): 
+        - **lrs** (list): List of learning rates to try.
+        - **max_rounds** (list): List of maximal number of training rounds to try.
+        - **batchsizes** (list): List of batchsizes to try.
+        - **n_hidden** (list): List of number of hidden layer neurons to try.
+        - **early_stopping** (Tuple[bool, list, list]): 
         
             - (bool): If True, use the early stopping regularization. Defaults to False.            
-            - **patience** (list[int]): List of patience levels.
+            - **patience** (list): List of patience levels.
               At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that
               of the last :math:`n_p` epochs. Defaults to :math:`50`.
-            - **delta** (list[float]): List of tolerance thresholds. Training is stopped if the decrease between
+            - **delta** (list): List of tolerance thresholds. Training is stopped if the decrease between
               the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.
         - **file_name** (str): Name of the CSV file in which the results will be saved. Each line of the CSV file corresponds to
           one hyperparameter combination. The first 4 elements of each line are the chosen learning rate, number of iterations, 

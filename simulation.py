@@ -6,8 +6,8 @@ class CRN:
     """Class to specify the CRN to work on.
 
     Args:
-        - **stoichiometric_mat** (np.ndarray[int]): Stoichiometry matrix. It has shape (N, N_reactions).
-        - **propensities** (np.ndarray[Callable]): Propensity functions.
+        - **stoichiometric_mat** (np.ndarray): Stoichiometric matrix. It has shape (N, N_reactions).
+        - **propensities** (np.ndarray): Propensity functions.
         - **n_params** (int): Number of parameters required to define the propensity functions.
         - **exact** (bool, optional): If True, the exact distribution of the CRN is known. Defaults to False.
         - **exact_distr** (Tuple[Callable], optional): The exact probability mass function, when known. Defaults to None.
@@ -15,8 +15,8 @@ class CRN:
             Defaults to None.
     """    
     def __init__(self, 
-                stoichiometric_mat: np.ndarray[int], 
-                propensities: np.ndarray[Callable], 
+                stoichiometric_mat: np.ndarray, 
+                propensities: np.ndarray, 
                 n_params: int, 
                 exact: bool =False, 
                 exact_distr: Tuple[Callable] =None, 
@@ -32,25 +32,25 @@ class CRN:
             self.exact_sensitivities_prob = exact_sensitivities_prob
 
     def step(self, 
-            init_state: np.ndarray[int], 
-            params: np.ndarray[float], 
-            sampling_times: np.ndarray[float], 
+            init_state: np.ndarray, 
+            params: np.ndarray, 
+            sampling_times: np.ndarray, 
             tf: float,
-            method: str = 'SSA') -> Tuple[np.ndarray[float], np.ndarray[float]]: 
+            method: str = 'SSA') -> Tuple[np.ndarray]: 
         """Simulates the specified CRN.
 
         Args:
-            - **init_state** (np.ndarray[int]): Initial state of the CRN when starting the simulation.
-            - **params** (np.ndarray[float]): Parameters associated to the propensity functions.
-            - **sampling_times** (np.ndarray[float]): Times to sample.
+            - **init_state** (np.ndarray): Initial state of the CRN when starting the simulation.
+            - **params** (np.ndarray): Parameters associated to the propensity functions.
+            - **sampling_times** (np.ndarray): Times to sample.
             - :math:`t_f` (float): Time to end the simulation.
             - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
 
         Returns:
             Results of the Stochastic Simulations.
 
-            - **sampling_times** (np.ndarray[float]): Times to sample.
-            - **samples** (np.ndarray[float]): Samples at the sampling times.
+            - **sampling_times** (np.ndarray): Times to sample.
+            - **samples** (np.ndarray): Samples at the sampling times.
         """
         self.state = init_state
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
@@ -74,22 +74,22 @@ class StochasticSimulation:
     Class to simulate a CRN.
     
     Args:
-        - :math:`x_0` (np.ndarray[int]): Initial state.
+        - :math:`x_0` (np.ndarray): Initial state.
         - :math:`t_f` (float): Final time.
-        - **sampling_times** (list[float]): Times to sample.
-        - **propensities** (np.ndarray[Callable]): Propensity functions.
+        - **sampling_times** (list): Times to sample.
+        - **propensities** (np.ndarray): Propensity functions.
         - **n_species** (int): :math:`N`, Number of species involved.
         - **n_reactions** (int): Number of reactions that can occur.
-        - **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.     
+        - **stoich_mat** (np.ndarray): Stoichiometric matrix.     
     """    
     def __init__(self,
-                x0: np.ndarray[int], 
+                x0: np.ndarray, 
                 tf: float, 
-                sampling_times: list[float], 
-                propensities: np.ndarray[Callable], 
+                sampling_times: list, 
+                propensities: np.ndarray, 
                 n_species: int, 
                 n_reactions: int, 
-                stoich_mat: np.ndarray[int]):         
+                stoich_mat: np.ndarray):         
         self.final_time = tf
         self.n_species = n_species
         self.n_reactions = n_reactions
@@ -101,12 +101,12 @@ class StochasticSimulation:
         self.stoich_mat = stoich_mat
 
 
-    def SSA(self) -> Tuple[np.ndarray[float], np.ndarray[float]]:
+    def SSA(self) -> Tuple[np.ndarray]:
         """Computes the SSA.
 
         Returns:
-            - **sampling_times** (np.ndarray[float]): Times to sample.
-            - **samples** (np.ndarray[float]): Samples at the sampling times.
+            - **sampling_times** (np.ndarray): Times to sample.
+            - **samples** (np.ndarray): Samples at the sampling times.
         """        
         while True:
             eval_propensities = np.vectorize(lambda f, x: f(x), excluded=[1], otypes=[np.ndarray])

@@ -23,7 +23,7 @@ class NeuralNetwork(nn.Module):
                 n_params: int, 
                 n_hidden: int =128,
                 mixture: str ='NB',
-                print_info: bool=True):
+                print_info: bool =True):
         super(NeuralNetwork, self).__init__()
         self.mixture = mixture
         self.n_comps = n_comps
@@ -53,7 +53,7 @@ class NeuralNetwork(nn.Module):
         """Runs the forward function of the Mixture Density Network.
 
         Args:
-            - **input** (torch.tensor[float]): The input parameters to predict: :math:`[t, \theta_1, ..., \theta_M]`.
+            - **input** (torch.tensor): The input parameters to predict: :math:`[t, \theta_1, ..., \theta_M]`.
 
         Returns:
             - A tuple of three tensors.
@@ -82,15 +82,15 @@ class NeuralNetwork(nn.Module):
 
 # Negative Binomial mixtures
 
-def distr_pdf(params: Tuple,
+def distr_pdf(params: Tuple[torch.tensor],
         k: torch.tensor, 
         mixture: str,
-        eps:float =1e-5,
+        eps: float =1e-5,
         ) -> torch.tensor:
     """Computes the pdf of the components of the mixture.
 
     Args:
-        - **params** (Tuple): Parameters needed to define the probability distribution.
+        - **params** (Tuple[torch.tensor]): Parameters needed to define the probability distribution.
         - **k** (torch.tensor): Points at which to evaluate the pdf.
         - **mixture** (str): Name of the chosen distribution for the mixture.
         - **eps** (float, optional): Corrective term since a Negative Binomial cannot be evaluated at :math:`p=1.0`. \
@@ -385,7 +385,7 @@ def train_NN(model: NeuralNetwork,
             loss: Callable =loss_kldivergence,
             print_results: bool =True, 
             print_info: bool =True,
-            **kwargs) -> Tuple[list[float], list[float]]:
+            **kwargs) -> Tuple[list]:
     """Trains the Neural Network.
 
     Args:

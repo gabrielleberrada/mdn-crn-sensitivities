@@ -18,7 +18,7 @@ valid_data = [X_valid1, y_valid1]
 N_COMPS = 4
 MIXTURE = 'NB'
 
-def testing_function(lr, max_rounds, batchsize, n_hidden):
+def testing_function(lr: list, max_rounds: list, batchsize: list, n_hidden: list):
     return hyperparameters_test.test_comb(lr, 
                     max_rounds, 
                     batchsize,
@@ -30,7 +30,7 @@ def testing_function(lr, max_rounds, batchsize, n_hidden):
                     (False, None, None),
                     MIXTURE)
 
-def testing_function2(lr, max_rounds, batchsize, n_hidden, patience, delta):
+def testing_function2(lr: list, max_rounds: list, batchsize: list, n_hidden: list, patience: list, delta: list):
     return hyperparameters_test.test_comb(lr, 
                     max_rounds,
                     batchsize,

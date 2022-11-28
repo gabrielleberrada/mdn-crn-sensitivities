@@ -12,7 +12,7 @@ class CRN_Dataset:
 
     Args: 
         - **crn** (simulation.CRN): CRN to work on.
-        - **sampling_times** (list[float]): Times to sample.
+        - **sampling_times** (list): Times to sample.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. 
           Can also be defined when calling the ``generate_data`` function. Defaults to :math:`10^4`.
         - **ind_species** (int, optional): Index of the species of interest. 
@@ -21,7 +21,7 @@ class CRN_Dataset:
     """
     def __init__(self, 
             crn: simulation.CRN, 
-            sampling_times: list[float], 
+            sampling_times: list, 
             n_trajectories: int =10**4, 
             ind_species: int =0,
             method: str ='SSA'):     
@@ -35,12 +35,12 @@ class CRN_Dataset:
         self.method = method
 
 
-    def samples_probs(self, params: np.ndarray[float]) -> Tuple[list[float], int]:
+    def samples_probs(self, params: np.ndarray) -> Tuple[list, int]:
         r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the corresponding distribution 
         for the species indexed by **ind_species**.
 
         Args:
-            - **params** (np.ndarray[float]): Parameters associated to the propensity functions.
+            - **params** (np.ndarray): Parameters associated to the propensity functions.
 
         Returns:
             - **samples**: List of the distributions for the corresponding species at sampling times. 
@@ -68,11 +68,11 @@ class CRN_Dataset:
         # + 1 to count the time
         return samples, max_value + self.n_params + 1
 
-    def set_length(self, onedim_tab: np.ndarray[float], length: int) -> np.ndarray[float]:
+    def set_length(self, onedim_tab: np.ndarray, length: int) -> np.ndarray:
         """Adds enough zeros at the end of an array to adjust its length.
 
         Args:
-            - **onedim_tab** (np.ndarray[float]): Array to extend. In this case, 1D array.
+            - **onedim_tab** (np.ndarray): Array to extend. In this case, 1D array.
             - **length** (int): Expected length of array.
 
         Returns:
@@ -83,10 +83,10 @@ class CRN_Dataset:
     def generate_data(self, 
                     data_length: int, 
                     n_trajectories: int =10**4, 
-                    sobol_start: Union[float, list[float]] =0.,
-                    sobol_end: Union[float, list[float]] =2.,
+                    sobol_start: Union[float, list] =0.,
+                    sobol_end: Union[float, list] =2.,
                     ind_species: Union[int, np.ndarray] =0,
-                    initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray[float]]:
+                    initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray]:
         r"""Generates a dataset which can be used for training, validation or testing.
         Uses multiprocessing to run multiple simulations in parallel.
         Parameters are generated from the Sobol Sequence (Low Discrepancy Sequence).
@@ -95,8 +95,8 @@ class CRN_Dataset:
             - **data_length** (int): Length of the expected output data.
             - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute to estimate the distribution. 
               Defaults to :math:`10^4`.
-            - **sobol_start** (Union[float, list[float]], optional): Lower boundary of the parameters samples. Defaults to :math:`0`.
-            - **sobol_end** (Union[float, list[float]], optional): Upper boundary of the parameters samples. Defaults to :math:`2`.
+            - **sobol_start** (Union[float, list], optional): Lower boundary of the parameters samples. Defaults to :math:`0`.
+            - **sobol_end** (Union[float, list], optional): Upper boundary of the parameters samples. Defaults to :math:`2`.
             - **ind_species** (Union[int, np.ndarray], optional): Index of the species whose distribution is estimated. 
               Defaults to :math:`0`.
             - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None).

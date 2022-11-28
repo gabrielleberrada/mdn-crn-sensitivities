@@ -12,7 +12,7 @@ def test_comb(lr: float,
             n_comps: int, 
             early_stopping: Tuple[bool, int, float],
             mixture: str ='NB',
-            n_models: int =2) -> Tuple[list, list]:
+            n_models: int =2) -> Tuple[list]:
     """Trains a Mixture Density Network on the input data with the given combination of hyperparameters.
 
     Args:

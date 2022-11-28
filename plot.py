@@ -14,13 +14,13 @@ from typing import Callable, Tuple
 # Plot probability distributions or sensitivities of probabilities distributions
 
 def plot_model(to_pred: torch.tensor, 
-            models: list[neuralnetwork.NeuralNetwork], 
+            models: list, 
             up_bound: int,
             n_comps: int, 
             index_names: Tuple[str, str] =('Probabilities', r'Abundance of species $S$'), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, Tuple[int], int] = (False, np.zeros(1), [], 10, None, 0),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, Tuple[int], int] = (False, np.zeros(1), None, 10, None, 0),
             plot: Tuple[str, int] =('probabilities', None),
             save: Tuple[bool, str] =(False, None)):
     r"""Plots distributions estimated with various methods for a single set of time and parameters and for a specified CRN.
@@ -28,7 +28,7 @@ def plot_model(to_pred: torch.tensor,
     Args:
         - **to_pred** (torch.tensor): Time and parameters in the form requested by the MDN model: 
           :math:`[t, \theta_1, ..., \theta_M]`.
-        - **models** (list[neuralnetwork.NeuralNetwork]): Mixture Density Network models to compute.
+        - **models** (list): Mixture Density Network models to compute.
         - **up_bound** (int): Upper boundary of the predicted distribution.
         - **n_comps** (int): Number of components of the predicted mixture.
         - **index_names** (Tuple[str, str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
@@ -36,12 +36,12 @@ def plot_model(to_pred: torch.tensor,
           from the datasets for the chosen set of parameters. The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If the first argument is True, plots the exact results 
           for the chosen set of parameters. The second argument is the function that computes the exact results. Defaults to (False, None).        
-        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): If the first argument is True, 
-          plots the estimated results with the FSP method. Defaults to (False, np.zeros(1), [], 10, None).
+        - **plot_fsp** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray], optional): If the first argument is True, 
+          plots the estimated results with the FSP method. Defaults to (False, np.zeros(1), None, 10, None).
                 
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method.
-                2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
-                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
+                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
                 4. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
                 6. **ind_species** (int): Index of the species of interest.
@@ -107,23 +107,23 @@ def plot_model(to_pred: torch.tensor,
         plt.savefig(save[1])
     plt.show()
 
-def multiple_plots(to_pred: list[torch.tensor],
-            models: list[neuralnetwork.NeuralNetwork],
+def multiple_plots(to_pred: list,
+            models: list,
             up_bound: int,
             n_comps: int,
             index_names: Tuple[str] =('Probabilities', r'Abundance of species $S$'),
             plot_test_result: Tuple[bool, torch.tensor] =(False, None),
             plot_exact_result: Tuple[bool, Callable] =(False, None),
-            plot_fsp_result: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, Tuple[int], int] = (False, np.zeros(1), [], 10, None, 0),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, Tuple[int], int] = (False, np.zeros(1), None, 10, None, 0),
             plot: Tuple[str, int] =('probabilities', None),
             n_col: int =2,
             save: Tuple[bool, str] =(False, None)):
     r"""Plots distributions estimated with various methods for multiple sets of time and parameters and for a specified CRN.
 
     Args:
-        - **to_pred** (list[torch.tensor]): List of time and parameters in the form requested by the Mixture Density Network models:
+        - **to_pred** (list): List of time and parameters in the form requested by the Mixture Density Network models:
           :math:`[t, \theta_1, ..., \theta_M]`.
-        - **models** (list[neuralnetwork.NeuralNetwork]): Mixture Density Network models to compute.
+        - **models** (list): Mixture Density Network models to compute.
         - **up_bound** (int): Upper boundary of the predicted distributions.
         - **n_comps** (int): Number of components of the predicted mixture.
         - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
@@ -131,12 +131,12 @@ def multiple_plots(to_pred: list[torch.tensor],
           from the datasets for the chosen set of parameters. The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If the first argument is True, plots the exact results for the
           chosen set of parameters. The second argument is the function that computes the exact results. Defaults to (False, None).
-        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): If the first argument is True, 
-          plots the estimated results with the FSP method. Defaults to (False, np.zeros(1), [], 10, None).
+        - **plot_fsp** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray], optional): If the first argument is True, 
+          plots the estimated results with the FSP method. Defaults to (False, np.zeros(1), None, 10, None).
                 
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method.
-                2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
-                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
+                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
                 4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 6. **ind_species** (int): Index of the species of interest.
@@ -151,7 +151,7 @@ def multiple_plots(to_pred: list[torch.tensor],
     if n == 1:
             plot_model(to_pred[0], models, up_bound, n_comps, index_names, plot_test_result, plot_exact_result, plot_fsp_result, plot, save)
     else:
-        _, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(12,12))
+        _, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(3*n,3*n))
         # in case there is only one row
         axes = np.reshape(axes, (-1, n_col))
         for k, to_pred_ in enumerate(to_pred):
@@ -215,38 +215,38 @@ def multiple_plots(to_pred: list[torch.tensor],
 
 # Plot Fisher information table
 
-def fi_table(time_samples: list[float], 
-            params: list[float], 
+def fi_table(time_samples: list, 
+            params: list, 
             ind_param: int, 
-            models: Tuple[bool, list[neuralnetwork.NeuralNetwork], int] =(False, None, 3),
+            models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact: Tuple[bool, Callable] =(False, None), 
-            plot_fsp: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, Tuple[int], int] = (False, np.zeros(1), [], 10, None, 0),
+            plot_fsp: Tuple[bool, np.ndarray, np.ndarray, int, Tuple[int], int] = (False, np.zeros(1), None, 10, None, 0),
             up_bound: int =200,
             out_of_bounds_index: int =None,
-            save=(False, None)):
+            save: Tuple[bool, str] =(False, None)):
     r"""Plots a table of the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
-        - **time_samples** (list[float]): Times to sample.
-        - **params** (list[float]): Parameters of the propensity functions.
+        - **time_samples** (list): Times to sample.
+        - **params** (list): Parameters of the propensity functions.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
-        - **models** (Tuple[bool, list[neuralnetwork.NeuralNetwork], int], optional): Arguments to estimate the Fisher Information 
-          with MDN models. Defaults to (False, None, 3).
+        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
+          with MDN models. Defaults to (False, None, 4).
 
                 1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
-                2. **models_list** (list[neuralnetwork.NeuralNetwork]): List of MDN models from which to estimate the Fisher Information.
+                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
                 3. **n_comps** (int): Number of mixture components.
 
         - **plot_exact** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
                 
                 - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
                 - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
-        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): Arguments to estimate the Fisher Information 
-          with the FSP method. Defaults to (False, np.zeros(1), [], 10, None).
+        - **plot_fsp** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray], optional): Arguments to estimate the Fisher Information 
+          with the FSP method. Defaults to (False, np.zeros(1), None, 10, None, 0).
                 
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method.
-                2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
-                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
+                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
                 4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 6. **ind_species** (int): Index of the species of interest.
@@ -330,38 +330,38 @@ def fi_table(time_samples: list[float],
 
 # Plot Fisher information bars
 
-def fi_barplots(time_samples: list[float], 
-            params: list[float], 
+def fi_barplots(time_samples: list, 
+            params: list, 
             ind_param: int, 
-            models: Tuple[bool, list[neuralnetwork.NeuralNetwork], int] =(False, None, 3),
+            models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact: Tuple[bool, Callable] =(False, None), 
-            plot_fsp: Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, Tuple[int], int] = (False, np.zeros(1), [], 10, None, 0),
+            plot_fsp: Tuple[bool, np.ndarray, np.ndarray, int, Tuple[int], int] = (False, np.zeros(1), None, 10, None, 0),
             up_bound: int =200,
-            save=(False, None),
-            colors: list[str] =['blue', 'darkorange', 'forestgreen'],
+            save: Tuple[bool, str] =(False, None),
+            colors: list =['blue', 'darkorange', 'forestgreen'],
             mean: bool =True):
     """Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
-        - **time_samples** (list[float]): Times to sample.
-        - **params** (list[float]): Parameters of the propensity functions.
+        - **time_samples** (list): Times to sample.
+        - **params** (list): Parameters of the propensity functions.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
-        - **models** (Tuple[bool, list[neuralnetwork.NeuralNetwork], int], optional): Arguments to estimate the Fisher Information 
-          with MDN models. Defaults to (False, None, 3).
+        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
+          with MDN models. Defaults to (False, None, 4).
 
                 1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
-                2. **models_list** (list[neuralnetwork.NeuralNetwork]): List of MDN models from which to estimate the Fisher Information.
+                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
                 3. **n_comps** (int): Number of mixture components.
 
         - **plot_exact** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
                 
                 - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
                 - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
-        - **plot_fsp** (Tuple[bool, np.ndarray[int], np.ndarray[Callable], int, np.ndarray[int]], optional): Arguments to estimate the Fisher Information 
-          with the FSP method. Defaults to (False, np.zeros(1), [], 10, None).
+        - **plot_fsp** (Tuple[bool, np.ndarray, np.ndarray[Callable], int, np.ndarray], optional): Arguments to estimate the Fisher Information 
+          with the FSP method. Defaults to (False, np.zeros(1), None, 10, None).
                 
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method.
-                2. **stoich_mat** (np.ndarray[int]): Stoichiometry matrix.
+                2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
                 4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
@@ -369,7 +369,7 @@ def fi_barplots(time_samples: list[float],
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
           The second argument is the name of the file in which to save the plot. Defaults to (False, None).
-        - **colors** (list[str], optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
+        - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
         - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """            
     n_rows = len(time_samples)
