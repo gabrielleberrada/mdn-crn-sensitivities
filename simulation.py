@@ -14,18 +14,26 @@ class CRN:
         - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of the mass function, when known. \
             Defaults to None.
     """    
-    def __init__(self, 
+    def __init__(self,
                 stoichiometric_mat: np.ndarray, 
                 propensities: np.ndarray, 
-                n_params: int, 
+                n_params: int,
+                init_state: np.ndarray,
+                n_control_params: int =0,
                 exact: bool =False, 
                 exact_distr: Tuple[Callable] =None, 
-                exact_sensitivities_prob: Tuple[Callable] =None):       
+                exact_sensitivities_prob: Tuple[Callable] =None):   
         # stoichiometric_mat has shape (n_species, n_reactions)
         self.stoichiometric_mat = stoichiometric_mat
-        self.n_species, self.n_reactions = np.shape(stoichiometric_mat)
+        self.n_species, self.n_reactions = np.shape(stoichiometric_mat) # total number of reactions, including those whose parameters change
+        self.sampling_times = np.empty(0)
+        self.sampling_states = np.empty((0, self.n_species))
+        self.init_state = init_state
+        self.time = 0
+        self.current_state = self.init_state.copy()
         self.propensities = propensities
         self.n_params = n_params
+        self.n_control_params = n_control_params
         self.exact = exact
         if exact:
             self.exact_distr = exact_distr
@@ -35,6 +43,7 @@ class CRN:
             init_state: np.ndarray, 
             params: np.ndarray, 
             sampling_times: np.ndarray, 
+            t0: float,
             tf: float,
             method: str = 'SSA') -> Tuple[np.ndarray]: 
         """Simulates the specified CRN.
@@ -52,20 +61,40 @@ class CRN:
             - **sampling_times** (np.ndarray): Times to sample.
             - **samples** (np.ndarray): Samples at the sampling times.
         """
-        self.state = init_state
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
         lambdas = set_parameters(self.propensities, params)
-        simulations = StochasticSimulation(init_state, 
-                                            tf, 
-                                            sampling_times, 
-                                            lambdas, 
-                                            self.n_species, 
-                                            self.n_reactions, 
-                                            self.stoichiometric_mat)
+        simulations = StochasticSimulation(x0=init_state, 
+                                            t0=t0,
+                                            tf=tf, 
+                                            sampling_times=sampling_times, 
+                                            propensities=lambdas, 
+                                            n_species=self.n_species, 
+                                            n_reactions=self.n_reactions, 
+                                            stoich_mat=self.stoichiometric_mat)
         if method == 'SSA':
-            return simulations.SSA()
+            samples = simulations.SSA()
         else:
-            return simulations.mNRM()
+            samples = simulations.mNRM()
+        self.sampling_times = np.concatenate((self.sampling_times, sampling_times))
+        self.sampling_states = np.concatenate((self.sampling_states, samples))
+        self.current_state = simulations.current_state
+        self.time = tf
+
+    def simulation(self, sampling_times, time_slots, parameters, method):
+        # time_slots [t1, ..., tf] with t0 = 0
+        for i, t in enumerate(time_slots):
+            self.step(init_state=self.current_state, 
+                    params=parameters[i,:], 
+                    sampling_times=sampling_times[(sampling_times > self.time) & (sampling_times <= t)],
+                    t0=self.time,
+                    tf=t,
+                    method=method)
+
+    def reset(self):
+        self.time = 0
+        self.current_state = self.init_state.copy()
+        self.sampling_times = np.empty(0)                   
+        self.sampling_states = np.empty((0, self.n_species))
 
 
 
@@ -83,17 +112,18 @@ class StochasticSimulation:
         - **stoich_mat** (np.ndarray): Stoichiometric matrix.     
     """    
     def __init__(self,
-                x0: np.ndarray, 
+                x0: np.ndarray,
+                t0: float, 
                 tf: float, 
                 sampling_times: list, 
                 propensities: np.ndarray, 
                 n_species: int, 
                 n_reactions: int, 
-                stoich_mat: np.ndarray):         
+                stoich_mat: np.ndarray):
         self.final_time = tf
         self.n_species = n_species
         self.n_reactions = n_reactions
-        self.time = 0
+        self.time = t0
         self.samples = []
         self.sampling_times = sampling_times
         self.current_state = x0
@@ -115,7 +145,7 @@ class StochasticSimulation:
             probabilities = np.cumsum(lambdas) / lambda0
             delta = np.random.exponential(1/lambda0)
             self.time += delta
-            if (self.time > self.sampling_times[-1]) or (self.time > self.final_time):
+            if self.time > self.final_time:
                 # last samples
                 for _ in range(len(self.sampling_times) - len(self.samples)):
                     self.samples.append(list(self.current_state))
@@ -130,9 +160,11 @@ class StochasticSimulation:
                 self.samples.append(list(self.current_state))
             # updating state
             self.current_state += self.stoich_mat[:, ind_reaction]
-        return self.sampling_times, self.samples
+        return np.array(self.samples)
 
     def mNRM(self):
         """Computes the mNRM.
         """
         pass
+
+

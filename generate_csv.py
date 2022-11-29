@@ -2,14 +2,16 @@ import simulation
 import generate_data
 import convert_csv
 import numpy as np
-from CRN5_isomeric_pd import propensities
+from CRN2_production_degradation import propensities_production_degradation as propensities
 from typing import Union, Tuple
 
 def generate_csv(crn_name: str,
                 datasets: dict,
                 n_params: int,
+                n_control_params: int,
                 stoich_mat: np.ndarray,
                 propensities: np.ndarray,
+                time_slots: list,
                 sampling_times: list,
                 ind_species: int,
                 n_trajectories: int,
@@ -35,14 +37,21 @@ def generate_csv(crn_name: str,
     """                         
     data_length = sum(datasets.values())
     n_times = len(sampling_times)
-    crn = simulation.CRN(stoichiometry_mat=stoich_mat, propensities=propensities, n_params=n_params)
-    dataset = generate_data.CRN_Dataset(crn=crn, sampling_times=sampling_times, ind_species=ind_species, method=method)
+    if initial_state[0]:
+        init_state = initial_state[1]
+    else:
+        init_state = np.zeros(np.shape(stoich_mat)[0], dtype=np.float32)
+    crn = simulation.CRN(stoich_mat, propensities, n_params, init_state, n_control_params)
+    dataset = generate_data.CRN_Dataset(crn=crn,
+                                        time_slots=time_slots,
+                                        sampling_times=sampling_times, 
+                                        ind_species=ind_species, 
+                                        method=method)
     X, y = dataset.generate_data(data_length=data_length, 
                                 n_trajectories=n_trajectories, 
                                 sobol_start=sobol_start, 
                                 sobol_end=sobol_end,
-                                ind_species=ind_species, 
-                                initial_state=initial_state)
+                                ind_species=ind_species)
     # writing CSV files
     somme = 0
     for key, value in datasets.items():
@@ -55,19 +64,21 @@ def generate_csv(crn_name: str,
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'CRN5'
+    CRN_NAME = 'CRN2_0'
     datasets = {'test': 16}
-    # datasets = {'train1': 5_094, 'train2': 5_095, 'train3': 5_095, 'valid1': 200, 'valid2': 200, 'valid3': 200, 'test': 502}
-    N_PARAMS = 6
+    # datasets = {'train1': 5_094, 'train2': 5_095, 'train3': 5_095, 'valid1': 200, 'valid2': 200, 'valid3': 200, 'test': 500}
+    N_PARAMS = 2
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
                 n_params=N_PARAMS,
-                stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
+                n_control_params=0,
+                stoich_mat=np.expand_dims(propensities.stoich_mat, axis=0), # shape (n_species, n_reactions)
                 propensities=propensities.propensities,
+                time_slots=np.array([7, 15, 20]), # cannot be empty for now, needs to include final time
                 sampling_times=np.array([5, 10, 15, 20]),
                 ind_species=propensities.ind_species,
                 n_trajectories=10**4,
-                sobol_start=np.array([0.]),
-                sobol_end=np.array([1., 1., 1., 0.5, 2., 0.5]),
+                sobol_start=np.array([0., 0.]),
+                sobol_end=np.array([2., 1.]),
                 initial_state=(True, list(propensities.init_state)))
 

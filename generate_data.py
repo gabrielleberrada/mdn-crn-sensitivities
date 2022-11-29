@@ -22,17 +22,22 @@ class CRN_Dataset:
     def __init__(self, 
             crn: simulation.CRN, 
             sampling_times: list, 
+            time_slots: list,
             n_trajectories: int =10**4, 
             ind_species: int =0,
             method: str ='SSA'):     
         self.crn = crn
         self.n_params = crn.n_params
+        self.n_control_params = crn.n_control_params
+        self.n_time_slots = len(time_slots)
+        self.total_n_params = self.n_params + self.n_time_slots*self.n_control_params
         self.n_species = crn.n_species
         self.sampling_times = sampling_times
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
-        self.initial_state = np.zeros(self.n_species)
+        self.initial_state = crn.init_state
         self.method = method
+        self.time_slots = time_slots
 
 
     def samples_probs(self, params: np.ndarray) -> Tuple[list, int]:
@@ -50,10 +55,12 @@ class CRN_Dataset:
         """
         res = []
         for i in range(self.n_trajectories):
-            _, samples = self.crn.step(self.initial_state.copy(),
-                                            params, 
-                                            self.sampling_times, self.sampling_times[-1], self.method)
-            res.append(samples)
+            self.crn.simulation(sampling_times=self.sampling_times, 
+                                time_slots=self.time_slots,
+                                parameters=params, 
+                                method=self.method)
+            res.append(self.crn.sampling_states)
+            self.crn.reset()
         res = np.array(res)
         max_value = int(np.max(res))
         # Counts of events for each species
@@ -63,10 +70,11 @@ class CRN_Dataset:
         # final output
         samples = []
         for i, t in enumerate(self.sampling_times):
-            sample = [t] + list(params) + list(distr[:, i, self.ind_species])
+            ind_time_slots = np.searchsorted(self.time_slots, t, side='left')
+            sample = [t] + list(params[0, :self.n_params]) + list(params[ind_time_slots, self.n_params:]) + list(distr[:, i, self.ind_species])
             samples.append(sample)
         # + 1 to count the time
-        return samples, max_value + self.n_params + 1
+        return samples, max_value + self.n_params + self.n_control_params + 1
 
     def set_length(self, onedim_tab: np.ndarray, length: int) -> np.ndarray:
         """Adds enough zeros at the end of an array to adjust its length.
@@ -83,10 +91,9 @@ class CRN_Dataset:
     def generate_data(self, 
                     data_length: int, 
                     n_trajectories: int =10**4, 
-                    sobol_start: Union[float, list] =0.,
-                    sobol_end: Union[float, list] =2.,
-                    ind_species: Union[int, np.ndarray] =0,
-                    initial_state: Tuple[bool, np.ndarray] =(False, None)) -> Tuple[np.ndarray]:
+                    sobol_start: np.ndarray =None,
+                    sobol_end: np.ndarray =None,
+                    ind_species: Union[int, np.ndarray] =0) -> Tuple[np.ndarray]:
         r"""Generates a dataset which can be used for training, validation or testing.
         Uses multiprocessing to run multiple simulations in parallel.
         Parameters are generated from the Sobol Sequence (Low Discrepancy Sequence).
@@ -106,25 +113,35 @@ class CRN_Dataset:
 
                 - Each entry of **X** is an input to the neural network of the form :math:`[t, \theta_1,..., \theta_M]`.
                 - The corresponding entry of **y** is the estimated probability distribution for these parameters.
-        """                    
+        """
+        if sobol_start is None:
+            sobol_start = np.zeros(self.n_params+self.n_control_params)
+        if sobol_end is None:
+            sobol_end = np.ones(self.n_params+self.n_control_params)
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
-        if initial_state[0]:
-            self.initial_state = initial_state[1]
-        else:
-            self.initial_state = np.zeros(self.n_species, dtype=np.float32)
-        n_params = self.crn.n_params
+        # n_params = self.crn.n_params
         start = time.time()
-        sobol = qmc.Sobol(n_params)
-        # generating parameters
+        # generating parameters theta_i
+        sobol_theta = qmc.Sobol(self.n_params)
         # sobol sequence requires a power of 2
         n_elts = 2**math.ceil(np.log2(data_length))
-        params = sobol.random(n_elts)*(sobol_end-sobol_start)+sobol_start # array of n_elts of parameters set, each set of length n_params
+        thetas = sobol_theta.random(n_elts)*(sobol_end[:self.n_params]-sobol_start[:self.n_params])+sobol_start[:self.n_params] # array of n_elts of parameters set, each set of length n_params
         # to avoid all zeros
-        params[np.count_nonzero(params, axis=1) == 0] = sobol.random()*(sobol_end-sobol_start)+sobol_start
+        thetas[np.count_nonzero(thetas, axis=1) == 0] = sobol_theta.random()*(sobol_end[:self.n_params]-sobol_start[:self.n_params])+sobol_start[:self.n_params]
+        theta = np.stack([thetas]*self.n_time_slots)
+        # generating parameters xi_i
+        xi = []
+        for _ in range(self.n_time_slots):
+            sobol_xi = qmc.Sobol(self.n_control_params)
+            xi_i = sobol_xi.random(n_elts)*(sobol_end[self.n_params:]-sobol_start[self.n_params:])+sobol_start[self.n_params:]
+            xi_i[np.count_nonzero(xi_i, axis=1)==0] = sobol_xi.random()*(sobol_end[self.n_params:]-sobol_start[self.n_params:])+sobol_start[self.n_params:]
+            xi.append(xi_i)
+        xi = np.array(xi) # shape (n_time_slots, n_elts, n_control_params)
+        params = np.concatenate((theta, xi), axis=-1).transpose([1, 0, 2]) # shape (n_time_slots, n_elts, total_n_params)
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            res = list(tqdm(executor.map(self.samples_probs, params), total=len(params), desc='Generating data ...'))
+            res = list(tqdm(executor.map(self.samples_probs, params), total=n_elts, desc='Generating data ...'))
         print('Simulations done.')
         distributions = []
         max_value = 0
@@ -137,8 +154,8 @@ class CRN_Dataset:
         distributions = list(map(lambda d: self.set_length(d, max_value + 1), distributions))
         distributions = np.array(distributions)
         # split 'distributions' into input data and output data
-        X = distributions[:, :1+n_params].copy()
-        y = distributions[:, 1+n_params:].copy()/n_trajectories
+        X = distributions[:, :1+self.n_params+self.n_control_params].copy()
+        y = distributions[:, 1+self.n_params+self.n_control_params:].copy()/n_trajectories
         end=time.time()
         print('Total time: ', end-start)
         return X, y
