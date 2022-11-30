@@ -88,13 +88,26 @@ class SensitivitiesDerivation:
     def __init__(self, crn: simulation.CRN, cr: int =4):     
         self.cr = cr
         self.crn = crn
-        self.n_params = crn.n_params
+        self.n_fixed_params = crn.n_fixed_params
+        self.n_control_params = crn.n_control_params
+        self.n_params = self.n_fixed_params + self.n_control_params
         self.n_reactions = crn.n_reactions
         self.n_species = crn.n_species
         self.bijection = StateSpaceEnumeration(cr, dim=self.n_species)
         self.bijection.create_bijection()
         self.entries = self.bijection.bijection.values()
         self.n_states = len(self.entries)
+        self.time = 0
+        init_state = np.zeros(2*self.n_states)
+        init_state[self.bijection.bijection.inverse[tuple(crn.init_state)]] = 1
+        self.init_state = init_state
+        self.current_state = self.init_state.copy()
+        self.samples = np.empty((0, self.n_species))
+
+    def reset(self):
+        self.time = 0
+        self.current_state = self.init_state.copy()
+        self.sampling_states = np.empty((0, self.n_species))
 
     def create_B(self, index: int) -> np.ndarray:
         r"""Computes the matrix :math:`B_i` for the **index**-th reaction as defined in :cite:`fox2019fspfim`.
@@ -107,7 +120,7 @@ class SensitivitiesDerivation:
         """
         d = self.bijection.bijection.inverse
         n = self.n_states
-        stoich_mat = self.crn.stoichiometric_mat[:,index]
+        stoich_mat = self.crn.stoichiometry_mat[:,index]
         propensity = self.crn.propensities[index]
         # might contain negative elements
         outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
@@ -162,17 +175,17 @@ class SensitivitiesDerivation:
         bottom = sp.hstack((B, A))
         return sp.vstack((up, bottom))
 
-    def solve_ode(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, index: int, t_eval: list):
-        """Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
+    def solve_ode(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, index: int, t_eval: list, with_stv: bool =True):
+        r"""Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
 
         .. math::
             \\frac{d}{dt}\\begin{pmatrix} p(t) \\\ S_i(t) \end{pmatrix} = \\begin{pmatrix} A & 0 \\\ B & A \\end{pmatrix}
             \\begin{pmatrix} p(t) \\\ S_i(t) \\end{pmatrix}
 
         Args:
-            - **init_state** (np.ndarray): Initial state for probabilities and sensitivities. \
-                    The length of the initial state must be 2 times the number of states, \
-                    which is stored in the attribute `n_states`.
+            - **init_state** (np.ndarray): Initial state for probabilities and sensitivities.
+              The length of the initial state must be 2 times the number of states, 
+              which is stored in the attribute `n_states`.
 
             .. math::
                 2\big(\\frac{Cr(Cr+3)}{2}+1\big) \\text{ if } n = 2 \\text{, else } 2(Cr+1)
@@ -182,19 +195,78 @@ class SensitivitiesDerivation:
             - **params** (np.ndarray): Parameters of the propensity functions.
             - **index** (int): Index of the occuring reaction.
             - :math:`t_{eval}` (list): Times to save the computed solution.
+            - **with_stv** (bool): If True, computes the corresponding sensitivities. If False, only solves the first part 
+              of the ODE to compute the probability mass function. Defaults to True.
 
         Returns:
             - Bunch object as the output of the ``solve_ivp`` function applied to the set of linear ODEs.
-        """        
-        constant = sp.csr_matrix(self.constant_matrix(params, index))
+              To access the probability and sensitivities distribution, use the key 'y'. The result has shape 
+              :math:`(n_{\text{states}}, N_t)` if `with_stv` is False, :math:`(2n_{\text{states}}n, N_t)`else, 
+              with :math:`N_t` is the number of sampling times.
+        """
+        if with_stv:        
+            constant = sp.csr_matrix(self.constant_matrix(params, index))
+            def f(t, x):
+                return constant.dot(x)
+            return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
+        A = sp.csr_matrix(self.create_A(params))
         def f(t, x):
-            return constant.dot(x)
+            return A.dot(x)
         return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
 
+    def solve_multiple_odes(self,
+                            sampling_times,
+                            time_windows,
+                            parameters,
+                            with_stv=True):
+        distributions = []
+        for i, t in enumerate(time_windows):
+            params = np.concatenate((parameters[i, :self.n_fixed_params], parameters[i, self.n_fixed_params:])) # faux i...
+            t_eval = sampling_times[(sampling_times > self.time) & (sampling_times <= t)]
+            added_t = None
+            if len(t_eval)==0 or t_eval[-1] != t:
+                # to get state at time t
+                t_eval = np.concatenate((t_eval, [t]))
+                added_t = -1
+            if with_stv and self.n_fixed_params:
+                distribution = []
+                # computes sensitivities for all fixed reactions
+                for ind_reaction in range(self.n_fixed_params):
+                    solution = self.solve_ode(init_state=self.current_state, 
+                                            t0=self.time,
+                                            tf=t, 
+                                            params=params,
+                                            index=ind_reaction,
+                                            t_eval=t_eval,
+                                            with_stv=True)['y']
+                    # probabilities
+                    if ind_reaction == 0:
+                        distribution.append(solution[:self.n_states, :added_t])
+                    # sensitivities
+                    distribution.append(solution[self.n_states:, :added_t])
+                # probabilities
+                distribution = np.stack(distribution, axis=-1) # (n_states, N_t, M+1)
+                distributions.append(distribution)
+            else:
+                solution = self.solve_ode(init_state=self.current_state[:self.n_states], 
+                                        t0=self.time,
+                                        tf=t, 
+                                        params=params,
+                                        index=0,
+                                        t_eval=t_eval,
+                                        with_stv=False)['y'] 
+                distributions.append(solution[:, :added_t])
+            self.current_state = solution[:,-1]
+            self.time = t
+        # shape (n_states, N_t) or (n_states, N_t, M+1)
+        return np.concatenate(distributions, axis=1)
+            
+            
 
     def get_sensitivities(self, 
                         init_state: np.ndarray, 
-                        t0: float, tf: float, 
+                        t0: float, 
+                        tf: float, 
                         params: np.ndarray, 
                         t_eval: list) -> Tuple[np.ndarray]:
         """Computes probabilities and sensitivities with respect to each parameter of the CRN using the FSP method.

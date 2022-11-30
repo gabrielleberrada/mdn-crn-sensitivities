@@ -3,36 +3,42 @@ import generate_data
 import convert_csv
 import numpy as np
 from CRN2_production_degradation import propensities_production_degradation as propensities
-from typing import Union, Tuple
+from typing import Tuple
 
 def generate_csv(crn_name: str,
                 datasets: dict,
-                n_params: int,
+                n_fixed_params: int,
                 n_control_params: int,
                 stoich_mat: np.ndarray,
                 propensities: np.ndarray,
-                time_slots: list,
-                sampling_times: list,
+                time_windows: np.ndarray,
+                sampling_times: np.ndarray,
                 ind_species: int,
                 n_trajectories: int,
-                sobol_start: Union[float, np.ndarray],
-                sobol_end: Union[float, np.ndarray],
+                sobol_start: np.ndarray,
+                sobol_end: np.ndarray,
                 initial_state: Tuple[bool, np.ndarray] =(False, None),
                 method: str ='SSA'):
-    """Generates datasets from Stochastic Simulations and save them in CSV files.
+    r"""Generates datasets from Stochastic Simulations and saves them in CSV files.
 
     Args:
         - **crn_name** (str): Name of the CRN to use for the filenames.
         - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
-        - **n_params** (int): Number of parameters for this CRN.
+        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. Their values vary \
+          from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterized propensity functions.
-        - **sampling_times** (list): Sampling times.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **sampling_times** (np.ndarray): Sampling times.
         - **ind_species** (int): Index of the species to study.
         - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
-        - **sobol_start** (Union[float, np.ndarray]): Lower boundary of the parameters samples.
-        - **sobol_end** (Union[float, np.ndarray]): Upper boundary of the parameters samples.
-        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None).
+        - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params})`.
+        - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
+          sets the initial state to :math:`0` for all species.
         - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
     """                         
     data_length = sum(datasets.values())
@@ -41,9 +47,13 @@ def generate_csv(crn_name: str,
         init_state = initial_state[1]
     else:
         init_state = np.zeros(np.shape(stoich_mat)[0], dtype=np.float32)
-    crn = simulation.CRN(stoich_mat, propensities, n_params, init_state, n_control_params)
+    crn = simulation.CRN(stoichiometry_mat=stoich_mat,
+                        propensities=propensities, 
+                        init_state=init_state,
+                        n_fixed_params=n_fixed_params, 
+                        n_control_params=n_control_params)
     dataset = generate_data.CRN_Dataset(crn=crn,
-                                        time_slots=time_slots,
+                                        time_windows=time_windows,
                                         sampling_times=sampling_times, 
                                         ind_species=ind_species, 
                                         method=method)
@@ -58,27 +68,26 @@ def generate_csv(crn_name: str,
         convert_csv.array_to_csv(X[n_times*somme:n_times*(somme+value),:], f'X_{crn_name}_{key}')
         convert_csv.array_to_csv(y[n_times*somme:n_times*(somme+value),:], f'y_{crn_name}_{key}')
         somme += value
-    print('done')
 
 
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'CRN2_0'
+    CRN_NAME = 'CRN2'
     datasets = {'test': 16}
     # datasets = {'train1': 5_094, 'train2': 5_095, 'train3': 5_095, 'valid1': 200, 'valid2': 200, 'valid3': 200, 'test': 500}
     N_PARAMS = 2
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
-                n_params=N_PARAMS,
-                n_control_params=0,
+                n_fixed_params=N_PARAMS-1,
+                n_control_params=1,
                 stoich_mat=np.expand_dims(propensities.stoich_mat, axis=0), # shape (n_species, n_reactions)
                 propensities=propensities.propensities,
-                time_slots=np.array([7, 15, 20]), # cannot be empty for now, needs to include final time
+                time_windows=np.array([5, 10, 15, 20]),
                 sampling_times=np.array([5, 10, 15, 20]),
                 ind_species=propensities.ind_species,
                 n_trajectories=10**4,
                 sobol_start=np.array([0., 0.]),
                 sobol_end=np.array([2., 1.]),
-                initial_state=(True, list(propensities.init_state)))
+                initial_state=(True, np.array(propensities.init_state, dtype=np.float32)))
 

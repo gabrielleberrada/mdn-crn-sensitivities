@@ -5,14 +5,17 @@ import time
 import concurrent.futures
 import simulation
 from tqdm import tqdm
-from typing import Tuple, Union
+from typing import Tuple
 
 class CRN_Dataset:
     r"""Class to build a dataset of probability distributions for a specified CRN.
 
     Args: 
         - **crn** (simulation.CRN): CRN to work on.
-        - **sampling_times** (list): Times to sample.
+        - **sampling_times** (np.ndarray): Times to sample.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. 
           Can also be defined when calling the ``generate_data`` function. Defaults to :math:`10^4`.
         - **ind_species** (int, optional): Index of the species of interest. 
@@ -21,42 +24,44 @@ class CRN_Dataset:
     """
     def __init__(self, 
             crn: simulation.CRN, 
-            sampling_times: list, 
-            time_slots: list,
+            sampling_times: np.ndarray, 
+            time_windows: np.ndarray,
             n_trajectories: int =10**4, 
             ind_species: int =0,
             method: str ='SSA'):     
         self.crn = crn
-        self.n_params = crn.n_params
+        self.n_fixed_params = crn.fixed_params
         self.n_control_params = crn.n_control_params
-        self.n_time_slots = len(time_slots)
-        self.total_n_params = self.n_params + self.n_time_slots*self.n_control_params
+        self.n_params = self.n_fixed_params + self.n_control_params
+        self.n_time_windows = len(time_windows)
+        # number of total parameters required to fully define the process
+        self.total_n_params = self.n_params + self.n_time_windows*self.n_control_params
         self.n_species = crn.n_species
         self.sampling_times = sampling_times
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
         self.initial_state = crn.init_state
         self.method = method
-        self.time_slots = time_slots
+        self.time_windows = time_windows
 
 
     def samples_probs(self, params: np.ndarray) -> Tuple[list, int]:
-        r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the corresponding distribution 
-        for the species indexed by **ind_species**.
+        r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the 
+        corresponding distribution for the species indexed by **ind_species**.
 
         Args:
-            - **params** (np.ndarray): Parameters associated to the propensity functions.
-
+            - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
+              (n_time_windows, n_params).
         Returns:
-            - **samples**: List of the distributions for the corresponding species at sampling times. 
-              This list begins with time and parameters: :math:`[t, \theta_1, ..., \theta_M, p_0(t,\theta), ...]`.
-            - **max_value**: Maximum value reached during simulations + number of parameters + 1 (for time). 
+            - **samples**: List of the distributions for the corresponding species at sampling times. This list begins with time and 
+              parameters: :math:`[t, \theta_1, ..., \theta_M, \xi_1^1, \xi_2^1, ..., \xi_{M'}^1, ..., \xi_{M'}^T, p_0(t,\theta), ...]`.
+            - **max_value**: Maximum value reached during simulations + number of total parameters + 1 (for time). 
               Used to standardize each data length to turn the data list into a tensor.
         """
         res = []
         for i in range(self.n_trajectories):
             self.crn.simulation(sampling_times=self.sampling_times, 
-                                time_slots=self.time_slots,
+                                time_windows=self.time_windows,
                                 parameters=params, 
                                 method=self.method)
             res.append(self.crn.sampling_states)
@@ -69,12 +74,15 @@ class CRN_Dataset:
             distr[i,:,:] = np.count_nonzero((res == i), axis=0)
         # final output
         samples = []
+        control_parameters = []
+        for i in range(self.n_time_windows):
+            control_parameters.append(params[i, self.n_fixed_params:])
+        control_parameters = list(np.concatenate(control_parameters))
         for i, t in enumerate(self.sampling_times):
-            ind_time_slots = np.searchsorted(self.time_slots, t, side='left')
-            sample = [t] + list(params[0, :self.n_params]) + list(params[ind_time_slots, self.n_params:]) + list(distr[:, i, self.ind_species])
+            sample = [t] + list(params[0, :self.n_fixed_params]) + control_parameters + list(distr[:, i, self.ind_species])
             samples.append(sample)
         # + 1 to count the time
-        return samples, max_value + self.n_params + self.n_control_params + 1
+        return samples, max_value + self.total_n_params + 1
 
     def set_length(self, onedim_tab: np.ndarray, length: int) -> np.ndarray:
         """Adds enough zeros at the end of an array to adjust its length.
@@ -90,55 +98,55 @@ class CRN_Dataset:
 
     def generate_data(self, 
                     data_length: int, 
-                    n_trajectories: int =10**4, 
                     sobol_start: np.ndarray =None,
                     sobol_end: np.ndarray =None,
-                    ind_species: Union[int, np.ndarray] =0) -> Tuple[np.ndarray]:
+                    n_trajectories: int =10**4, 
+                    ind_species: int =0) -> Tuple[np.ndarray]:
         r"""Generates a dataset which can be used for training, validation or testing.
         Uses multiprocessing to run multiple simulations in parallel.
         Parameters are generated from the Sobol Sequence (Low Discrepancy Sequence).
 
         Args:
             - **data_length** (int): Length of the expected output data.
+            - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+              If None, an array of zeros. Defaults to None.
+            - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+              If None, an array of ones. Defaults to None.
             - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute to estimate the distribution. 
               Defaults to :math:`10^4`.
-            - **sobol_start** (Union[float, list], optional): Lower boundary of the parameters samples. Defaults to :math:`0`.
-            - **sobol_end** (Union[float, list], optional): Upper boundary of the parameters samples. Defaults to :math:`2`.
-            - **ind_species** (Union[int, np.ndarray], optional): Index of the species whose distribution is estimated. 
+            - **ind_species** (int, optional): Index of the species whose distribution is estimated. 
               Defaults to :math:`0`.
-            - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None).
 
         Returns:
             - **(X, y)**:
 
-                - Each entry of **X** is an input to the neural network of the form :math:`[t, \theta_1,..., \theta_M]`.
+                - Each entry of **X** is an input to the neural network of the form :math:`[t, \theta_1,..., \theta_M, \xi_1^1, ..., \xi_{M'}^T]`.
                 - The corresponding entry of **y** is the estimated probability distribution for these parameters.
         """
         if sobol_start is None:
-            sobol_start = np.zeros(self.n_params+self.n_control_params)
+            sobol_start = np.zeros(self.n_params)
         if sobol_end is None:
-            sobol_end = np.ones(self.n_params+self.n_control_params)
+            sobol_end = np.ones(self.n_params)
         self.n_trajectories = n_trajectories
         self.ind_species = ind_species
-        # n_params = self.crn.n_params
         start = time.time()
         # generating parameters theta_i
-        sobol_theta = qmc.Sobol(self.n_params)
+        sobol_theta = qmc.Sobol(self.n_fixed_params)
         # sobol sequence requires a power of 2
         n_elts = 2**math.ceil(np.log2(data_length))
-        thetas = sobol_theta.random(n_elts)*(sobol_end[:self.n_params]-sobol_start[:self.n_params])+sobol_start[:self.n_params] # array of n_elts of parameters set, each set of length n_params
+        thetas = sobol_theta.random(n_elts)*(sobol_end[:self.n_fixed_params]-sobol_start[:self.n_fixed_params])+sobol_start[:self.n_fixed_params] 
         # to avoid all zeros
-        thetas[np.count_nonzero(thetas, axis=1) == 0] = sobol_theta.random()*(sobol_end[:self.n_params]-sobol_start[:self.n_params])+sobol_start[:self.n_params]
-        theta = np.stack([thetas]*self.n_time_slots)
+        thetas[np.count_nonzero(thetas, axis=1) == 0] = sobol_theta.random()*(sobol_end[:self.n_fixed_params]-sobol_start[:self.n_fixed_params])+sobol_start[:self.n_fixed_params]
+        theta = np.stack([thetas]*self.n_time_windows) # shape (n_time_windows, n_elts, n_fixed_params)
         # generating parameters xi_i
         xi = []
-        for _ in range(self.n_time_slots):
+        for _ in range(self.n_time_windows):
             sobol_xi = qmc.Sobol(self.n_control_params)
-            xi_i = sobol_xi.random(n_elts)*(sobol_end[self.n_params:]-sobol_start[self.n_params:])+sobol_start[self.n_params:]
-            xi_i[np.count_nonzero(xi_i, axis=1)==0] = sobol_xi.random()*(sobol_end[self.n_params:]-sobol_start[self.n_params:])+sobol_start[self.n_params:]
+            xi_i = sobol_xi.random(n_elts)*(sobol_end[self.n_fixed_params:]-sobol_start[self.n_fixed_params:])+sobol_start[self.n_fixed_params:]
+            xi_i[np.count_nonzero(xi_i, axis=1)==0] = sobol_xi.random()*(sobol_end[self.n_fixed_params:]-sobol_start[self.n_fixed_params:])+sobol_start[self.n_fixed_params:]
             xi.append(xi_i)
-        xi = np.array(xi) # shape (n_time_slots, n_elts, n_control_params)
-        params = np.concatenate((theta, xi), axis=-1).transpose([1, 0, 2]) # shape (n_time_slots, n_elts, total_n_params)
+        xi = np.array(xi) # shape (n_time_windows, n_elts, n_control_params)
+        params = np.concatenate((theta, xi), axis=-1).transpose([1, 0, 2]) # shape (n_elts, n_time_windows, n_params)
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
             res = list(tqdm(executor.map(self.samples_probs, params), total=n_elts, desc='Generating data ...'))
@@ -154,8 +162,9 @@ class CRN_Dataset:
         distributions = list(map(lambda d: self.set_length(d, max_value + 1), distributions))
         distributions = np.array(distributions)
         # split 'distributions' into input data and output data
-        X = distributions[:, :1+self.n_params+self.n_control_params].copy()
-        y = distributions[:, 1+self.n_params+self.n_control_params:].copy()/n_trajectories
+        # input data contains all the parameters used for the simulation, including the sets of parameters for each time window
+        X = distributions[:, :1+self.total_n_params].copy()
+        y = distributions[:, 1+self.total_n_params:].copy()/n_trajectories
         end=time.time()
         print('Total time: ', end-start)
         return X, y

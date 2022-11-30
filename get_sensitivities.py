@@ -26,12 +26,12 @@ def sensitivities(inputs: torch.tensor,
         return torch.squeeze(torch.autograd.functional.jacobian(f, inputs)), f(inputs).detach()
     return torch.squeeze(torch.autograd.functional.jacobian(f, inputs))
 
-def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output=142) -> torch.tensor:
-    """Computes the expected value of the sensitivities of probabilities with respect to the time and to the input parameters.
+def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output: int =200) -> torch.tensor:
+    """Computes the expected value of the sensitivities of mass functions with respect to the time and to the input parameters.
     Args:
-        - **input** (torch.tensor): Input data.
-        - **model** (neuralnetwork.NeuralNetwork): Model to use.
-        - **length_output** (int, optional): Length of the output. Defaults to 142.
+        - **inputs** (torch.tensor): Input data.
+        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
+        - **length_output** (int, optional): Length of the output. Defaults to :math:`200`.
     Returns:
         - A tensor whose elements are the expected value of the sensitivities of probabilities.
     """    

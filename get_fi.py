@@ -23,6 +23,32 @@ def fisher_information_t(probs: np.ndarray, sensitivities: np.ndarray) -> np.nda
         pS[l,:] = pl * sensitivities[l,:]
     return np.matmul(pS.T, sensitivities)
 
+# def fisher_information_t2(input: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output: int =200) -> np.ndarray:
+#     def f(input):
+#         output = torch.sqrt(get_sensitivities.probabilities(input, model, length_output))
+#         return 2*output[torch.nonzero(output)[:-1,0],:]
+#     root_stv = torch.autograd.functional.jacobian(f, input)[:, :, 1:]
+#     print(root_stv.dtype)
+#     # replaces nans with 0
+#     root_stv = torch.nan_to_num(root_stv).detach().numpy()
+#     root_stv2 = np.transpose(root_stv, [0, 2, 1])
+#     res = np.matmul(root_stv2, root_stv)
+#     return np.sum(res, axis=0)
+
+# def fisher_information_t3(input: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output: int =200) -> np.ndarray:
+#     res = torch.zeros((len(input)-1, len(input)-1))
+#     probs = get_sensitivities.probabilities(input, model, length_output)
+#     for x in range(length_output):
+#         def fx(params):
+#             output = torch.log(get_sensitivities.probabilities(params, model, length_output))
+#             return output[x, 0]
+#         print(fx(input))
+#         hessian = torch.autograd.functional.hessian(fx, input)[1:, 1:]
+#         print(hessian)
+#         res += hessian*probs[x, 0]
+#     return - res
+
+
 
 def fisher_information(ntime_samples: int, probs: np.ndarray, sensitivities:np.ndarray) -> np.ndarray:
     r"""Computes the Fisher Information Matrix at different time points.
