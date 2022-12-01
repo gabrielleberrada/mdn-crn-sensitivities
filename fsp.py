@@ -4,7 +4,8 @@ from scipy.integrate import solve_ivp
 from bidict import bidict
 import math
 import simulation
-from typing import Tuple
+from typing import Tuple, Union
+import collections.abc as abc
 
 class StateSpaceEnumeration:
     r"""State space enumeration as presented in :cite:`gupta2017projection`.
@@ -27,7 +28,7 @@ class StateSpaceEnumeration:
         # number of states included in the truncated state space
         self.n_states = self.ub - self.lb + 1
     
-    def phi(self, x: np.ndarray, n: int) -> int:
+    def phi(self, x: Union[Tuple, np.ndarray], n: int) -> int:
         r"""Recurrent function which computes the projection :math:`\Phi: \mathbb{N}^n \rightarrow \mathbb{N}` 
         as defined in :cite:`gupta2017projection`.
 
@@ -59,7 +60,7 @@ class StateSpaceEnumeration:
         if n < 2:
             return (z,)
         elif n == 2:
-            v = math.floor((math.sqrt(8*z+1)-1)/2)
+            v = np.floor((np.sqrt(8*z+1)-1)/2)
             x2 = z - v*(v+1)/2
             return int(v - x2), int(x2)
         else:
@@ -69,6 +70,8 @@ class StateSpaceEnumeration:
     
     def create_bijection(self):
         r"""Saves the bijection values in a dictionary.
+
+        A dictionary needs unhashable keys. For this reason, we use tuples instead of arrays.
         """        
         self.bijection[self.lb] = tuple(self.cl)
         self.bijection[self.ub] = tuple(self.cr)
@@ -98,8 +101,11 @@ class SensitivitiesDerivation:
         self.entries = self.bijection.bijection.values()
         self.n_states = len(self.entries)
         self.time = 0
-        init_state = np.zeros(2*self.n_states)
-        init_state[self.bijection.bijection.inverse[tuple(crn.init_state)]] = 1
+        # init_state has shape (n_states, M+1)
+        # first column corresponds to the probability distribution, 
+        # then the (i+1) column is the sensitivities with respect to the i-th parameter distribution 
+        init_state = np.zeros((self.n_states, self.n_fixed_params+1))
+        init_state[self.bijection.bijection.inverse[tuple(crn.init_state)], 0] = 1
         self.init_state = init_state
         self.current_state = self.init_state.copy()
         self.samples = np.empty((0, self.n_species))
@@ -137,7 +143,7 @@ class SensitivitiesDerivation:
         rows = rows[mask]
         columns = columns[mask]
         data = data[mask]
-        # according to the paper from Fox and Munsky
+        # according tox Fox and Munsky's paper
         B = sp.coo_matrix((data, (columns, rows)), shape=(n, n))
         B.setdiag(diags)
         B.eliminate_zeros()
@@ -175,24 +181,73 @@ class SensitivitiesDerivation:
         bottom = sp.hstack((B, A))
         return sp.vstack((up, bottom))
 
-    def solve_ode(self, init_state: np.ndarray, t0: float, tf: float, params: np.ndarray, index: int, t_eval: list, with_stv: bool =True):
+    def extended_constant_matrix(self, params: np.ndarray, index: Tuple[list, int]) -> np.ndarray:
+        r"""Computes an extension of the matrix **C** to solve the set of ODEs for multiple parameters at once.
+
+        Let us define :math:`mathcal{I}` the set of parameters indexes whose sensitivities to compute.
+        :math:`\mathcal{I} = \{ i_1, ..., i_N \}`
+
+        The constant matrix of the equation now is:
+
+        .. math::
+            \\begin{pmatrix} A & 0 && ... && 0 \\\ B_{i_1} & A && 0 ... & 0 \\\ B_{i_2} & 0 & A & 0 & ... & 0 
+            \\\ ... \\\ B_{i_N} & 0 && ... & 0 & A \\end{pmatrix}
+
+        Args:
+            - **params** (np.ndarray): Parameters of the propensity functions. Shape :math:`(n_{\text{params}})`.
+            - **index** (Tuple[list, int]): Index of the reactions occuring. If the index is a single integer value,
+              calls the `constant_matrix` method. If the index is a list of integer values, builds the constant matrix
+              as previously presented.
+            
+        Returns:
+            - The constant matrix of the equation **C** in the set of ODEs.
+        The set of linear ODEs to solve now is:
+
+        ..math::
+            \\frac{d}{dt}\\begin{pmatrix} p(t) \\\ S_{i_1}(t) \\\ ... \\\ S_{i_N} \\end{pmatrix} 
+            = \\begin{pmatrix} A & 0 && ... && 0 \\\ B_{i_1} & A && 0 ... & 0 \\\ B_{i_2} & 0 & A & 0 & ... & 0 
+            \\\ ... \\\ B_{i_N} & 0 && ... & 0 & A \\end{pmatrix}
+            \\begin{pmatrix} p(t) \\\ S_{i_1}(t) \\\ ... \\\ S_{i_N} \\end{pmatrix}
+        
+        """
+        if isinstance(index, abc.Hashable):
+            return self.constant_matrix(params, index)
+        n = len(index)
+        A = self.create_A(params)
+        empty = sp.coo_matrix(A.shape)
+        rows = [sp.hstack([A]+[empty]*n)]
+        for i, ind in enumerate(index):
+            B = self.create_B(ind)
+            row = sp.hstack([B] + [empty]*i + [A] + [empty]*(n-i-1))
+            rows.append(row)
+        return sp.vstack(rows)
+
+    def solve_ode(self, 
+                init_state: np.ndarray, 
+                t0: float, 
+                tf: float, 
+                params: np.ndarray, 
+                index: Tuple[int, list], 
+                t_eval: list, 
+                with_stv: bool =True):
         r"""Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
 
         .. math::
             \\frac{d}{dt}\\begin{pmatrix} p(t) \\\ S_i(t) \end{pmatrix} = \\begin{pmatrix} A & 0 \\\ B & A \\end{pmatrix}
             \\begin{pmatrix} p(t) \\\ S_i(t) \\end{pmatrix}
 
+        Where :math:`i` is a specified index.
+
         Args:
             - **init_state** (np.ndarray): Initial state for probabilities and sensitivities.
-              The length of the initial state must be 2 times the number of states, 
-              which is stored in the attribute `n_states`.
+              Shape (n_states*(n_fixed_params+1))
 
             .. math::
                 2\big(\\frac{Cr(Cr+3)}{2}+1\big) \\text{ if } n = 2 \\text{, else } 2(Cr+1)
 
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
-            - **params** (np.ndarray): Parameters of the propensity functions.
+            - **params** (np.ndarray): Parameters of the propensity functions. Shape (n_params).
             - **index** (int): Index of the occuring reaction.
             - :math:`t_{eval}` (list): Times to save the computed solution.
             - **with_stv** (bool): If True, computes the corresponding sensitivities. If False, only solves the first part 
@@ -204,8 +259,9 @@ class SensitivitiesDerivation:
               :math:`(n_{\text{states}}, N_t)` if `with_stv` is False, :math:`(2n_{\text{states}}n, N_t)`else, 
               with :math:`N_t` is the number of sampling times.
         """
-        if with_stv:        
-            constant = sp.csr_matrix(self.constant_matrix(params, index))
+        # init_state is a 1D vector
+        if with_stv:  
+            constant = sp.csr_matrix(self.extended_constant_matrix(params, index))
             def f(t, x):
                 return constant.dot(x)
             return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
@@ -214,119 +270,223 @@ class SensitivitiesDerivation:
             return A.dot(x)
         return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
 
+
     def solve_multiple_odes(self,
-                            sampling_times,
-                            time_windows,
-                            parameters,
-                            with_stv=True):
+                            sampling_times: np.ndarray,
+                            time_windows: np.ndarray,
+                            parameters: np.ndarray,
+                            index: Tuple[list, int] =None,
+                            with_stv: bool =True) -> np.ndarray:
+        """_summary_
+
+        Args:
+            - **sampling_times** (np.ndarray): Times to sample.
+            - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
+              Its form is :math:`[t_1, ..., t_T]`, such that the considered time windows are 
+              :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match with the final time 
+              :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+            - **parameters** (np.ndarray): Parameters of the propensity functions for each time window.
+              Has shape :math:`(n_time_windows, n_params)`.
+            - **index** (Tuple[list, int], optional): Index of the fixed parameters to work on. Can either be a
+              single integer value or a list of integer values. When None, computes the sensitivities for each 
+              fixed parameter. Defaults to None.
+            - **with_stv** (bool, optional): If True, computes the sensitivities of the mass function. 
+              If False, computes only the probability distribution. Defaults to True.
+
+        Returns:
+            - The probability and, if **with_stv** is True, the sensitivities distributions for each sampling time.
+              Has shape (n_states, n_time_samples, n_fixed_params+1) if **with_stv** is True and (n_states, n_time_samples, 1)
+              if **with_stv** is False.
+        """        
         distributions = []
         for i, t in enumerate(time_windows):
-            params = np.concatenate((parameters[i, :self.n_fixed_params], parameters[i, self.n_fixed_params:])) # faux i...
+            # parameters has shape (n_time_windows, n_params)
+            params = parameters[i, :]
             t_eval = sampling_times[(sampling_times > self.time) & (sampling_times <= t)]
             added_t = None
             if len(t_eval)==0 or t_eval[-1] != t:
-                # to get state at time t
+                # to get state at time t to update the current state
                 t_eval = np.concatenate((t_eval, [t]))
                 added_t = -1
-            if with_stv and self.n_fixed_params:
-                distribution = []
+            if with_stv:
+                if index is None:
+                    index = np.arange(self.n_fixed_params)
+                    # init_state = self.current_state.reshape(self.n_states*(self.n_fixed_params+1), order='F')
+                if isinstance(index, abc.Hashable):
+                    init_state = self.current_state[:, [0] + [index]].reshape(self.n_states*2, order='F')
+                else:
+                    init_state = self.current_state[:, np.concatenate(([0], index+1))].reshape(self.n_states*(len(index)+1), order='F')
                 # computes sensitivities for all fixed reactions
-                for ind_reaction in range(self.n_fixed_params):
-                    solution = self.solve_ode(init_state=self.current_state, 
-                                            t0=self.time,
-                                            tf=t, 
-                                            params=params,
-                                            index=ind_reaction,
-                                            t_eval=t_eval,
-                                            with_stv=True)['y']
-                    # probabilities
-                    if ind_reaction == 0:
-                        distribution.append(solution[:self.n_states, :added_t])
-                    # sensitivities
-                    distribution.append(solution[self.n_states:, :added_t])
-                # probabilities
-                distribution = np.stack(distribution, axis=-1) # (n_states, N_t, M+1)
-                distributions.append(distribution)
+                solution = self.solve_ode(init_state=init_state,
+                                        t0=self.time,
+                                        tf=t, 
+                                        params=params,
+                                        index=index,
+                                        t_eval=t_eval,
+                                        with_stv=True)['y']
+                # reshaping the array
+                if isinstance(index, abc.Hashable):
+                    index = np.array([index])
+                solution = solution.reshape((self.n_states, len(index)+1, len(t_eval)), order='F')
+                distributions.append(solution.transpose([0, 2, 1])[:,:added_t,:]) # shape (n_states, N_t, n_fixed_params+1)
+                # self.current_state[:, ]
+                self.current_state[:,np.concatenate(([0], index+1))] = solution[:,:,-1]
             else:
-                solution = self.solve_ode(init_state=self.current_state[:self.n_states], 
+                solution = self.solve_ode(init_state=self.current_state[:,0], 
                                         t0=self.time,
                                         tf=t, 
                                         params=params,
                                         index=0,
                                         t_eval=t_eval,
-                                        with_stv=False)['y'] 
-                distributions.append(solution[:, :added_t])
-            self.current_state = solution[:,-1]
+                                        with_stv=False)['y']
+                distributions.append(np.expand_dims(solution[:, :added_t], axis=-1))
+                self.current_state[:,0] = solution[:,-1]
             self.time = t
-        # shape (n_states, N_t) or (n_states, N_t, M+1)
-        return np.concatenate(distributions, axis=1)
-            
+        return np.concatenate(distributions, axis=1) # shape (n_states, N_t, 1) or (n_states, N_t, len(index)+1)
             
 
-    def get_sensitivities(self, 
-                        init_state: np.ndarray, 
-                        t0: float, 
-                        tf: float, 
-                        params: np.ndarray, 
-                        t_eval: list) -> Tuple[np.ndarray]:
-        """Computes probabilities and sensitivities with respect to each parameter of the CRN using the FSP method.
+    def solve_multiple_odes(self,
+                            sampling_times: np.ndarray,
+                            time_windows: np.ndarray,
+                            parameters: np.ndarray,
+                            index: Tuple[list, int] =None,
+                            with_stv: bool =True) -> np.ndarray:
+        """_summary_
 
         Args:
-            - **init_state** (np.ndarray): Array of shape :math:`(N_\\theta, 2N)` such that \
-                            init_state[i,:] is the initial state for the probabilities and sensitivities of the i-th reaction.\
-                            The shape of each initial state vector is the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
-                            if :math:`n = 2`, else :math:`2(Cr+1)`.\
-                            This value can also be found in attribute `n_states`.
-            - :math:`t_0` (float): Starting time.
-            - :math:`t_f` (float): Final time.
-            - **params** (np.ndarray): Parameters of the propensity functions.
-            - :math:`t_{eval}` (list): Times to svae the computed solution.
+            - **sampling_times** (np.ndarray): Times to sample.
+            - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
+              Its form is :math:`[t_1, ..., t_T]`, such that the considered time windows are 
+              :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match with the final time 
+              :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+            - **parameters** (np.ndarray): Parameters of the propensity functions for each time window.
+              Has shape :math:`(n_time_windows, n_params)`.
+            - **index** (Tuple[list, int], optional): Index of the fixed parameters to work on. Can either be a
+              single integer value or a list of integer values. When None, computes the sensitivities for each 
+              fixed parameter. Defaults to None.
+            - **with_stv** (bool, optional): If True, computes the sensitivities of the mass function. 
+              If False, computes only the probability distribution. Defaults to True.
 
         Returns:
-            - The probability vector and sensitivities of probability mass functions matrix for each time point.
-        """
-        sensitivities = []
-        for i in range(self.n_reactions):
-            solution = self.solve_ode(init_state[i,:], t0, tf, params, i, t_eval)['y']
-            sensitivities.append(solution[self.n_states:,:].T)
-        probs = solution[:self.n_states,:].T
-        return probs, np.stack(sensitivities, axis=-1)
+            - The probability and, if **with_stv** is True, the sensitivities distributions for each sampling time.
+              Has shape (n_states, n_time_samples, n_fixed_params+1) if **with_stv** is True and (n_states, n_time_samples, 1)
+              if **with_stv** is False.
+        """        
+        distributions = []
+        for i, t in enumerate(time_windows):
+            # parameters has shape (n_time_windows, n_params)
+            params = parameters[i, :]
+            t_eval = sampling_times[(sampling_times > self.time) & (sampling_times <= t)]
+            added_t = None
+            if len(t_eval)==0 or t_eval[-1] != t:
+                # to get state at time t to update the current state
+                t_eval = np.concatenate((t_eval, [t]))
+                added_t = -1
+            if with_stv:
+                if index is None:
+                    index = np.arange(self.n_fixed_params+1)
+                elif isinstance(index, abc.Hashable):
+                    index = np.array([0, index+1])
+                # computes sensitivities for all fixed reactions
+                solution = self.solve_ode(init_state=self.current_state.reshape(self.n_states*(self.n_fixed_params+1), order='F'),
+                                        t0=self.time,
+                                        tf=t, 
+                                        params=params,
+                                        index=np.arange(self.n_fixed_params),
+                                        t_eval=t_eval,
+                                        with_stv=True)['y']
+                # reshaping the array
+                solution = solution.reshape((self.n_states, self.n_fixed_params+1, len(t_eval)), order='F')
+                distributions.append(solution.transpose([0, 2, 1])[:,:added_t,index]) # shape (n_states, N_t, n_fixed_params+1)
+                self.current_state = solution[:,:,-1]
+            else:
+                solution = self.solve_ode(init_state=self.current_state[:,0], 
+                                        t0=self.time,
+                                        tf=t, 
+                                        params=params,
+                                        index=0,
+                                        t_eval=t_eval,
+                                        with_stv=False)['y']
+                distributions.append(np.expand_dims(solution[:, :added_t], axis=-1))
+                self.current_state[:,0] = solution[:,-1]
+            self.time = t
+        return np.concatenate(distributions, axis=1) # shape (n_states, N_t, 1) or (n_states, N_t, M+1)
+            
+    # def get_sensitivities(self, 
+    #                     init_state: np.ndarray, 
+    #                     t0: float, 
+    #                     tf: float, 
+    #                     params: np.ndarray, 
+    #                     t_eval: list,
+    #                     with_probs: bool =True) -> Tuple[np.ndarray]:
+    #     """Computes probabilities and sensitivities with respect to each parameter of the CRN using the FSP method.
+
+    #     Args:
+    #         - **init_state** (np.ndarray): Array of shape  (n_states, n_params+1) (:math:`(N_\\theta, 2N)`) such that \
+    #                         init_state[i,:] is the initial state for the probabilities and sensitivities of the i-th reaction.\
+    #                         The shape of each initial state vector is the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
+    #                         if :math:`n = 2`, else :math:`2(Cr+1)`.\
+    #                         This value can also be found in attribute `n_states`.
+    #         - :math:`t_0` (float): Starting time.
+    #         - :math:`t_f` (float): Final time.
+    #         - **params** (np.ndarray): Parameters of the propensity functions.
+    #         - :math:`t_{eval}` (list): Times to svae the computed solution.
+
+    #     Returns:
+    #         - The probability vector and sensitivities of probability mass functions matrix for each time point.
+    #     """
+    #     solution = self.solve_ode(init_state, t0, tf, params, np.arange(self.n_fixed_params), t_eval)['y']
+    #     solution = solution.reshape((self.n_states, self.n_fixed_params+1, len(t_eval)), order='F')
+    #     if with_probs:
+    #         return solution # shape (n_states, n_fixed_params+1, N_t)
+    #     else:
+    #         return solution[:,1:,:] # shape (n_states, n_fixed_params, N_t)
 
 
-    def marginal(self, 
-                ind_species: int, 
-                init_state: np.ndarray, 
-                time_samples: list, 
-                params: np.ndarray, 
-                t0: float =0) -> Tuple[np.ndarray]:
+    def marginal(self,  
+                sampling_times: np.ndarray, # to check
+                time_windows: np.ndarray,
+                parameters: np.ndarray, 
+                ind_species: int,
+                index: Tuple[list, int],
+                with_stv: bool =True,
+                ) -> Tuple[np.ndarray]:
         """Computes marginal probabilities and marginal sensitivities of probability mass functions.
 
         Args:
+            - **sampling_times** (np.ndarray): Times to sample.
+            - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+              such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+              with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
             - **ind_species** (int): Index of the species of interest.
-            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that \
-                            init_state[i,:] is the initial state for the probabilities and sensitivities for the i-th reaction.\
-                            The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
-                            if :math:`n = 2`, else :math:`2(Cr+1)`.\
-                            It can also be found in attribute `n_states`.
+            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that 
+              init_state[i,:] is the initial state for the probabilities and sensitivities for the i-th reaction. 
+              The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` 
+              if :math:`n = 2`, else :math:`2(Cr+1)`. It can also be found in attribute `n_states`.
             - **time_samples** (list): Times to save the computed solution.
             - **params** (np.ndarray): Parameters of the propensity functions.
             - :math:`t_0` (float, optional): Initialization time. By default, 0.
 
         Returns:
-            - (Tuple[np.ndarray]): The first element is marginal probability vector for the species of interest at each time, \
-                of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. The second element is the marginal sensitivities of probability mass \
-                function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
-        """        
-        marginal_probs = np.zeros((len(time_samples), self.cr+1))
-        marginal_sensitivities = np.zeros((len(time_samples), self.cr+1, len(params)))
-        probs, s = self.get_sensitivities(init_state, t0, time_samples[-1], params, t_eval=time_samples)
+            - (Tuple[np.ndarray]): The first element is marginal probability vector for the species of interest at each time, 
+              of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. The second element is the marginal sensitivities of probability mass 
+              function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
+        """
+        if with_stv:
+            if isinstance(index, abc.Hashable):
+                length = 1
+            else:
+                length = len(index)
+            marginal_distributions = np.zeros((self.cr+1, len(sampling_times), length+1))
+        else:
+            marginal_distributions = np.zeros((self.cr+1, len(sampling_times), 1))
+        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, index, with_stv)
         for n, state in self.bijection.bijection.items():
-            for i, _ in enumerate(time_samples):
-                marginal_probs[i, state[ind_species]] += probs[i, n]
-                marginal_sensitivities[i, state[ind_species], :] += s[i, n, :]
-        return marginal_probs, marginal_sensitivities
+            for i, _ in enumerate(sampling_times):
+                marginal_distributions[state[ind_species],i,:] += solution[n,i,:]
+        return marginal_distributions # shape (cr+1, N_t, 1) or (cr+1, N_t, M+1)
 
-    def marginals(self, ind_species: list, init_state: np.ndarray, time_samples: list, params: np.ndarray):
+    def marginals(self, sampling_times: np.ndarray, time_windows: np.ndarray, parameters: np.ndarray, ind_species: list, with_stv: bool =True):
         """Computes marginal distributions for multiple species.
 
         Args:
@@ -342,8 +502,7 @@ class SensitivitiesDerivation:
             - (dict): Each key of the dictionary is the index of one species. Its value is the marginal distribution as returned by \
                 the function ``marginal`` for this species.
         """        
-        marginal_probs = {}
-        marginal_stv = {}
+        marginal_distributions = {}
         for ind in ind_species:
-            marginal_probs[ind], marginal_stv[ind] = self.marginal(ind, init_state, time_samples, params)
-        return marginal_probs, marginal_stv
+            marginal_distributions[ind] = self.marginal(sampling_times, time_windows, parameters, ind, with_stv)
+        return marginal_distributions

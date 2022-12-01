@@ -30,7 +30,7 @@ class CRN_Dataset:
             ind_species: int =0,
             method: str ='SSA'):     
         self.crn = crn
-        self.n_fixed_params = crn.fixed_params
+        self.n_fixed_params = crn.n_fixed_params
         self.n_control_params = crn.n_control_params
         self.n_params = self.n_fixed_params + self.n_control_params
         self.n_time_windows = len(time_windows)
@@ -137,16 +137,16 @@ class CRN_Dataset:
         thetas = sobol_theta.random(n_elts)*(sobol_end[:self.n_fixed_params]-sobol_start[:self.n_fixed_params])+sobol_start[:self.n_fixed_params] 
         # to avoid all zeros
         thetas[np.count_nonzero(thetas, axis=1) == 0] = sobol_theta.random()*(sobol_end[:self.n_fixed_params]-sobol_start[:self.n_fixed_params])+sobol_start[:self.n_fixed_params]
-        theta = np.stack([thetas]*self.n_time_windows) # shape (n_time_windows, n_elts, n_fixed_params)
+        theta = np.stack([thetas]*self.n_time_windows, axis=1) # shape (n_elts, n_time_windows, n_fixed_params)
         # generating parameters xi_i
-        xi = []
-        for _ in range(self.n_time_windows):
-            sobol_xi = qmc.Sobol(self.n_control_params)
-            xi_i = sobol_xi.random(n_elts)*(sobol_end[self.n_fixed_params:]-sobol_start[self.n_fixed_params:])+sobol_start[self.n_fixed_params:]
-            xi_i[np.count_nonzero(xi_i, axis=1)==0] = sobol_xi.random()*(sobol_end[self.n_fixed_params:]-sobol_start[self.n_fixed_params:])+sobol_start[self.n_fixed_params:]
-            xi.append(xi_i)
-        xi = np.array(xi) # shape (n_time_windows, n_elts, n_control_params)
-        params = np.concatenate((theta, xi), axis=-1).transpose([1, 0, 2]) # shape (n_elts, n_time_windows, n_params)
+        sobol_xi = qmc.Sobol(self.n_control_params*self.n_time_windows)
+        xi = sobol_xi.random(n_elts)
+        # to avoid all zeros
+        xi[np.count_nonzero(xi, axis=1)==0] = sobol_xi.random()
+        xi = np.reshape(xi, (n_elts, self.n_time_windows, self.n_control_params)) # shape (n_elts, n_time_windows, n_control_params)
+        # rescaling
+        xi = xi*(sobol_end[self.n_fixed_params:] - sobol_start[self.n_fixed_params:])+sobol_start[self.n_fixed_params:]
+        params = np.concatenate((theta, xi), axis=-1) # shape (n_elts, n_time_windows, n_params)
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
             res = list(tqdm(executor.map(self.samples_probs, params), total=n_elts, desc='Generating data ...'))
