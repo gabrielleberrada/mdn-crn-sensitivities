@@ -411,36 +411,6 @@ class SensitivitiesDerivation:
                 self.current_state[:,0] = solution[:,-1]
             self.time = t
         return np.concatenate(distributions, axis=1) # shape (n_states, N_t, 1) or (n_states, N_t, M+1)
-            
-    # def get_sensitivities(self, 
-    #                     init_state: np.ndarray, 
-    #                     t0: float, 
-    #                     tf: float, 
-    #                     params: np.ndarray, 
-    #                     t_eval: list,
-    #                     with_probs: bool =True) -> Tuple[np.ndarray]:
-    #     """Computes probabilities and sensitivities with respect to each parameter of the CRN using the FSP method.
-
-    #     Args:
-    #         - **init_state** (np.ndarray): Array of shape  (n_states, n_params+1) (:math:`(N_\\theta, 2N)`) such that \
-    #                         init_state[i,:] is the initial state for the probabilities and sensitivities of the i-th reaction.\
-    #                         The shape of each initial state vector is the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` \
-    #                         if :math:`n = 2`, else :math:`2(Cr+1)`.\
-    #                         This value can also be found in attribute `n_states`.
-    #         - :math:`t_0` (float): Starting time.
-    #         - :math:`t_f` (float): Final time.
-    #         - **params** (np.ndarray): Parameters of the propensity functions.
-    #         - :math:`t_{eval}` (list): Times to svae the computed solution.
-
-    #     Returns:
-    #         - The probability vector and sensitivities of probability mass functions matrix for each time point.
-    #     """
-    #     solution = self.solve_ode(init_state, t0, tf, params, np.arange(self.n_fixed_params), t_eval)['y']
-    #     solution = solution.reshape((self.n_states, self.n_fixed_params+1, len(t_eval)), order='F')
-    #     if with_probs:
-    #         return solution # shape (n_states, n_fixed_params+1, N_t)
-    #     else:
-    #         return solution[:,1:,:] # shape (n_states, n_fixed_params, N_t)
 
 
     def marginal(self,  

@@ -16,7 +16,8 @@ from typing import Callable, Tuple
 def plot_model(to_pred: torch.tensor, 
             models: list, 
             up_bound: int,
-            n_comps: int, 
+            time_windows: np.ndarray,
+            n_comps: int,
             index_names: Tuple[str, str] =('Probabilities', r'Abundance of species $S$'), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
@@ -74,6 +75,7 @@ def plot_model(to_pred: torch.tensor,
         test_result['Model'] = 'SSA simulation'
         preds.append(test_result)
     if plot_fsp_result[0]:
+        n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[4],
@@ -81,11 +83,13 @@ def plot_model(to_pred: torch.tensor,
                             n_control_params=plot_fsp_result[7])
         stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
         # for now, time_window = [0, t], parameters has shape (n_params + 1)
-        parameters = to_pred[1:].numpy().reshape(1, stv_calculator.n_params)
+        fixed_parameters = np.stack([to_pred[1:plot_fsp_result[6]+1].numpy()]*n_time_windows)
+        control_parameters = to_pred[plot_fsp_result[6]+1:].numpy().reshape(n_time_windows, plot_fsp_result[7])
+        parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         if plot[0] == 'probabilities':
-            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), to_pred[:1].numpy(), parameters, plot_fsp_result[5], with_stv=False)[:,0,0]
+            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=None, with_stv=False)[:,0,0]
         if plot[0] == 'sensitivities':
-            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), to_pred[:1].numpy(), parameters, plot_fsp_result[5], with_stv=True)[:,0,1+plot[1]] 
+            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=plot[1], with_stv=True)[:,0,1] 
         length = min(up_bound, plot_fsp_result[3])
         fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
         fsp_result['Model'] = 'FSP estimation'
@@ -111,6 +115,7 @@ def plot_model(to_pred: torch.tensor,
 def multiple_plots(to_pred: list,
             models: list,
             up_bound: int,
+            time_windows: np.ndarray,
             n_comps: int,
             index_names: Tuple[str] =('Probabilities', r'Abundance of species $S$'),
             plot_test_result: Tuple[bool, torch.tensor] =(False, None),
@@ -178,18 +183,20 @@ def multiple_plots(to_pred: list,
                 test_result['Model'] = 'SSA simulation'
                 preds.append(test_result)
             if plot_fsp_result[0]:
+                n_time_windows = len(time_windows)
                 crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                                     propensities=plot_fsp_result[2], 
                                     init_state=plot_fsp_result[4],
                                     n_fixed_params=plot_fsp_result[6],
                                     n_control_params=plot_fsp_result[7])
                 stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
-                # for now, time_window = [0, t], parameters has shape (n_params + 1)
-                parameters = to_pred_[1:].numpy().reshape(1, stv_calculator.n_params)
+                fixed_parameters = np.stack([to_pred_[1:plot_fsp_result[6]+1].numpy()]*n_time_windows)
+                control_parameters = to_pred_[plot_fsp_result[6]+1:].numpy().reshape(n_time_windows, plot_fsp_result[7])
+                parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
                 if plot[0] == 'probabilities':
-                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), to_pred_[:1].numpy(), parameters, plot_fsp_result[5], with_stv=False)[:,0,0]
+                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=None, with_stv=False)[:,0,0]
                 if plot[0] == 'sensitivities':
-                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), to_pred_[:1].numpy(), parameters, plot_fsp_result[5], with_stv=True)[:,0,1+plot[1]] 
+                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=plot[1], with_stv=True)[:,0,1]
                 length = min(up_bound[k], plot_fsp_result[3])
                 fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
                 fsp_result['Model'] = 'FSP estimation'
@@ -198,7 +205,7 @@ def multiple_plots(to_pred: list,
                 parameters = []
                 for tens in to_pred_:
                     parameters.append(tens.numpy())
-                exact_result = pd.DataFrame([[plot_exact_result[1](k, parameters) for k in range(up_bound[k])], 
+                exact_result = pd.DataFrame([[plot_exact_result[1](j, parameters) for j in range(up_bound[k])], 
                                             np.arange(up_bound[k])], index = index_names).transpose()
                 exact_result['Model'] = 'exact result'
                 preds.append(exact_result)
@@ -219,6 +226,7 @@ def multiple_plots(to_pred: list,
 def fi_table(time_samples: np.ndarray, 
             params: np.ndarray, 
             ind_param: int, 
+            time_windows: np.ndarray,
             models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
@@ -280,15 +288,18 @@ def fi_table(time_samples: np.ndarray,
             predicted_fi[i] = fim_m[ind_param, ind_param]
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
+        n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
         stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
-        # for now, time_window = [0, t], parameters has shape (n_params + 1)
+        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+        parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         length = min(up_bound, plot_fsp_result[3])
-        results_fsp = stv_calculator.marginal(time_samples, time_samples[-1:], np.expand_dims(params, axis=0), plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
+        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
         for i in range(n_rows):
             fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i,1:])[0,0]
@@ -334,6 +345,7 @@ def fi_table(time_samples: np.ndarray,
 def fi_barplots(time_samples: np.ndarray, 
             params: np.ndarray, 
             ind_param: int, 
+            time_windows: np.ndarray,
             models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
@@ -407,15 +419,18 @@ def fi_barplots(time_samples: np.ndarray,
                 preds.append(pred)
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
+        n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
         stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
-        # for now, time_window = [0, t], parameters has shape (n_params + 1)
+        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+        parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         length = min(up_bound, plot_fsp_result[3])
-        results_fsp = stv_calculator.marginal(time_samples, time_samples[-1:], np.expand_dims(params, axis=0), plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
+        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
         for i in range(n_rows):
             fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i,1:])[0,0]

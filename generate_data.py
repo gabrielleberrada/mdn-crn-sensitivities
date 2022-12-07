@@ -35,7 +35,7 @@ class CRN_Dataset:
         self.n_params = self.n_fixed_params + self.n_control_params
         self.n_time_windows = len(time_windows)
         # number of total parameters required to fully define the process
-        self.total_n_params = self.n_params + self.n_time_windows*self.n_control_params
+        self.total_n_params = self.n_fixed_params + self.n_time_windows*self.n_control_params
         self.n_species = crn.n_species
         self.sampling_times = sampling_times
         self.n_trajectories = n_trajectories
@@ -145,7 +145,7 @@ class CRN_Dataset:
         xi[np.count_nonzero(xi, axis=1)==0] = sobol_xi.random()
         xi = np.reshape(xi, (n_elts, self.n_time_windows, self.n_control_params)) # shape (n_elts, n_time_windows, n_control_params)
         # rescaling
-        xi = xi*(sobol_end[self.n_fixed_params:] - sobol_start[self.n_fixed_params:])+sobol_start[self.n_fixed_params:]
+        xi = xi*(sobol_end[self.n_fixed_params:] - sobol_start[self.n_fixed_params:]) + sobol_start[self.n_fixed_params:]
         params = np.concatenate((theta, xi), axis=-1) # shape (n_elts, n_time_windows, n_params)
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
