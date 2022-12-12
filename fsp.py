@@ -2,9 +2,8 @@ import scipy.sparse as sp
 import numpy as np
 from scipy.integrate import solve_ivp
 from bidict import bidict
-import math
 import simulation
-from typing import Tuple, Union
+from typing import Tuple, Union, Callable
 import collections.abc as abc
 
 class StateSpaceEnumeration:
@@ -104,16 +103,13 @@ class SensitivitiesDerivation:
         # init_state has shape (n_states, M+1)
         # first column corresponds to the probability distribution, 
         # then the (i+1) column is the sensitivities with respect to the i-th parameter distribution 
-        init_state = np.zeros((self.n_states, self.n_fixed_params+1))
-        init_state[self.bijection.bijection.inverse[tuple(crn.init_state)], 0] = 1
-        self.init_state = init_state
+        self.init_state = np.zeros((self.n_states, self.n_fixed_params+1))
+        self.init_state[self.bijection.bijection.inverse[tuple(crn.init_state)], 0] = 1
         self.current_state = self.init_state.copy()
-        self.samples = np.empty((0, self.n_species))
 
     def reset(self):
         self.time = 0
         self.current_state = self.init_state.copy()
-        self.sampling_states = np.empty((0, self.n_species))
 
     def create_B(self, index: int) -> np.ndarray:
         r"""Computes the matrix :math:`B_i` for the **index**-th reaction as defined in :cite:`fox2019fspfim`.
@@ -271,10 +267,12 @@ class SensitivitiesDerivation:
         return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
 
 
+        
     def solve_multiple_odes(self,
                             sampling_times: np.ndarray,
                             time_windows: np.ndarray,
                             parameters: np.ndarray,
+                            control: bool =False,
                             index: Tuple[list, int] =None,
                             with_stv: bool =True) -> np.ndarray:
         """_summary_
@@ -309,81 +307,11 @@ class SensitivitiesDerivation:
                 t_eval = np.concatenate((t_eval, [t]))
                 added_t = -1
             if with_stv:
-                if index is None:
-                    index = np.arange(self.n_fixed_params)
-                    # init_state = self.current_state.reshape(self.n_states*(self.n_fixed_params+1), order='F')
-                if isinstance(index, abc.Hashable):
-                    init_state = self.current_state[:, [0] + [index]].reshape(self.n_states*2, order='F')
-                else:
-                    init_state = self.current_state[:, np.concatenate(([0], index+1))].reshape(self.n_states*(len(index)+1), order='F')
-                # computes sensitivities for all fixed reactions
-                solution = self.solve_ode(init_state=init_state,
-                                        t0=self.time,
-                                        tf=t, 
-                                        params=params,
-                                        index=index,
-                                        t_eval=t_eval,
-                                        with_stv=True)['y']
-                # reshaping the array
-                if isinstance(index, abc.Hashable):
-                    index = np.array([index])
-                solution = solution.reshape((self.n_states, len(index)+1, len(t_eval)), order='F')
-                distributions.append(solution.transpose([0, 2, 1])[:,:added_t,:]) # shape (n_states, N_t, n_fixed_params+1)
-                # self.current_state[:, ]
-                self.current_state[:,np.concatenate(([0], index+1))] = solution[:,:,-1]
-            else:
-                solution = self.solve_ode(init_state=self.current_state[:,0], 
-                                        t0=self.time,
-                                        tf=t, 
-                                        params=params,
-                                        index=0,
-                                        t_eval=t_eval,
-                                        with_stv=False)['y']
-                distributions.append(np.expand_dims(solution[:, :added_t], axis=-1))
-                self.current_state[:,0] = solution[:,-1]
-            self.time = t
-        return np.concatenate(distributions, axis=1) # shape (n_states, N_t, 1) or (n_states, N_t, len(index)+1)
-            
-
-    def solve_multiple_odes(self,
-                            sampling_times: np.ndarray,
-                            time_windows: np.ndarray,
-                            parameters: np.ndarray,
-                            index: Tuple[list, int] =None,
-                            with_stv: bool =True) -> np.ndarray:
-        """_summary_
-
-        Args:
-            - **sampling_times** (np.ndarray): Times to sample.
-            - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
-              Its form is :math:`[t_1, ..., t_T]`, such that the considered time windows are 
-              :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match with the final time 
-              :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
-            - **parameters** (np.ndarray): Parameters of the propensity functions for each time window.
-              Has shape :math:`(n_time_windows, n_params)`.
-            - **index** (Tuple[list, int], optional): Index of the fixed parameters to work on. Can either be a
-              single integer value or a list of integer values. When None, computes the sensitivities for each 
-              fixed parameter. Defaults to None.
-            - **with_stv** (bool, optional): If True, computes the sensitivities of the mass function. 
-              If False, computes only the probability distribution. Defaults to True.
-
-        Returns:
-            - The probability and, if **with_stv** is True, the sensitivities distributions for each sampling time.
-              Has shape (n_states, n_time_samples, n_fixed_params+1) if **with_stv** is True and (n_states, n_time_samples, 1)
-              if **with_stv** is False.
-        """        
-        distributions = []
-        for i, t in enumerate(time_windows):
-            # parameters has shape (n_time_windows, n_params)
-            params = parameters[i, :]
-            t_eval = sampling_times[(sampling_times > self.time) & (sampling_times <= t)]
-            added_t = None
-            if len(t_eval)==0 or t_eval[-1] != t:
-                # to get state at time t to update the current state
-                t_eval = np.concatenate((t_eval, [t]))
-                added_t = -1
-            if with_stv:
-                if index is None:
+                if control and index is None:
+                    index = np.arange(self.n_control_params+1)
+                elif control and isinstance(index, abc.Hashable):
+                    index = np.array([0, index+1])
+                elif index is None:
                     index = np.arange(self.n_fixed_params+1)
                 elif isinstance(index, abc.Hashable):
                     index = np.array([0, index+1])
@@ -414,12 +342,12 @@ class SensitivitiesDerivation:
 
 
     def marginal(self,  
-                sampling_times: np.ndarray, # to check
+                sampling_times: np.ndarray,
                 time_windows: np.ndarray,
                 parameters: np.ndarray, 
                 ind_species: int,
                 index: Tuple[list, int],
-                with_stv: bool =True,
+                with_stv: bool =True
                 ) -> Tuple[np.ndarray]:
         """Computes marginal probabilities and marginal sensitivities of probability mass functions.
 
@@ -428,22 +356,19 @@ class SensitivitiesDerivation:
             - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
               such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
               with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+            - **parameters** (np.ndarray): Parameters of the propensity functions.
             - **ind_species** (int): Index of the species of interest.
-            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that 
-              init_state[i,:] is the initial state for the probabilities and sensitivities for the i-th reaction. 
-              The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` 
-              if :math:`n = 2`, else :math:`2(Cr+1)`. It can also be found in attribute `n_states`.
-            - **time_samples** (list): Times to save the computed solution.
-            - **params** (np.ndarray): Parameters of the propensity functions.
-            - :math:`t_0` (float, optional): Initialization time. By default, 0.
-
+            - **with_stv** (bool, optional): If True, computes the sensitivities of the mass function. 
+              If False, computes only the probability distribution. Defaults to True.
         Returns:
             - (Tuple[np.ndarray]): The first element is marginal probability vector for the species of interest at each time, 
               of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1)`. The second element is the marginal sensitivities of probability mass 
               function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
         """
         if with_stv:
-            if isinstance(index, abc.Hashable):
+            if index is None:
+                length = parameters.shape[1]
+            elif isinstance(index, abc.Hashable):
                 length = 1
             else:
                 length = len(index)
@@ -460,19 +385,37 @@ class SensitivitiesDerivation:
         """Computes marginal distributions for multiple species.
 
         Args:
+            - **sampling_times** (np.ndarray): Times to save the computed solution.
+            - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+              such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+              with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+            - **parameters** (np.ndarray): Parameters of the propensity functions.
             - **ind_species** (list): List of index of the species of interest.
-            - **init_state** (np.ndarray): Array of dimensions :math:`(N_\\theta, 2N)` such that 
-              init_state[i,:] is the initial states for the probabilities and sensitivities for the i-th reaction. 
-              The length of each initial state vector must be the number of states: :math:`2(\\frac{Cr(Cr+3)}{2}+1)` 
-              if :math:`n = 2`, else :math:`2(Cr+1)`. It can also be found in attribute `n_states`.
-            - **time_samples** (list): Times to save the computed solution.
-            - **params** (np.ndarray): Parameters of the propensity functions.
+            - **with_stv** (bool, optional): If True, computes the sensitivities of the mass function. 
+              If False, only computes the probability distribution. Defaults to True.
 
         Returns:
             - (dict): Each key of the dictionary is the index of one species. Its value is the marginal distribution as returned by \
                 the function ``marginal`` for this species.
-        """        
+        """
         marginal_distributions = {}
         for ind in ind_species:
             marginal_distributions[ind] = self.marginal(sampling_times, time_windows, parameters, ind, with_stv)
         return marginal_distributions
+
+    def identity(self, x):
+        return x
+
+    def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, index, f: Callable =identity):
+        marginal_distributions = self.marginal(sampling_times=sampling_times, 
+                                            time_windows=time_windows, 
+                                            parameters=parameters, 
+                                            ind_species=ind_species, 
+                                            index=index, 
+                                            with_stv=True)
+        stv = marginal_distributions[:, :, 1:]
+        scalar = f(np.arange(self.cr+1))
+        return np.dot(scalar, stv)
+
+
+        

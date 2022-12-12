@@ -19,5 +19,5 @@ def lambda4(params, x):
 
 propensities = np.array([lambda1, lambda2, lambda3, lambda4])
 stoich_mat = np.array([[1., 0.], [-1., 0.], [0., 1.], [0., -1.]]).T
-init_state = (0,0)
+init_state = np.array([0, 0])
 ind_species = 1

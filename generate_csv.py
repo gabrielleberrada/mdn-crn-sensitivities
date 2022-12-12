@@ -2,7 +2,10 @@ import simulation
 import generate_data
 import convert_csv
 import numpy as np
-from CRN2_production_degradation import propensities_production_degradation as propensities
+# from CRN1_control import propensities_pure_production as propensities
+# from CRN3_control import propensities_explosive_production as propensities
+# from CRN2_control import propensities_production_degradation as propensities
+from CRN4_control import propensities_bursting_gene as propensities
 from typing import Tuple
 
 def generate_csv(crn_name: str,
@@ -73,21 +76,22 @@ def generate_csv(crn_name: str,
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'CRN2'
+    CRN_NAME = 'CRN4_control'
+    # datasets = {'train': 3_300, 'valid': 300, 'test': 496}
     datasets = {'test': 16}
-    # datasets = {'train1': 5_094, 'train2': 5_095, 'train3': 5_095, 'valid1': 200, 'valid2': 200, 'valid3': 200, 'test': 500}
-    N_PARAMS = 2
+    # datasets = {'train1': 2464, 'train2': 2464, 'train3': 2464, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
+    N_PARAMS = 4
     generate_csv(crn_name=CRN_NAME,
                 datasets=datasets,
                 n_fixed_params=N_PARAMS-1,
                 n_control_params=1,
-                stoich_mat=np.expand_dims(propensities.stoich_mat, axis=0), # shape (n_species, n_reactions)
+                stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
                 propensities=propensities.propensities,
                 time_windows=np.array([5, 10, 15, 20]),
                 sampling_times=np.array([5, 10, 15, 20]),
                 ind_species=propensities.ind_species,
                 n_trajectories=10**4,
-                sobol_start=np.array([0., 0.]),
-                sobol_end=np.array([2., 1.]),
-                initial_state=(True, np.array(propensities.init_state, dtype=np.float32)))
+                sobol_start=np.zeros(N_PARAMS),
+                sobol_end=np.array([1., 5., 1., 3.]),
+                initial_state=(True, propensities.init_state))
 

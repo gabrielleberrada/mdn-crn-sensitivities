@@ -1,6 +1,6 @@
 import torch
 import neuralnetwork
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable
 
 def probabilities(inputs: torch.tensor,
                 model: neuralnetwork.NeuralNetwork,
@@ -35,10 +35,47 @@ def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, lengt
     Returns:
         - A tensor whose elements are the expected value of the sensitivities of probabilities.
     """    
-    sensitivity = sensitivities(inputs, model, length_output)
-    expec = sensitivity.permute(1,0) * torch.arange(length_output)
+    stv = sensitivities(inputs, model, length_output)
+    expec = stv.permute(1,0) * torch.arange(length_output)
     return expec.sum(dim=1)
 
+def identity(x):
+    return x
+
+def extended_expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, f: Callable =identity, length_output: int =200) -> torch.tensor:
+    stv = sensitivities(inputs, model, length_output) # shape (length_output, n_params) (200, 6)
+    expec = stv.permute(1, 0) * f(torch.arange(length_output))
+    return expec.sum(dim=1)
+
+def expectation_gradient(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, f: Callable =identity, length_output: int =200) -> torch.tensor:
+    def expec(inputs):
+        probs = probabilities(inputs, model, length_output)[:,0]
+        return probs * f(torch.arange(length_output))
+    gradient =  torch.squeeze(torch.autograd.functional.jacobian(expec, inputs))
+    return gradient.sum(dim=0)
+
+
+if __name__ == '__main__':
+
+    from CRN3_control import propensities_explosive_production as propensities
+    import save_load_MDN
+    import convert_csv
+    import numpy as np
+    
+    model1 = save_load_MDN.load_MDN_model('CRN3_control/saved_models/CRN3_model1.pt')
+    model2 = save_load_MDN.load_MDN_model('CRN3_control/saved_models/CRN3_model2.pt')
+    model3 = save_load_MDN.load_MDN_model('CRN3_control/saved_models/CRN3_model3.pt')
+    X_test = convert_csv.csv_to_tensor(f'CRN3_control/data/X_CRN3_control_test.csv')
+    y_test = convert_csv.csv_to_tensor(f'CRN3_control/data/y_CRN3_control_test.csv')
+
+    def expect_theta(t, params, init_state=5):
+        theta = params[0]+params[1]
+        return t*init_state*(np.exp(t*theta) - init_state)
+
+    print('exact\n', expect_theta(X_test[1_000, 0].numpy(), X_test[1_000, 1:].numpy()))
+    print('expectation of gradient\n', expectation_gradient(X_test[1_000,:], model1))
+    print(expectation_gradient(X_test[1_000,:], model2))
+    print(expectation_gradient(X_test[1_000,:], model3))
 
 
 

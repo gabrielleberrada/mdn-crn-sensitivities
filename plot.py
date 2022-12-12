@@ -430,10 +430,21 @@ def fi_barplots(time_samples: np.ndarray,
         control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         length = min(up_bound, plot_fsp_result[3])
+        # sensitivities = []
+        # for i in range(crn.n_fixed_params):
+        #     res = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], i, with_stv=True)[:length,:,:]
+        #     sensitivities.append(res[:,:,1])
+        #     stv_calculator.reset()
+        # sensitivities = np.stack(sensitivities, axis=-1)
+        # probs_fsp = res[:,:,0]
         results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
+        # stv_calculator.reset()
+        # probs_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], 3, with_stv=True)[:length,:,0] #
         fsp_fi = np.zeros(n_rows)
         for i in range(n_rows):
             fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i,1:])[0,0]
+            # fsp_fi[i] = get_fi.fisher_information_t(probs_fsp[:,i], results_fsp[:,i])[0,0] #
+            # fsp_fi[i] = get_fi.fisher_information_t(probs_fsp[:,i], sensitivities[:,i,:])[ind_param,ind_param]
         pred = pd.DataFrame([np.round(fsp_fi, 3), time_samples], index = index_names).transpose()
         pred['Model'] = 'FSP estimation'
         preds.append(pred)
@@ -453,3 +464,26 @@ def fi_barplots(time_samples: np.ndarray,
     if save[0]:
         plt.savefig(save[1])
     plt.show()
+
+
+
+if __name__ == '__main__':
+
+    from CRN4_bursting_gene import propensities_bursting_gene as propensities
+    import save_load_MDN
+
+    N_COMPS = 4
+    NUM_PARAMS = 4
+
+    model1 = save_load_MDN.load_MDN_model('CRN4_bursting_gene/saved_models_long/CRN4_model1_long.pt')
+    model2 = save_load_MDN.load_MDN_model('CRN4_bursting_gene/saved_models_long/CRN4_model2_long.pt')
+    model3 = save_load_MDN.load_MDN_model('CRN4_bursting_gene/saved_models_long/CRN4_model3_long.pt')
+
+    fi_barplots(time_samples=np.array([5, 10, 15, 20, 30], dtype=np.float32), 
+                time_windows=np.array([30]),
+                params=np.array([0.6409, 2.0439, 0.2688, 0.0368], dtype=np.float32), 
+                ind_param=0,
+                up_bound=200,
+                models=(True, [model1, model2, model3], N_COMPS), 
+                plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 400, np.array(propensities.init_state, dtype=np.float32), 1, NUM_PARAMS, 0),
+                colors=['blue', 'darkorange', 'forestgreen'])
