@@ -83,32 +83,54 @@ class SensitivitiesDerivation:
     Based on :cite:`fox2019fspfim`.
     
     Args:
-        - **crn** (simulation.CRN): the CRN to study.
+        - **crn** (simulation.CRN): The CRN to study. 
+        - **n_time_windows** (int): Number of time windows.
+        - **index** (Tuple[list, int], optional): Index of the parameters to work on. Can either be a
+            single integer value or a list of integer values. If the parameter is controlled, considers parameters
+            for each time window. When None, computes the sensitivities for each parameter. Defaults to None.
         - :math:`C_r` (int, optional): value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. 
-          Defaults to :math:`4`.  
+          Defaults to :math:`4`. 
     """
-    def __init__(self, crn: simulation.CRN, cr: int =4):     
+    def __init__(self, crn: simulation.CRN, n_time_windows: int, index: Tuple[list, int], cr: int =4):     
         self.cr = cr
         self.crn = crn
         self.n_fixed_params = crn.n_fixed_params
         self.n_control_params = crn.n_control_params
         self.n_params = self.n_fixed_params + self.n_control_params
+        self.n_total_params = self.n_fixed_params + self.n_control_params*n_time_windows
+        self.n_time_windows = n_time_windows
         self.n_reactions = crn.n_reactions
         self.n_species = crn.n_species
         self.bijection = StateSpaceEnumeration(cr, dim=self.n_species)
         self.bijection.create_bijection()
         self.entries = self.bijection.bijection.values()
         self.n_states = len(self.entries)
+        # parameters index to consider
+        if index is None:
+            self.index = np.arange(self.n_total_params)
+        elif isinstance(index, abc.Hashable):
+            if index < self.n_fixed_params:
+                self.index = np.array([index])
+            else:
+                # control parameter
+                ind = index-self.n_fixed_params
+                self.index = np.array([self.n_fixed_params+i*self.n_control_params+ind%self.n_control_params for i in range(self.n_time_windows)])
+        else:
+            self.index = np.array(index)
+            self.index = np.concatenate([index[index < self.n_fixed_params]] + # fixed parameters
+                                    [(index[index >= self.n_fixed_params]) + self.n_control_params*i for i in range(self.n_time_windows)]) # control parameters
         self.time = 0
-        # init_state has shape (n_states, M+1)
+        self.current_time_window = 0
+        # init_state has shape (n_states, len(index)+1)
         # first column corresponds to the probability distribution, 
-        # then the (i+1) column is the sensitivities with respect to the i-th parameter distribution 
-        self.init_state = np.zeros((self.n_states, self.n_fixed_params+1))
+        # (i+1)-th column corresponds to the sensitivities with respect to the i-th parameter distribution in the index list
+        self.init_state = np.zeros((self.n_states, len(self.index)+1))
         self.init_state[self.bijection.bijection.inverse[tuple(crn.init_state)], 0] = 1
         self.current_state = self.init_state.copy()
 
     def reset(self):
         self.time = 0
+        self.current_time_window = 0
         self.current_state = self.init_state.copy()
 
     def create_B(self, index: int) -> np.ndarray:
@@ -160,7 +182,7 @@ class SensitivitiesDerivation:
         Bs = create_Bs(np.arange(self.n_reactions))
         return (Bs*params).sum()
 
-    def constant_matrix(self, params: np.ndarray, index: int) -> np.ndarray:
+    def constant_matrix(self, params: np.ndarray, index: int) -> np.ndarray: # useless now
         r"""Computes the matrix **C** as defined in :cite:`fox2019fspfim`.
 
         Args:
@@ -171,13 +193,21 @@ class SensitivitiesDerivation:
             - The constant matrix **C** in the ODEs as presented in equation (34) of :cite:`fox2019fspfim`.
         """        
         A = self.create_A(params)
-        B = self.create_B(index)
+        current_params = self.n_fixed_params + self.current_time_window*self.n_control_params #
+        if index > self.n_fixed_params and (current_params > index or current_params + self.n_control_params <= index):
+            # this parameter has no action on the current time window
+            B = sp.coo_matrix(A.shape)
+        else:
+            if index > self.n_fixed_params:
+            # this parameter is controlled and is the current one
+                index = index - self.current_time_window*self.n_control_params
+            B = self.create_B(index)
         empty = sp.coo_matrix(A.shape)
         up = sp.hstack((A, empty))
         bottom = sp.hstack((B, A))
         return sp.vstack((up, bottom))
 
-    def extended_constant_matrix(self, params: np.ndarray, index: Tuple[list, int]) -> np.ndarray:
+    def extended_constant_matrix(self, params: np.ndarray) -> np.ndarray:
         r"""Computes an extension of the matrix **C** to solve the set of ODEs for multiple parameters at once.
 
         Let us define :math:`mathcal{I}` the set of parameters indexes whose sensitivities to compute.
@@ -206,14 +236,20 @@ class SensitivitiesDerivation:
             \\begin{pmatrix} p(t) \\\ S_{i_1}(t) \\\ ... \\\ S_{i_N} \\end{pmatrix}
         
         """
-        if isinstance(index, abc.Hashable):
-            return self.constant_matrix(params, index)
-        n = len(index)
+        n = len(self.index)
         A = self.create_A(params)
         empty = sp.coo_matrix(A.shape)
         rows = [sp.hstack([A]+[empty]*n)]
-        for i, ind in enumerate(index):
-            B = self.create_B(ind)
+        current_params = self.n_fixed_params + self.current_time_window*self.n_control_params #
+        for i, ind in enumerate(self.index):
+            if ind >= self.n_fixed_params and (current_params > ind or current_params + self.n_control_params <= ind):
+                # this parameter has no action on the current time window
+                B = sp.coo_matrix(A.shape)
+            else:
+                if ind > self.n_fixed_params:
+                    # this parameter is controlled and is the current one
+                    ind = ind - self.current_time_window*self.n_control_params
+                B = self.create_B(ind)
             row = sp.hstack([B] + [empty]*i + [A] + [empty]*(n-i-1))
             rows.append(row)
         return sp.vstack(rows)
@@ -222,8 +258,7 @@ class SensitivitiesDerivation:
                 init_state: np.ndarray, 
                 t0: float, 
                 tf: float, 
-                params: np.ndarray, 
-                index: Tuple[int, list], 
+                params: np.ndarray,  
                 t_eval: list, 
                 with_stv: bool =True):
         r"""Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
@@ -257,7 +292,7 @@ class SensitivitiesDerivation:
         """
         # init_state is a 1D vector
         if with_stv:  
-            constant = sp.csr_matrix(self.extended_constant_matrix(params, index))
+            constant = sp.csr_matrix(self.extended_constant_matrix(params))
             def f(t, x):
                 return constant.dot(x)
             return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
@@ -272,8 +307,6 @@ class SensitivitiesDerivation:
                             sampling_times: np.ndarray,
                             time_windows: np.ndarray,
                             parameters: np.ndarray,
-                            control: bool =False,
-                            index: Tuple[list, int] =None,
                             with_stv: bool =True) -> np.ndarray:
         """_summary_
 
@@ -285,9 +318,6 @@ class SensitivitiesDerivation:
               :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
             - **parameters** (np.ndarray): Parameters of the propensity functions for each time window.
               Has shape :math:`(n_time_windows, n_params)`.
-            - **index** (Tuple[list, int], optional): Index of the fixed parameters to work on. Can either be a
-              single integer value or a list of integer values. When None, computes the sensitivities for each 
-              fixed parameter. Defaults to None.
             - **with_stv** (bool, optional): If True, computes the sensitivities of the mass function. 
               If False, computes only the probability distribution. Defaults to True.
 
@@ -302,43 +332,34 @@ class SensitivitiesDerivation:
             params = parameters[i, :]
             t_eval = sampling_times[(sampling_times > self.time) & (sampling_times <= t)]
             added_t = None
-            if len(t_eval)==0 or t_eval[-1] != t:
+            if len(t_eval) == 0 or t_eval[-1] != t:
                 # to get state at time t to update the current state
                 t_eval = np.concatenate((t_eval, [t]))
                 added_t = -1
             if with_stv:
-                if control and index is None:
-                    index = np.arange(self.n_control_params+1)
-                elif control and isinstance(index, abc.Hashable):
-                    index = np.array([0, index+1])
-                elif index is None:
-                    index = np.arange(self.n_fixed_params+1)
-                elif isinstance(index, abc.Hashable):
-                    index = np.array([0, index+1])
                 # computes sensitivities for all fixed reactions
-                solution = self.solve_ode(init_state=self.current_state.reshape(self.n_states*(self.n_fixed_params+1), order='F'),
+                solution = self.solve_ode(init_state=self.current_state.reshape(self.n_states*(len(self.index)+1), order='F'),
                                         t0=self.time,
                                         tf=t, 
                                         params=params,
-                                        index=np.arange(self.n_fixed_params),
                                         t_eval=t_eval,
                                         with_stv=True)['y']
                 # reshaping the array
-                solution = solution.reshape((self.n_states, self.n_fixed_params+1, len(t_eval)), order='F')
-                distributions.append(solution.transpose([0, 2, 1])[:,:added_t,index]) # shape (n_states, N_t, n_fixed_params+1)
+                solution = solution.reshape((self.n_states, len(self.index)+1, len(t_eval)), order='F')
+                distributions.append(solution.transpose([0, 2, 1])[:,:added_t,:]) # shape (n_states, N_t, len(index)+1)
                 self.current_state = solution[:,:,-1]
             else:
                 solution = self.solve_ode(init_state=self.current_state[:,0], 
                                         t0=self.time,
                                         tf=t, 
                                         params=params,
-                                        index=0,
                                         t_eval=t_eval,
                                         with_stv=False)['y']
                 distributions.append(np.expand_dims(solution[:, :added_t], axis=-1))
                 self.current_state[:,0] = solution[:,-1]
             self.time = t
-        return np.concatenate(distributions, axis=1) # shape (n_states, N_t, 1) or (n_states, N_t, M+1)
+            self.current_time_window += 1
+        return np.concatenate(distributions, axis=1) # shape (n_states, N_t, 1) or (n_states, N_t, len(index)+1)
 
 
     def marginal(self,  
@@ -346,7 +367,6 @@ class SensitivitiesDerivation:
                 time_windows: np.ndarray,
                 parameters: np.ndarray, 
                 ind_species: int,
-                index: Tuple[list, int],
                 with_stv: bool =True
                 ) -> Tuple[np.ndarray]:
         """Computes marginal probabilities and marginal sensitivities of probability mass functions.
@@ -366,16 +386,16 @@ class SensitivitiesDerivation:
               function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
         """
         if with_stv:
-            if index is None:
-                length = parameters.shape[1]
-            elif isinstance(index, abc.Hashable):
-                length = 1
-            else:
-                length = len(index)
-            marginal_distributions = np.zeros((self.cr+1, len(sampling_times), length+1))
+            # if self.index is None:
+            #     length = parameters.shape[1]
+            # elif isinstance(self.index, abc.Hashable):
+            #     length = 1
+            # else:
+            #     length = len(self.index)
+            marginal_distributions = np.zeros((self.cr+1, len(sampling_times), len(self.index)+1))
         else:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), 1))
-        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, index, with_stv)
+        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, with_stv)
         for n, state in self.bijection.bijection.items():
             for i, _ in enumerate(sampling_times):
                 marginal_distributions[state[ind_species],i,:] += solution[n,i,:]
@@ -406,16 +426,60 @@ class SensitivitiesDerivation:
     def identity(self, x):
         return x
 
-    def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, index, f: Callable =identity):
+    def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, f: Callable =None):
+        if f is None:
+            f = self.identity
         marginal_distributions = self.marginal(sampling_times=sampling_times, 
                                             time_windows=time_windows, 
                                             parameters=parameters, 
-                                            ind_species=ind_species, 
-                                            index=index, 
+                                            ind_species=ind_species,
                                             with_stv=True)
         stv = marginal_distributions[:, :, 1:]
         scalar = f(np.arange(self.cr+1))
-        return np.dot(scalar, stv)
+        return np.dot(np.transpose(stv, [1, 2, 0]), scalar) # shape (Nt, len(index))
 
 
         
+if __name__ == '__main__':
+    # from CRN2_production_degradation import propensities_production_degradation as propensities
+    from CRN4_control import propensities_bursting_gene as propensities
+    import matplotlib.pyplot as plt
+    from scipy.stats import poisson
+
+    crn = simulation.CRN(propensities.stoich_mat,
+                    propensities.propensities,
+                    init_state=propensities.init_state,
+                    n_fixed_params=3,
+                    n_control_params=1)
+
+    def production_degradation_distribution(x, params):
+        t, theta1, theta2 = params[:3]
+        lambd = theta1*(1-np.exp(-theta2*t))/theta2
+        return poisson.pmf(x, lambd)
+    
+    def production_degradation_stv_1(x, params):
+        t, theta1, theta2 = params[0], params[1], params[2]
+        lambd = theta1*(1-np.exp(-theta2*t))/theta2
+        return lambd/theta1 * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
+
+    def production_degradation_stv_2(x, params):
+        t, theta1, theta2 = params[0], params[1], params[2]
+        lambd = theta1*(1-np.exp(-theta2*t))/theta2
+        return (-lambd/theta2 + theta1/theta2*t*np.exp(-t*theta2)) * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
+
+
+    stv = SensitivitiesDerivation(crn, n_time_windows=4, index=0, cr=50)
+    print(stv.index)
+    to_pred = np.array([0.13283385, 2.01077429, 0.62170795, 1.67796615, 0.62086121, 1.5632251 , 2.67536833])
+    fixed_parameters = np.stack([to_pred[:crn.n_fixed_params]]*4)
+    control_parameters= to_pred[crn.n_fixed_params:].reshape(4,1)
+    params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+    # results_fsp = stv.marginal(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, with_stv=True)
+    # print(results_fsp.shape)
+    # for i, t in enumerate(np.array([5])):
+    # plt.plot(results_fsp[:,-1,0], label='i')
+    # plt.plot(production_degradation_distribution(np.arange(50), np.array([20., 2., 1.])), label='exact')
+    # plt.legend()
+    # plt.show()
+    res = stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species)
+    print(res.shape, res)

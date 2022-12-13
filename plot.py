@@ -58,12 +58,16 @@ def plot_model(to_pred: torch.tensor,
     # prediction
     x = torch.arange(up_bound).repeat(1, n_comps,1).permute([2,0,1])
     preds = []
+    ymin = 0
+    ymax = 0
     for i, model in enumerate(models):
         if plot[0] == 'probabilities':
             y_pred = neuralnetwork.mix_pdf(model, to_pred, x)
         elif plot[0] == 'sensitivities':
             y_pred = get_sensitivities.sensitivities(to_pred, model, length_output=up_bound)[:, plot[1]+1]
         y_pred = y_pred.detach().numpy()
+        ymin = min(ymin, y_pred.min())
+        ymax = max(ymax, y_pred.max())
         pred = pd.DataFrame([np.squeeze(y_pred), np.arange(up_bound)], index = index_names).transpose()
         pred['Model'] = f'training{i+1}'
         preds.append(pred)
@@ -81,16 +85,24 @@ def plot_model(to_pred: torch.tensor,
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
         # for now, time_window = [0, t], parameters has shape (n_params + 1)
         fixed_parameters = np.stack([to_pred[1:plot_fsp_result[6]+1].numpy()]*n_time_windows)
         control_parameters = to_pred[plot_fsp_result[6]+1:].numpy().reshape(n_time_windows, plot_fsp_result[7])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         if plot[0] == 'probabilities':
-            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=None, with_stv=False)[:,0,0]
+            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=False)[:,0,0]
         if plot[0] == 'sensitivities':
-            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=plot[1], with_stv=True)[:,0,1] 
+            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=True)
+            if plot[1] < crn.n_fixed_params:
+                results_fsp = results_fsp[:,0,1]
+            elif crn.n_control_params < 2:
+                results_fsp = results_fsp[:, 0, 1+plot[1]-crn.n_fixed_params]
+            else:
+                results_fsp = results_fsp[:,0,1+(plot[1]-crn.n_fixed_params)%crn.n_control_params]
         length = min(up_bound, plot_fsp_result[3])
+        ymin = min(ymin, results_fsp.min())
+        ymax = max(ymax, results_fsp.max())
         fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
         fsp_result['Model'] = 'FSP estimation'
         preds.append(fsp_result)
@@ -108,6 +120,7 @@ def plot_model(to_pred: torch.tensor,
         dashes={'training1': '', 'training2': '', 'training3': '', 'exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)}) #.set(title=fr'{plot[0]} plot for {crn_name} with $t=${params[0]}, $\theta=${params[1:]}')
     fig._legend.remove()
     plt.legend(loc='best')
+    plt.ylim(ymin-0.05, ymax+0.05)
     if save[0]:
         plt.savefig(save[1])
     plt.show()
@@ -161,6 +174,8 @@ def multiple_plots(to_pred: list,
             plot_model(to_pred[0], models, up_bound, n_comps, index_names, plot_test_result, plot_exact_result, plot_fsp_result, plot, save)
     else:
         _, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(3*n,3*n))
+        ymin = 0
+        ymax = 0
         # in case there is only one row
         axes = np.reshape(axes, (-1, n_col))
         for k, to_pred_ in enumerate(to_pred):
@@ -172,6 +187,8 @@ def multiple_plots(to_pred: list,
                 elif plot[0] == 'sensitivities':
                     y_pred = get_sensitivities.sensitivities(to_pred_, model, length_output=up_bound[k])[:, plot[1]+1]
                 y_pred = y_pred.detach().numpy()
+                ymin = min(ymin, y_pred.min())
+                ymax = max(ymax, y_pred.max())
                 pred = pd.DataFrame([np.squeeze(y_pred), np.arange(up_bound[k])], index = index_names).transpose()
                 pred['Model'] = f'training{i+1}'
                 preds.append(pred)
@@ -189,15 +206,23 @@ def multiple_plots(to_pred: list,
                                     init_state=plot_fsp_result[4],
                                     n_fixed_params=plot_fsp_result[6],
                                     n_control_params=plot_fsp_result[7])
-                stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+                stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
                 fixed_parameters = np.stack([to_pred_[1:plot_fsp_result[6]+1].numpy()]*n_time_windows)
                 control_parameters = to_pred_[plot_fsp_result[6]+1:].numpy().reshape(n_time_windows, plot_fsp_result[7])
                 parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
                 if plot[0] == 'probabilities':
-                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=None, with_stv=False)[:,0,0]
+                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=False)[:,0,0]
                 if plot[0] == 'sensitivities':
-                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], index=plot[1], with_stv=True)[:,0,1]
+                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=True)
+                    if plot[1] < crn.n_fixed_params:
+                        results_fsp = results_fsp[:,0,1]
+                    elif crn.n_control_params < 2:
+                        results_fsp = results_fsp[:, 0, 1+plot[1]-crn.n_fixed_params]
+                    else:
+                        results_fsp = results_fsp[:, 0, 1+(plot[1]-crn.n_fixed_params)%crn.n_control_params]
                 length = min(up_bound[k], plot_fsp_result[3])
+                ymin = min(ymin, results_fsp.min())
+                ymax = max(ymax, results_fsp.max())
                 fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
                 fsp_result['Model'] = 'FSP estimation'
                 preds.append(fsp_result)
@@ -213,6 +238,7 @@ def multiple_plots(to_pred: list,
             seaborn.lineplot(ax=axes[k//n_col, k%n_col], data=data, x=index_names[1], y=index_names[0], hue='Model', style='Model',
                 dashes={'training1': '', 'training2': '', 'training3': '', 'exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)})
             axes[k//n_col, k%n_col].legend().set_title('')
+        plt.setp(axes, ylim=(ymin-0.05, ymax+0.05))
         plt.subplots_adjust(hspace=0.01)
         # fig.suptitle(f'{plot[0]} plot for params {params[1:]}')
         if save[0]:
@@ -294,15 +320,21 @@ def fi_table(time_samples: np.ndarray,
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
         fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         length = min(up_bound, plot_fsp_result[3])
-        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
+        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
+        if ind_param < crn.n_fixed_params:
+            index = 1
+        elif crn.n_control_params < 2:
+            index = 1 + ind_param - crn.n_fixed_params
+        else:
+            index = 1 + (ind_param - crn.n_fixed_params) % crn.n_control_params
         for i in range(n_rows):
-            fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i,1:])[0,0]
+            fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i,index:])[0,0]
     columns = []
     data = []
     # gathering data
@@ -336,7 +368,6 @@ def fi_table(time_samples: np.ndarray,
     plt.subplots_adjust(left=0.2, bottom=0.2)
     if save[0]:
         plt.savefig(save[1])
-    # fig.suptitle(f'Element of the Fisher Information with respect to parameter n°{ind_param} - {crn_name} with parameter values: {params}')
     plt.show()
 
 
@@ -425,26 +456,21 @@ def fi_barplots(time_samples: np.ndarray,
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn, plot_fsp_result[3])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
         fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         length = min(up_bound, plot_fsp_result[3])
-        # sensitivities = []
-        # for i in range(crn.n_fixed_params):
-        #     res = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], i, with_stv=True)[:length,:,:]
-        #     sensitivities.append(res[:,:,1])
-        #     stv_calculator.reset()
-        # sensitivities = np.stack(sensitivities, axis=-1)
-        # probs_fsp = res[:,:,0]
-        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], ind_param, with_stv=True)[:length,:,:]
-        # stv_calculator.reset()
-        # probs_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], 3, with_stv=True)[:length,:,0] #
+        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
+        if ind_param < crn.n_fixed_params:
+            index = 1
+        elif crn.n_control_params < 2:
+            index = 1 + ind_param - crn.n_fixed_params
+        else:
+            index = 1 + (ind_param - crn.n_fixed_params) % crn.n_control_params
         for i in range(n_rows):
-            fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i,1:])[0,0]
-            # fsp_fi[i] = get_fi.fisher_information_t(probs_fsp[:,i], results_fsp[:,i])[0,0] #
-            # fsp_fi[i] = get_fi.fisher_information_t(probs_fsp[:,i], sensitivities[:,i,:])[ind_param,ind_param]
+            fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i, index:])[0,0]
         pred = pd.DataFrame([np.round(fsp_fi, 3), time_samples], index = index_names).transpose()
         pred['Model'] = 'FSP estimation'
         preds.append(pred)
@@ -467,23 +493,288 @@ def fi_barplots(time_samples: np.ndarray,
 
 
 
+# Plot tables and barplots
+def grad_table(time_samples: np.ndarray, 
+            params: np.ndarray, 
+            ind_param: int, 
+            time_windows: np.ndarray,
+            models: Tuple[bool, list, int] =(False, None, 4),
+            plot_exact_result: Tuple[bool, Callable] =(False, None), 
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+            up_bound: int =200,
+            f: Callable =None,
+            out_of_bounds_index: int =None,
+            save: Tuple[bool, str] =(False, None)):
+    r"""Plots a table of the diagonal element of the Fisher Information estimated by various methods at various times.
+
+    Args:
+        - **time_samples** (list): Times to sample.
+        - **params** (list): Parameters of the propensity functions.
+        - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
+        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
+          with MDN models. Defaults to (False, None, 4).
+
+                1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
+                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
+                3. **n_comps** (int): Number of mixture components.
+
+        - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
+                
+                - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
+                - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
+        - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
+          with the FSP method.
+                
+                1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
+                2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
+                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
+                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                5. **init_state** (np.ndarray): Initial state.
+                6. **ind_species** (int): Index of the species of interest.
+                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                   Their values vary from a time window to another.
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
+        - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**.
+        - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
+          The second argument is the name of the file in which to save the plot. Defaults to (False, None).
+    """ 
+    rows = [fr'$t={t}$' for t in time_samples]
+    n_rows = len(time_samples)
+    if f is None:
+        def identity(x):
+            return x
+        f = identity
+    # compute probabilities and sensitivities with the neural networks
+    if models[0]:
+        predicted_grad = np.zeros(n_rows)
+        for i, t in enumerate(time_samples):
+            to_pred = torch.concat((torch.tensor([t]), torch.tensor(params)))
+            grad_val = 0
+            for model in models[1]:
+                grad_val += get_sensitivities.extended_expected_val(inputs=to_pred, model=model, f=f, length_output=up_bound).numpy()[ind_param+1]
+            predicted_grad[i] = grad_val/len(models[1])
+    # compute probabilities and sensitivities of probabilities with the FSP
+    if plot_fsp_result[0]:
+        n_time_windows = len(time_windows)
+        crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
+                            propensities=plot_fsp_result[2], 
+                            init_state=plot_fsp_result[4],
+                            n_fixed_params=plot_fsp_result[6],
+                            n_control_params=plot_fsp_result[7])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
+        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+        parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
+        results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5])
+        if ind_param < crn.n_fixed_params:
+            index = 0
+        elif crn.n_control_params < 2:
+            index = ind_param - crn.n_fixed_params
+        else:
+            index = (ind_param - crn.n_fixed_params) % crn.n_control_params
+        fsp_grad = results_fsp[:,index]
+    columns = []
+    data = []
+    # gathering data
+    if models[0]:
+        columns.append('Predicted with MDN (mean)')
+        data.append(np.round(predicted_grad,3))
+    if plot_fsp_result[0]:
+        columns.append('Estimated with FSP')
+        data.append(np.round(fsp_grad, 3))
+    if plot_exact_result[0]:
+        columns.append('Exact value')
+        exact_fi = np.zeros(n_rows)
+        for i, t in enumerate(time_samples):
+            exact_fi[i] = plot_exact_result[1](t, params)
+        data.append(np.round(exact_fi,3))
+    if len(data)==1:
+        data = np.array(data).T
+    else:
+        data = np.stack(data, axis=-1)
+    if out_of_bounds_index != None:
+        data = np.insert(data.astype('str'), out_of_bounds_index, '...', axis=0)
+        rows.insert(out_of_bounds_index, '...')
+    #plot
+    fig, ax = plt.subplots(figsize=(10,3))
+    fig.patch.set_visible(False)
+    ax.axis('off')
+    ax.axis('tight')
+    table = plt.table(cellText=data, colLabels=columns, rowLabels=rows, loc='center', cellLoc='center', colWidths=[1.]*len(columns))
+    table.set_fontsize(14)
+    table.scale(0.4,1.6)
+    plt.subplots_adjust(left=0.2, bottom=0.2)
+    if save[0]:
+        plt.savefig(save[1])
+    plt.show()
+
+
+def grad_barplots(time_samples: np.ndarray, 
+            params: np.ndarray, 
+            ind_param: int, 
+            time_windows: np.ndarray,
+            models: Tuple[bool, list, int] =(False, None, 4),
+            plot_exact_result: Tuple[bool, Callable] =(False, None), 
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+            up_bound: int =200,
+            f: Callable =None,
+            save: Tuple[bool, str] =(False, None),
+            colors: list =['blue', 'darkorange', 'forestgreen'],
+            mean: bool =True):
+    """Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
+
+    Args:
+        - **time_samples** (np.ndarray): Times to sample.
+        - **params** (np.ndarray): Parameters of the propensity functions.
+        - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
+        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
+          with MDN models. Defaults to (False, None, 4).
+
+                1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
+                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
+                3. **n_comps** (int): Number of mixture components.
+
+        - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
+                
+                - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
+                - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
+        - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
+          with the FSP method.
+                
+                1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
+                2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
+                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
+                6. **ind_species** (int): Index of the species of interest.
+                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                   Their values vary from a time window to another.
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
+        - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
+          The second argument is the name of the file in which to save the plot. Defaults to (False, None).
+        - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
+        - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
+    """    
+    if f is None:
+        def identity(x):
+            return x
+        f = identity        
+    n_rows = len(time_samples)
+    preds=[]
+    index_names = ('Fisher Information', 'Time')
+    # compute probabilities and sensitivities with the neural networks
+    if models[0]:
+        predicted_grad = np.zeros((n_rows, len(models[1])))
+        for i, t in enumerate(time_samples):
+            to_pred = torch.concat((torch.tensor([t]), torch.tensor(params)))
+            for m, model in enumerate(models[1]):
+                predicted_grad[i, m] = get_sensitivities.extended_expected_val(inputs=to_pred, model=model, f=f, length_output=up_bound).numpy()[ind_param+1]
+        if mean:
+            pred = pd.DataFrame([list(np.mean(predicted_grad, axis=1)), time_samples], index = index_names).transpose()
+            pred['Model'] = 'MDN (mean)'
+            preds.append(pred)
+        else:
+            for m, model in enumerate(models[1]):
+                pred = pd.DataFrame([np.round(predicted_grad[:, m], 3), time_samples], index = index_names).transpose()
+                pred['Model'] = f'MDN {m+1}'
+                preds.append(pred)
+    # compute probabilities and sensitivities of probabilities with the FSP
+    if plot_fsp_result[0]:
+        n_time_windows = len(time_windows)
+        crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
+                            propensities=plot_fsp_result[2], 
+                            init_state=plot_fsp_result[4],
+                            n_fixed_params=plot_fsp_result[6],
+                            n_control_params=plot_fsp_result[7])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
+        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+        parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
+        results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5])
+        if ind_param < crn.n_fixed_params:
+            index = 0
+        elif crn.n_control_params < 2:
+            index = ind_param - crn.n_fixed_params
+        else:
+            index = (ind_param - crn.n_fixed_params) % crn.n_control_params
+        fsp_grad = results_fsp[:, index]
+        pred = pd.DataFrame([np.round(fsp_grad, 3), time_samples], index = index_names).transpose()
+        pred['Model'] = 'FSP estimation'
+        preds.append(pred)
+    if plot_exact_result[0]:
+        exact_fi = np.zeros(n_rows)
+        for i, t in enumerate(time_samples):
+            exact_fi[i] = plot_exact_result[1](t, params)
+        pred = pd.DataFrame([np.round(exact_fi,3), time_samples], index = index_names).transpose()
+        pred['Model'] = 'Exact value'
+        preds.append(pred)
+    data = pd.concat(preds, ignore_index=True)
+    #plot
+    fig = seaborn.catplot(data=data, kind='bar', x=index_names[1], y=index_names[0], aspect=1.5, hue='Model',
+        palette=colors)
+    fig._legend.remove()
+    plt.legend(loc='best')
+    if save[0]:
+        plt.savefig(save[1])
+    plt.show()
+           
+
 if __name__ == '__main__':
 
-    from CRN4_bursting_gene import propensities_bursting_gene as propensities
+    import numpy as np
+    import torch
+    import matplotlib.pyplot as plt
+
+    import neuralnetwork
+    import convert_csv
     import save_load_MDN
+    import get_sensitivities
 
+    from scipy.stats import poisson
+
+    from CRN4_control import propensities_bursting_gene as propensities
+
+    FILE_NAME = 'CRN4_control/short_data'
+    CRN_NAME = 'CRN4_control'
+    NUM_PARAMS = 7
+    NAME = 'Production Degradation CRN'
+
+    X_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_test.csv')
+    y_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_test.csv')
+
+    LR = 0.005
+    N_ITER  = 700
+    BATCHSIZE = 32
+    N_HIDDEN = 256
+    MIXTURE = 'NB'
     N_COMPS = 4
-    NUM_PARAMS = 4
+    model1 = save_load_MDN.load_MDN_model('CRN4_control/saved_models_short/CRN4_model1.pt')
+    model2 = save_load_MDN.load_MDN_model('CRN4_control/saved_models_short/CRN4_model2.pt')
+    model3 = save_load_MDN.load_MDN_model('CRN4_control/saved_models_short/CRN4_model3.pt')
 
-    model1 = save_load_MDN.load_MDN_model('CRN4_bursting_gene/saved_models_long/CRN4_model1_long.pt')
-    model2 = save_load_MDN.load_MDN_model('CRN4_bursting_gene/saved_models_long/CRN4_model2_long.pt')
-    model3 = save_load_MDN.load_MDN_model('CRN4_bursting_gene/saved_models_long/CRN4_model3_long.pt')
+    # multiple_plots(to_pred=[X_test[1_000+k,:] for k in range(4)], 
+    #                 models=[model1, model2, model3],
+    #                 up_bound=4*[30],
+    #                 time_windows=np.array([5, 10, 15, 20]),
+    #                 n_comps=N_COMPS,
+    #                 index_names = ('Sensitivities', r'Abundance of species $S$'),
+    #                 plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 30, propensities.init_state, 1, 3, 1),
+    #                 plot=('sensitivities', 0),
+    #                 save=(False, "CRN2_SI_fig1.pdf"))
+    # plt.show()
 
-    fi_barplots(time_samples=np.array([5, 10, 15, 20, 30], dtype=np.float32), 
-                time_windows=np.array([30]),
-                params=np.array([0.6409, 2.0439, 0.2688, 0.0368], dtype=np.float32), 
-                ind_param=0,
-                up_bound=200,
-                models=(True, [model1, model2, model3], N_COMPS), 
-                plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 400, np.array(propensities.init_state, dtype=np.float32), 1, NUM_PARAMS, 0),
-                colors=['blue', 'darkorange', 'forestgreen'])
+    def identity(x):
+        return x
+
+    grad_table(time_samples=np.array([5, 10, 15, 20]), 
+            params=X_test[1_000,1:].numpy(), 
+            ind_param=5,
+            time_windows=np.array([5, 10, 15, 20]),
+            f=identity,
+            models = (True, [model1, model2, model3], N_COMPS),
+            plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 50, propensities.init_state, 1, 3, 1),
+            up_bound=200,
+            save=(False, ""))
+    plt.show()
