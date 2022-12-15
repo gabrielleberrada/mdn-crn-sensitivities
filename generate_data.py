@@ -5,7 +5,11 @@ import time
 import concurrent.futures
 import simulation
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+import seaborn
+import pandas as pd
 from typing import Tuple
+
 
 class CRN_Dataset:
     r"""Class to build a dataset of probability distributions for a specified CRN.
@@ -63,7 +67,8 @@ class CRN_Dataset:
             self.crn.simulation(sampling_times=self.sampling_times, 
                                 time_windows=self.time_windows,
                                 parameters=params, 
-                                method=self.method)
+                                method=self.method,
+                                complete_trajectory=False)
             res.append(self.crn.sampling_states)
             self.crn.reset()
         res = np.array(res)
@@ -168,3 +173,97 @@ class CRN_Dataset:
         end=time.time()
         print('Total time: ', end-start)
         return X, y
+
+class CRN_Simulations:
+
+    def __init__(self, 
+            crn: simulation.CRN,
+            time_windows: np.ndarray,
+            n_trajectories: int =100, 
+            ind_species: int =0,
+            method: str ='SSA',
+            complete_trajectory: bool =True,
+            sampling_times: np.ndarray =np.empty(0)): # optional when complete_trajectory is True
+        self.crn = crn
+        self.n_fixed_params = crn.n_fixed_params
+        self.n_control_params = crn.n_control_params
+        self.n_params = self.n_fixed_params + self.n_control_params
+        self.n_time_windows = len(time_windows)
+        # number of total parameters required to fully define the process
+        self.total_n_params = self.n_fixed_params + self.n_time_windows*self.n_control_params
+        self.n_species = crn.n_species
+        self.n_trajectories = n_trajectories
+        self.ind_species = ind_species
+        self.initial_state = crn.init_state
+        self.method = method
+        self.complete_trajectory = complete_trajectory
+        self.time_windows = time_windows
+        self.sampling_times = sampling_times
+
+
+    def run_simulations(self, params: np.ndarray) -> Tuple[list, int]:
+        r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the 
+        corresponding distribution for the species indexed by **ind_species**.
+
+        Args:
+            - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
+              (n_time_windows, n_params).
+        Returns:
+            - **samples**: List of the distributions for the corresponding species at sampling times. This list begins with time and 
+              parameters: :math:`[t, \theta_1, ..., \theta_M, \xi_1^1, \xi_2^1, ..., \xi_{M'}^1, ..., \xi_{M'}^T, p_0(t,\theta), ...]`.
+            - **max_value**: Maximum value reached during simulations + number of total parameters + 1 (for time). 
+              Used to standardize each data length to turn the data list into a tensor.
+        """
+        if self.complete_trajectory:
+            samples = {}
+            times = {}
+        else:
+            samples = np.zeros((self.n_trajectories, len(self.sampling_times)))
+            times = self.sampling_times
+        fixed_params = np.stack([params[:self.n_fixed_params]]*self.n_time_windows)
+        control_params = np.reshape(params[self.n_fixed_params:], (self.n_time_windows, self.n_control_params))
+        parameters = np.concatenate((fixed_params, control_params), axis=-1)
+        for i in range(self.n_trajectories):
+            self.crn.simulation(sampling_times=self.sampling_times, 
+                                time_windows=self.time_windows,
+                                parameters=parameters, 
+                                method=self.method,
+                                complete_trajectory=self.complete_trajectory)
+            if self.complete_trajectory:
+                times[i] = np.concatenate((np.array([0]), self.crn.sampling_times))
+                samples[i] = np.concatenate((self.initial_state, self.crn.sampling_states[:, self.ind_species]))
+            else:
+                if times[0] == 0:
+                    samples[i,:] = np.concatenate((self.initial_state, self.crn.sampling_states[:, self.ind_species]))
+                else:
+                    samples[i,:] = self.crn.sampling_states[:, self.ind_species]
+            self.crn.reset()
+        return samples, times
+
+    def plot_simulations(self, params: np.ndarray, targets: np.ndarray =None):
+        samples, times = self.run_simulations(params)
+        if self.complete_trajectory:
+            for i in range(self.n_trajectories):
+                edges = np.concatenate((times[i], self.time_windows[-1:]))
+                plt.stairs(values=samples[i], edges=edges, baseline=None, orientation='vertical')
+        else:
+            data = pd.DataFrame(samples.transpose(), columns = [f'distr{i}' for i in range(self.n_trajectories)])
+            data['id'] = data.index
+            data['time'] = times
+            data = pd.wide_to_long(data, ['distr'], i='time', j='id')
+            seaborn.lineplot(data=data, x='time', y='distr')
+        if targets is not None: # shape (n_targets,2)
+            plt.scatter(x=targets[:,0], y=targets[:,1], marker='x', c='black', label='target values')
+            plt.legend()
+        plt.ylim(-0.1, plt.ylim()[1])
+        plt.show()
+
+        
+if __name__ == '__main__':
+
+    from CRN2_control import propensities_production_degradation as propensities
+
+    crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, propensities.init_state, 1, 1)
+    sim = CRN_Simulations(crn, np.array([5, 10, 15, 20]), 1_000, 0, complete_trajectory=False, sampling_times=np.arange(21))
+    # sim.plot_simulations(np.array([5., 0.3, 0.4, 0.5, 0.3]))# targets=np.array([[0., 0.], [5., 2.], [10., 3.]]))
+    sim.plot_simulations(np.array([1., 0.77361136, 0.26151234, 0.70884851, 0.99037573]), targets=np.array([[5., 10.], [10., 10.], [15., 10.], [20., 10.]]))

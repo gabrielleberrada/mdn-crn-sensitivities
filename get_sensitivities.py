@@ -1,5 +1,6 @@
 import torch
 import neuralnetwork
+import numpy as np
 from typing import Union, Tuple, Callable
 
 def probabilities(inputs: torch.tensor,
@@ -26,7 +27,15 @@ def sensitivities(inputs: torch.tensor,
         return torch.squeeze(torch.autograd.functional.jacobian(f, inputs)), f(inputs).detach()
     return torch.squeeze(torch.autograd.functional.jacobian(f, inputs))
 
-def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output: int =200) -> torch.tensor:
+# def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output: int =200) -> torch.tensor:
+#     stv = sensitivities(inputs, model, length_output)
+#     expec = stv.permute(1,0) * torch.arange(length_output)
+#     return expec.sum(dim=1)
+
+def identity(x):
+    return x
+
+def gradient_expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, loss: Callable =identity, length_output: int =200) -> torch.tensor:
     """Computes the expected value of the sensitivities of mass functions with respect to the time and to the input parameters.
     Args:
         - **inputs** (torch.tensor): Input data.
@@ -35,17 +44,23 @@ def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, lengt
     Returns:
         - A tensor whose elements are the expected value of the sensitivities of probabilities.
     """    
-    stv = sensitivities(inputs, model, length_output)
-    expec = stv.permute(1,0) * torch.arange(length_output)
-    return expec.sum(dim=1)
+    stv = sensitivities(inputs, model, length_output) # shape (length_output, n_total_params+1) (200, 6)
+    vectorized_loss = np.vectorize(loss)
+    expec = stv.permute(1, 0).detach().numpy() * vectorized_loss(np.arange(length_output))
+    return expec.sum(axis=1) # shape n_total_params+1 (including t), output in numpy
 
-def identity(x):
-    return x
-
-def extended_expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, f: Callable =identity, length_output: int =200) -> torch.tensor:
-    stv = sensitivities(inputs, model, length_output) # shape (length_output, n_params) (200, 6)
-    expec = stv.permute(1, 0) * f(torch.arange(length_output))
-    return expec.sum(dim=1)
+def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, loss: Callable =identity, length_output: int =200) -> torch.tensor:
+    """Computes the expected value of the sensitivities of mass functions with respect to the time and to the input parameters.
+    Args:
+        - **inputs** (torch.tensor): Input data.
+        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
+        - **length_output** (int, optional): Length of the output. Defaults to :math:`200`.
+    Returns:
+        - A tensor whose elements are the expected value of the sensitivities of probabilities.
+    """
+    vectorized_loss = np.vectorize(loss)
+    expec = probabilities(inputs, model, length_output)[:,0].detach().numpy() * vectorized_loss(np.arange(length_output))
+    return expec.sum() # shape 1, output in numpy
 
 # def expectation_gradient(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, f: Callable =identity, length_output: int =200) -> torch.tensor:
 #     def expec(inputs):

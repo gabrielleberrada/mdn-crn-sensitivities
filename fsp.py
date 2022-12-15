@@ -426,16 +426,30 @@ class SensitivitiesDerivation:
     def identity(self, x):
         return x
 
-    def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, f: Callable =None):
-        if f is None:
-            f = self.identity
+    def expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable=None):
+        if loss is None:
+            loss = self.identity
+        marginal_distributions = self.marginal(sampling_times=sampling_times,
+                                                time_windows=time_windows,
+                                                parameters=parameters,
+                                                ind_species=ind_species,
+                                                with_stv=False)[:,:,0]
+        vectorized_loss = np.vectorize(loss)
+        scalar = vectorized_loss(np.arange(self.cr+1))
+        return np.dot(marginal_distributions.transpose(), scalar) # shape(Nt)
+
+
+    def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable =None):
+        if loss is None:
+            loss = self.identity
         marginal_distributions = self.marginal(sampling_times=sampling_times, 
-                                            time_windows=time_windows, 
-                                            parameters=parameters, 
-                                            ind_species=ind_species,
-                                            with_stv=True)
+                                                time_windows=time_windows, 
+                                                parameters=parameters, 
+                                                ind_species=ind_species,
+                                                with_stv=True)
         stv = marginal_distributions[:, :, 1:]
-        scalar = f(np.arange(self.cr+1))
+        vectorized_loss = np.vectorize(loss)
+        scalar = vectorized_loss(np.arange(self.cr+1))
         return np.dot(np.transpose(stv, [1, 2, 0]), scalar) # shape (Nt, len(index))
 
 

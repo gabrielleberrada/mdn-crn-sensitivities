@@ -494,17 +494,17 @@ def fi_barplots(time_samples: np.ndarray,
 
 
 # Plot tables and barplots
-def grad_table(time_samples: np.ndarray, 
-            params: np.ndarray, 
-            ind_param: int, 
-            time_windows: np.ndarray,
-            models: Tuple[bool, list, int] =(False, None, 4),
-            plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
-            up_bound: int =200,
-            f: Callable =None,
-            out_of_bounds_index: int =None,
-            save: Tuple[bool, str] =(False, None)):
+def expect_val_table(time_samples: np.ndarray, 
+                    params: np.ndarray,
+                    time_windows: np.ndarray,
+                    models: Tuple[bool, list, int] =(False, None, 4),
+                    plot_exact_result: Tuple[bool, Callable] =(False, None), 
+                    plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+                    up_bound: int =200,
+                    loss: Callable =None,
+                    plot: Tuple[str, int] =('value', None),
+                    out_of_bounds_index: int =None,
+                    save: Tuple[bool, str] =(False, None)):
     r"""Plots a table of the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
@@ -541,19 +541,22 @@ def grad_table(time_samples: np.ndarray,
     """ 
     rows = [fr'$t={t}$' for t in time_samples]
     n_rows = len(time_samples)
-    if f is None:
+    if loss is None:
         def identity(x):
             return x
-        f = identity
+        loss = identity
     # compute probabilities and sensitivities with the neural networks
     if models[0]:
-        predicted_grad = np.zeros(n_rows)
+        predicted_expectation = np.zeros(n_rows)
         for i, t in enumerate(time_samples):
             to_pred = torch.concat((torch.tensor([t]), torch.tensor(params)))
-            grad_val = 0
+            val = 0
             for model in models[1]:
-                grad_val += get_sensitivities.extended_expected_val(inputs=to_pred, model=model, f=f, length_output=up_bound).numpy()[ind_param+1]
-            predicted_grad[i] = grad_val/len(models[1])
+                if plot[0] == 'value':
+                    val += get_sensitivities.expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)
+                elif plot[0] == 'gradient':
+                    val += get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)[plot[1]+1]
+            predicted_expectation[i] = val/len(models[1])
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
         n_time_windows = len(time_windows)
@@ -562,33 +565,37 @@ def grad_table(time_samples: np.ndarray,
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
         fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
-        results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5])
-        if ind_param < crn.n_fixed_params:
-            index = 0
-        elif crn.n_control_params < 2:
-            index = ind_param - crn.n_fixed_params
-        else:
-            index = (ind_param - crn.n_fixed_params) % crn.n_control_params
-        fsp_grad = results_fsp[:,index]
+        if plot[0] == 'value':
+            fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+        elif plot[0] == 'gradient':
+            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+            print(results_fsp.shape)
+            if plot[1] < crn.n_fixed_params:
+                index = 0
+            elif crn.n_control_params < 2:
+                index = plot[1] - crn.n_fixed_params
+            else:
+                index = (plot[1] - crn.n_fixed_params) % crn.n_control_params
+            fsp_expectation = results_fsp[:,index]
     columns = []
     data = []
     # gathering data
     if models[0]:
         columns.append('Predicted with MDN (mean)')
-        data.append(np.round(predicted_grad,3))
+        data.append(np.round(predicted_expectation,3))
     if plot_fsp_result[0]:
         columns.append('Estimated with FSP')
-        data.append(np.round(fsp_grad, 3))
+        data.append(np.round(fsp_expectation, 3))
     if plot_exact_result[0]:
         columns.append('Exact value')
-        exact_fi = np.zeros(n_rows)
+        exact_expectation = np.zeros(n_rows)
         for i, t in enumerate(time_samples):
-            exact_fi[i] = plot_exact_result[1](t, params)
-        data.append(np.round(exact_fi,3))
+            exact_expectation[i] = plot_exact_result[1](t, params)
+        data.append(np.round(exact_expectation,3))
     if len(data)==1:
         data = np.array(data).T
     else:
@@ -610,15 +617,15 @@ def grad_table(time_samples: np.ndarray,
     plt.show()
 
 
-def grad_barplots(time_samples: np.ndarray, 
-            params: np.ndarray, 
-            ind_param: int, 
+def expect_val_barplots(time_samples: np.ndarray, 
+            params: np.ndarray,
             time_windows: np.ndarray,
             models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
-            f: Callable =None,
+            loss: Callable =None,
+            plot: Tuple[str, int]=('value', None),
             save: Tuple[bool, str] =(False, None),
             colors: list =['blue', 'darkorange', 'forestgreen'],
             mean: bool =True):
@@ -657,27 +664,30 @@ def grad_barplots(time_samples: np.ndarray,
         - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
         - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """    
-    if f is None:
+    if loss is None:
         def identity(x):
             return x
-        f = identity        
+        loss = identity        
     n_rows = len(time_samples)
     preds=[]
     index_names = ('Fisher Information', 'Time')
     # compute probabilities and sensitivities with the neural networks
     if models[0]:
-        predicted_grad = np.zeros((n_rows, len(models[1])))
+        predicted_expectation = np.zeros((n_rows, len(models[1])))
         for i, t in enumerate(time_samples):
             to_pred = torch.concat((torch.tensor([t]), torch.tensor(params)))
             for m, model in enumerate(models[1]):
-                predicted_grad[i, m] = get_sensitivities.extended_expected_val(inputs=to_pred, model=model, f=f, length_output=up_bound).numpy()[ind_param+1]
+                if plot[0] == 'value':
+                    predicted_expectation[i, m] = get_sensitivities.expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)
+                elif plot[0] == 'gradient':
+                    predicted_expectation[i, m] = get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)[plot[1]+1]
         if mean:
-            pred = pd.DataFrame([list(np.mean(predicted_grad, axis=1)), time_samples], index = index_names).transpose()
+            pred = pd.DataFrame([list(np.mean(predicted_expectation, axis=1)), time_samples], index = index_names).transpose()
             pred['Model'] = 'MDN (mean)'
             preds.append(pred)
         else:
             for m, model in enumerate(models[1]):
-                pred = pd.DataFrame([np.round(predicted_grad[:, m], 3), time_samples], index = index_names).transpose()
+                pred = pd.DataFrame([np.round(predicted_expectation[:, m], 3), time_samples], index = index_names).transpose()
                 pred['Model'] = f'MDN {m+1}'
                 preds.append(pred)
     # compute probabilities and sensitivities of probabilities with the FSP
@@ -688,19 +698,23 @@ def grad_barplots(time_samples: np.ndarray,
                             init_state=plot_fsp_result[4],
                             n_fixed_params=plot_fsp_result[6],
                             n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
         fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
-        results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5])
-        if ind_param < crn.n_fixed_params:
-            index = 0
-        elif crn.n_control_params < 2:
-            index = ind_param - crn.n_fixed_params
-        else:
-            index = (ind_param - crn.n_fixed_params) % crn.n_control_params
-        fsp_grad = results_fsp[:, index]
-        pred = pd.DataFrame([np.round(fsp_grad, 3), time_samples], index = index_names).transpose()
+        if plot[0] == 'value':
+            fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+        elif plot[0] == 'gradient':
+            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+            print(results_fsp.shape)
+            if plot[1] < crn.n_fixed_params:
+                index = 0
+            elif crn.n_control_params < 2:
+                index = plot[1] - crn.n_fixed_params
+            else:
+                index = (plot[1] - crn.n_fixed_params) % crn.n_control_params
+            fsp_expectation = results_fsp[:, index]
+        pred = pd.DataFrame([np.round(fsp_expectation, 3), time_samples], index = index_names).transpose()
         pred['Model'] = 'FSP estimation'
         preds.append(pred)
     if plot_exact_result[0]:
@@ -768,13 +782,16 @@ if __name__ == '__main__':
     def identity(x):
         return x
 
-    grad_table(time_samples=np.array([5, 10, 15, 20]), 
+    def loss(x):
+        return np.linalg.norm(x-10)
+
+    expect_val_table(time_samples=np.array([5, 10, 15, 20]), 
             params=X_test[1_000,1:].numpy(), 
-            ind_param=5,
             time_windows=np.array([5, 10, 15, 20]),
-            f=identity,
+            loss=identity,
             models = (True, [model1, model2, model3], N_COMPS),
             plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 50, propensities.init_state, 1, 3, 1),
             up_bound=200,
+            plot=('gradient', 6),
             save=(False, ""))
     plt.show()

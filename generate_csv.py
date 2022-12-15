@@ -8,20 +8,20 @@ import numpy as np
 from CRN4_control import propensities_bursting_gene as propensities
 from typing import Tuple
 
-def generate_csv(crn_name: str,
-                datasets: dict,
-                n_fixed_params: int,
-                n_control_params: int,
-                stoich_mat: np.ndarray,
-                propensities: np.ndarray,
-                time_windows: np.ndarray,
-                sampling_times: np.ndarray,
-                ind_species: int,
-                n_trajectories: int,
-                sobol_start: np.ndarray,
-                sobol_end: np.ndarray,
-                initial_state: Tuple[bool, np.ndarray] =(False, None),
-                method: str ='SSA'):
+def generate_csv_datasets(crn_name: str,
+                          datasets: dict,
+                          n_fixed_params: int,
+                          n_control_params: int,
+                          stoich_mat: np.ndarray,
+                          propensities: np.ndarray,
+                          time_windows: np.ndarray,
+                          sampling_times: np.ndarray,
+                          ind_species: int,
+                          n_trajectories: int,
+                          sobol_start: np.ndarray,
+                          sobol_end: np.ndarray,
+                          initial_state: Tuple[bool, np.ndarray] =(False, None),
+                          method: str ='SSA'):
     r"""Generates datasets from Stochastic Simulations and saves them in CSV files.
 
     Args:
@@ -73,6 +73,57 @@ def generate_csv(crn_name: str,
         somme += value
 
 
+def generate_csv_simulations(crn_name: str,
+                              n_fixed_params: int,
+                              n_control_params: int,
+                              stoich_mat: np.ndarray,
+                              propensities: np.ndarray,
+                              time_windows: np.ndarray,
+                              sampling_times: np.ndarray,
+                              ind_species: int,
+                              n_trajectories: int,
+                              params: np.ndarray,
+                              initial_state: np.ndarray,
+                              method: str ='SSA'):
+    r"""Generates datasets from Stochastic Simulations and saves them in CSV files.
+
+    Args:
+        - **crn_name** (str): Name of the CRN to use for the filenames.
+        - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
+        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. Their values vary \
+          from a time window to another.
+        - **stoich_mat** (np.ndarray): Stoichiometry matrix.
+        - **propensities** (np.ndarray): Non-parameterized propensity functions.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **sampling_times** (np.ndarray): Sampling times.
+        - **ind_species** (int): Index of the species to study.
+        - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
+        - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params})`.
+        - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
+          sets the initial state to :math:`0` for all species.
+        - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
+    """
+    crn = simulation.CRN(stoichiometry_mat=stoich_mat,
+                        propensities=propensities, 
+                        init_state=initial_state,
+                        n_fixed_params=n_fixed_params, 
+                        n_control_params=n_control_params)
+    dataset = generate_data.CRN_Dataset(crn=crn,
+                                        time_windows=time_windows,
+                                        sampling_times=sampling_times, 
+                                        ind_species=ind_species, 
+                                        method=method)
+    distributions = dataset.run_simulations(params=params,
+                                            n_trajectories=n_trajectories,
+                                            ind_species=ind_species)
+    # writing CSV files
+    convert_csv.array_to_csv(distributions, f'Distributions_{crn_name}')
+
+
 # because we use multiprocessing
 if __name__ == '__main__':
 
@@ -81,17 +132,17 @@ if __name__ == '__main__':
     datasets = {'test': 16}
     # datasets = {'train1': 2464, 'train2': 2464, 'train3': 2464, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
     N_PARAMS = 4
-    generate_csv(crn_name=CRN_NAME,
-                datasets=datasets,
-                n_fixed_params=N_PARAMS-1,
-                n_control_params=1,
-                stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
-                propensities=propensities.propensities,
-                time_windows=np.array([5, 10, 15, 20]),
-                sampling_times=np.array([5, 10, 15, 20]),
-                ind_species=propensities.ind_species,
-                n_trajectories=10**4,
-                sobol_start=np.zeros(N_PARAMS),
-                sobol_end=np.array([1., 5., 1., 3.]),
-                initial_state=(True, propensities.init_state))
+    generate_csv_datasets(crn_name=CRN_NAME,
+                          datasets=datasets,
+                          n_fixed_params=N_PARAMS-1,
+                          n_control_params=1,
+                          stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
+                          propensities=propensities.propensities,
+                          time_windows=np.array([5, 10, 15, 20]),
+                          sampling_times=np.array([5, 10, 15, 20]),
+                          ind_species=propensities.ind_species,
+                          n_trajectories=10**4,
+                          sobol_start=np.zeros(N_PARAMS),
+                          sobol_end=np.array([1., 5., 1., 3.]),
+                          initial_state=(True, propensities.init_state))
 

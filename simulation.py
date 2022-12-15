@@ -10,12 +10,12 @@ class CRN:
         - **propensities** (np.ndarray): Non-parameterized propensity functions.
         - **init_state** (np.ndarray): Initial state of the system.
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. \
-            Their values vary from a time window to another.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. 
+          Their values vary from a time window to another.
         - **exact** (bool, optional): If True, the exact distribution of the CRN is known. Defaults to False.
         - **exact_distr** (Tuple[Callable], optional): The exact probability mass function, when known. Defaults to None.
-        - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of the mass function, when known. \
-            Defaults to None.
+        - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of the mass function, when known. 
+          Defaults to None.
     """    
     def __init__(self,
                 stoichiometry_mat: np.ndarray, 
@@ -25,7 +25,7 @@ class CRN:
                 n_control_params: int =0,
                 exact: bool =False, 
                 exact_distr: Tuple[Callable] =None, 
-                exact_sensitivities_prob: Tuple[Callable] =None):   
+                exact_sensitivities_prob: Tuple[Callable] =None):
         # stoichiometry_mat has shape (n_species, n_reactions)
         self.stoichiometry_mat = stoichiometry_mat
         # total number of reactions, including those whose parameters change
@@ -49,7 +49,8 @@ class CRN:
             sampling_times: np.ndarray, 
             t0: float,
             tf: float,
-            method: str) -> Tuple[np.ndarray]: 
+            method: str,
+            complete_trajectory: bool) -> Tuple[np.ndarray]: 
         """Computes a simulation for a time window during which all parameters are fixed.
 
         Args:
@@ -77,15 +78,20 @@ class CRN:
                                             n_reactions=self.n_reactions, 
                                             stoich_mat=self.stoichiometry_mat)
         if method == 'SSA':
-            samples = simulations.SSA()
+            samples = simulations.SSA(complete_trajectory)
         else:
-            samples = simulations.mNRM()
-        self.sampling_times = np.concatenate((self.sampling_times, sampling_times))
+            samples = simulations.mNRM(complete_trajectory)
+        self.sampling_times = np.concatenate((self.sampling_times, simulations.sampling_times))
         self.sampling_states = np.concatenate((self.sampling_states, samples))
         self.current_state = simulations.current_state
         self.time = tf
 
-    def simulation(self, sampling_times: np.ndarray, time_windows: np.ndarray, parameters: np.ndarray, method: str ='SSA'):
+    def simulation(self, 
+                sampling_times: np.ndarray, 
+                time_windows: np.ndarray, 
+                parameters: np.ndarray, 
+                method: str ='SSA', 
+                complete_trajectory: bool =False):
         r"""Computes a simulation between two time points with parameters variations in time windows.
 
         Args:
@@ -104,12 +110,13 @@ class CRN:
                         sampling_times=sampling_times[(sampling_times > self.time) & (sampling_times <= t)],
                         t0=self.time,
                         tf=t,
-                        method=method)
+                        method=method,
+                        complete_trajectory=complete_trajectory)
 
     def reset(self):
         """Resets the CRN to the inital setting: sets the time to :math:`t=0`, the current state to the initial state and
         empties the sampling times and samples.
-        """        
+        """
         self.time = 0
         self.current_state = self.init_state.copy()
         self.sampling_times = np.empty(0)                   
@@ -125,7 +132,7 @@ class StochasticSimulation:
         - :math:`x_0` (np.ndarray): Initial state.
         - :math:`t_0`(float): Initial time of the simulation.
         - :math:`t_f` (float): Final time of the simulation.
-        - **sampling_times** (list): Times to sample.
+        - **sampling_times** (np.ndarray): Times to sample.
         - **propensities** (np.ndarray): Propensity functions (parameterized).
         - **n_species** (int): :math:`N`, Number of species involved.
         - **n_reactions** (int): Number of reactions that can occur.
@@ -135,7 +142,7 @@ class StochasticSimulation:
                 x0: np.ndarray,
                 t0: float, 
                 tf: float, 
-                sampling_times: list, 
+                sampling_times: np.ndarray, 
                 propensities: np.ndarray, 
                 n_species: int, 
                 n_reactions: int, 
@@ -145,19 +152,20 @@ class StochasticSimulation:
         self.n_reactions = n_reactions
         self.time = t0
         self.samples = []
-        self.sampling_times = sampling_times
+        self.sampling_times = sampling_times # = np.empty(0) when complete_trajectory=True
         self.current_state = x0
         self.propensities = propensities
         self.stoich_mat = stoich_mat
 
 
-    def SSA(self) -> Tuple[np.ndarray]:
+    def SSA(self, complete_trajectory=False) -> Tuple[np.ndarray]:
         """Computes the SSA.
 
         Returns:
             - **sampling_times** (np.ndarray): Times to sample.
             - **samples** (np.ndarray): Samples at the sampling times.
-        """        
+        """
+        # samples = [] instead of self.samples?
         while True:
             eval_propensities = np.vectorize(lambda f, x: f(x), excluded=[1], otypes=[np.ndarray])
             lambdas = eval_propensities(self.propensities, self.current_state)
@@ -166,23 +174,32 @@ class StochasticSimulation:
             delta = np.random.exponential(1/lambda0)
             self.time += delta
             if self.time > self.final_time:
-                # last samples
-                for _ in range(len(self.sampling_times) - len(self.samples)):
-                    self.samples.append(list(self.current_state))
+                if not(complete_trajectory):
+                    # last samples
+                    for _ in range(len(self.sampling_times) - len(self.samples)):
+                        self.samples.append(list(self.current_state))
+                else:
+                    if len(self.samples) == 0:
+                        self.sampling_times = np.concatenate((self.sampling_times, [self.final_time]))
+                        self.samples.append(list(self.current_state))
                 break
             # choosing which reaction occurs
             u = random.random()
             ind_reaction = np.searchsorted(probabilities, u, side='right') # the reaction n°ind_reaction occurs
-            # sampling if needed
-            last_index = int(np.searchsorted(self.sampling_times, self.time - delta, side='left'))
-            current_index = int(np.searchsorted(self.sampling_times, self.time, side='left'))
-            for _ in range(current_index - last_index):
-                self.samples.append(list(self.current_state))
+            if not(complete_trajectory):
+                # sampling if needed
+                last_index = int(np.searchsorted(self.sampling_times, self.time - delta, side='left'))
+                current_index = int(np.searchsorted(self.sampling_times, self.time, side='left'))
+                for _ in range(current_index - last_index):
+                    self.samples.append(list(self.current_state))
             # updating state
             self.current_state += self.stoich_mat[:, ind_reaction]
+            if complete_trajectory:
+                self.sampling_times = np.concatenate((self.sampling_times, [self.time]))
+                self.samples.append(list(self.current_state))
         return np.array(self.samples)
 
-    def mNRM(self):
+    def mNRM(self, complete_trajectory=False):
         """Computes the mNRM.
         """
         pass
