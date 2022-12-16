@@ -573,7 +573,6 @@ def expect_val_table(time_samples: np.ndarray,
             fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
         elif plot[0] == 'gradient':
             results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
-            print(results_fsp.shape)
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -706,7 +705,6 @@ def expect_val_barplots(time_samples: np.ndarray,
             fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
         elif plot[0] == 'gradient':
             results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
-            print(results_fsp.shape)
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -748,25 +746,19 @@ if __name__ == '__main__':
 
     from scipy.stats import poisson
 
-    from CRN4_control import propensities_bursting_gene as propensities
+    from CRN2_control import propensities_production_degradation as propensities
 
-    FILE_NAME = 'CRN4_control/short_data'
-    CRN_NAME = 'CRN4_control'
-    NUM_PARAMS = 7
-    NAME = 'Production Degradation CRN'
+    FILE_NAME = 'CRN2_control/data'
+    CRN_NAME = 'CRN2'
+    NUM_PARAMS = 5
+    N_COMPS = 4
 
     X_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_test.csv')
     y_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_test.csv')
 
-    LR = 0.005
-    N_ITER  = 700
-    BATCHSIZE = 32
-    N_HIDDEN = 256
-    MIXTURE = 'NB'
-    N_COMPS = 4
-    model1 = save_load_MDN.load_MDN_model('CRN4_control/saved_models_short/CRN4_model1.pt')
-    model2 = save_load_MDN.load_MDN_model('CRN4_control/saved_models_short/CRN4_model2.pt')
-    model3 = save_load_MDN.load_MDN_model('CRN4_control/saved_models_short/CRN4_model3.pt')
+    model1 = save_load_MDN.load_MDN_model('CRN2_control/saved_models/CRN2_model1.pt')
+    model2 = save_load_MDN.load_MDN_model('CRN2_control/saved_models/CRN2_model2.pt')
+    model3 = save_load_MDN.load_MDN_model('CRN2_control/saved_models/CRN2_model3.pt')
 
     # multiple_plots(to_pred=[X_test[1_000+k,:] for k in range(4)], 
     #                 models=[model1, model2, model3],
@@ -783,15 +775,16 @@ if __name__ == '__main__':
         return x
 
     def loss(x):
-        return np.linalg.norm(x-10)
+        return (x-2)**2
 
     expect_val_table(time_samples=np.array([5, 10, 15, 20]), 
-            params=X_test[1_000,1:].numpy(), 
+            #params=X_test[1_000,1:].numpy(),
+            params = np.array([2., 1., 0.5, 0.2, 0.7], dtype=np.float32),
             time_windows=np.array([5, 10, 15, 20]),
-            loss=identity,
+            loss=loss,
             models = (True, [model1, model2, model3], N_COMPS),
-            plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 50, propensities.init_state, 1, 3, 1),
+            plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 50, propensities.init_state, 0, 1, 1),
             up_bound=200,
-            plot=('gradient', 6),
+            plot=('gradient', 1),
             save=(False, ""))
     plt.show()

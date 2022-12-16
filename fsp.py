@@ -3,6 +3,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from bidict import bidict
 import simulation
+import generate_data
 from typing import Tuple, Union, Callable
 import collections.abc as abc
 
@@ -386,12 +387,6 @@ class SensitivitiesDerivation:
               function for the species of interest at each time, of dimensions :math:`(N_t, \\frac{Cr(Cr+3)}{2}+1, M)`.
         """
         if with_stv:
-            # if self.index is None:
-            #     length = parameters.shape[1]
-            # elif isinstance(self.index, abc.Hashable):
-            #     length = 1
-            # else:
-            #     length = len(self.index)
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), len(self.index)+1))
         else:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), 1))
@@ -434,8 +429,10 @@ class SensitivitiesDerivation:
                                                 parameters=parameters,
                                                 ind_species=ind_species,
                                                 with_stv=False)[:,:,0]
+        self.reset()
         vectorized_loss = np.vectorize(loss)
         scalar = vectorized_loss(np.arange(self.cr+1))
+        # Diag(np.dot(marginal_distributions, scalar.transpose()))
         return np.dot(marginal_distributions.transpose(), scalar) # shape(Nt)
 
 
@@ -447,6 +444,7 @@ class SensitivitiesDerivation:
                                                 parameters=parameters, 
                                                 ind_species=ind_species,
                                                 with_stv=True)
+        self.reset()
         stv = marginal_distributions[:, :, 1:]
         vectorized_loss = np.vectorize(loss)
         scalar = vectorized_loss(np.arange(self.cr+1))
@@ -455,15 +453,15 @@ class SensitivitiesDerivation:
 
         
 if __name__ == '__main__':
-    # from CRN2_production_degradation import propensities_production_degradation as propensities
-    from CRN4_control import propensities_bursting_gene as propensities
+    from CRN2_production_degradation import propensities_production_degradation as propensities
+    # from CRN4_control import propensities_bursting_gene as propensities
     import matplotlib.pyplot as plt
     from scipy.stats import poisson
 
     crn = simulation.CRN(propensities.stoich_mat,
                     propensities.propensities,
                     init_state=propensities.init_state,
-                    n_fixed_params=3,
+                    n_fixed_params=1,
                     n_control_params=1)
 
     def production_degradation_distribution(x, params):
@@ -482,12 +480,12 @@ if __name__ == '__main__':
         return (-lambd/theta2 + theta1/theta2*t*np.exp(-t*theta2)) * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
 
 
-    stv = SensitivitiesDerivation(crn, n_time_windows=4, index=0, cr=50)
-    print(stv.index)
-    to_pred = np.array([0.13283385, 2.01077429, 0.62170795, 1.67796615, 0.62086121, 1.5632251 , 2.67536833])
+    stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None, cr=50)
+    to_pred = np.array([2., 2.01077429, 0.62170795, 1.67796615, 0.62086121, 1.5632251 , 2.67536833])
     fixed_parameters = np.stack([to_pred[:crn.n_fixed_params]]*4)
-    control_parameters= to_pred[crn.n_fixed_params:].reshape(4,1)
-    params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+    # control_parameters= to_pred[crn.n_fixed_params:].reshape(4,1)
+    # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+
     # results_fsp = stv.marginal(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, with_stv=True)
     # print(results_fsp.shape)
     # for i, t in enumerate(np.array([5])):
@@ -495,5 +493,27 @@ if __name__ == '__main__':
     # plt.plot(production_degradation_distribution(np.arange(50), np.array([20., 2., 1.])), label='exact')
     # plt.legend()
     # plt.show()
-    res = stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species)
-    print(res.shape, res)
+
+    # res = stv.expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species)
+    # print(res.shape, res)
+
+    # fixed_parameters = np.stack([np.array([1.])]*4)
+
+    def loss(x):
+        return (x-3)**2
+
+    res = []
+    # control_parameters = np.array([1.1]*4).reshape(4,1)
+    # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+    # print(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).shape)
+    for elt in np.linspace(0., 3., 30):
+    # for elt in [0.9, 1.0, 1.1, 1.2, 1.3, 1.4]:
+        control_parameters = np.array([elt]*4).reshape(4,1)
+        params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+        res.append(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).sum())
+    # plt.plot(np.linspace(0., 1.5, 30), res)
+    # plt.ylim(min(res), max(res))
+    # plt.show()  
+    xi = np.linspace(0, 3., 30)[np.argmin(np.abs(res))]
+    print('Loss: x-3')
+    print(xi)
