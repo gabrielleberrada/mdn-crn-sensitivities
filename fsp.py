@@ -421,6 +421,27 @@ class SensitivitiesDerivation:
     def identity(self, x):
         return x
 
+    # def expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable=None):
+    #     if loss is None:
+    #         loss = self.identity
+    #     marginal_distributions = self.marginal(sampling_times=sampling_times,
+    #                                             time_windows=time_windows,
+    #                                             parameters=parameters,
+    #                                             ind_species=ind_species,
+    #                                             with_stv=False)[:,:,0]
+    #     self.reset()
+    #     if isinstance(loss, abc.Hashable):
+    #         vectorized_loss = np.vectorize(loss)
+    #         scalar = vectorized_loss(np.arange(self.cr+1))
+    #         return np.dot(marginal_distributions.transpose(), scalar) # shape(Nt)
+    #     else:
+    #         scalar = np.zeros((self.n_time_windows, self.cr + 1))
+    #         for i, loss_f in enumerate(loss):
+    #             vectorized_loss_f = np.vectorize(loss_f)
+    #             scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
+    #         return np.diag(np.dot(scalar, marginal_distributions))
+    #     # Diag(np.dot(marginal_distributions, scalar.transpose())) for distr (Nt, cr) and scalar (Nt, cr)
+
     def expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable=None):
         if loss is None:
             loss = self.identity
@@ -430,10 +451,16 @@ class SensitivitiesDerivation:
                                                 ind_species=ind_species,
                                                 with_stv=False)[:,:,0]
         self.reset()
-        vectorized_loss = np.vectorize(loss)
-        scalar = vectorized_loss(np.arange(self.cr+1))
-        # Diag(np.dot(marginal_distributions, scalar.transpose()))
-        return np.dot(marginal_distributions.transpose(), scalar) # shape(Nt)
+        if isinstance(loss, abc.Hashable):
+            return loss(np.dot(marginal_distributions.transpose(), np.arange(self.cr+1))) # shape(Nt)
+        else:
+            scalar = np.zeros((self.n_time_windows, self.cr + 1))
+            for i, loss_f in enumerate(loss):
+                vectorized_loss_f = np.vectorize(loss_f)
+                scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
+            return np.diag(np.dot(scalar, marginal_distributions))
+        # Diag(np.dot(marginal_distributions, scalar.transpose())) for distr (Nt, cr) and scalar (Nt, cr)
+ 
 
 
     def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable =None):
@@ -446,14 +473,20 @@ class SensitivitiesDerivation:
                                                 with_stv=True)
         self.reset()
         stv = marginal_distributions[:, :, 1:]
-        vectorized_loss = np.vectorize(loss)
-        scalar = vectorized_loss(np.arange(self.cr+1))
-        return np.dot(np.transpose(stv, [1, 2, 0]), scalar) # shape (Nt, len(index))
+        if isinstance(loss, abc.Hashable):
+            return np.dot(np.transpose(stv, [1, 2, 0]), np.arange(self.cr+1)) # shape (Nt, len(index))
+        else:
+            scalar = np.zeros((self.n_time_windows, self.cr + 1))
+            for i, loss_f in enumerate(loss):
+                vectorized_loss_f = np.vectorize(loss_f)
+                scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
+            pass
+            # return np.diag(np.dot(scalar, marginal_distributions))
 
 
         
 if __name__ == '__main__':
-    from CRN2_production_degradation import propensities_production_degradation as propensities
+    from CRN2_control import propensities_production_degradation as propensities
     # from CRN4_control import propensities_bursting_gene as propensities
     import matplotlib.pyplot as plt
     from scipy.stats import poisson
@@ -500,20 +533,24 @@ if __name__ == '__main__':
     # fixed_parameters = np.stack([np.array([1.])]*4)
 
     def loss(x):
-        return (x-3)**2
+        return np.abs(x-2)**2
+
+    def loss2(x):
+        return np.abs(x-1)**2
 
     res = []
     # control_parameters = np.array([1.1]*4).reshape(4,1)
     # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
     # print(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).shape)
     for elt in np.linspace(0., 3., 30):
-    # for elt in [0.9, 1.0, 1.1, 1.2, 1.3, 1.4]:
+    # for elt in [1.4]:
         control_parameters = np.array([elt]*4).reshape(4,1)
         params = np.concatenate((fixed_parameters, control_parameters), axis=1)
-        res.append(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).sum())
+        # stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss2).sum()
+        res.append(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).sum(axis=0)[0])
     # plt.plot(np.linspace(0., 1.5, 30), res)
     # plt.ylim(min(res), max(res))
     # plt.show()  
     xi = np.linspace(0, 3., 30)[np.argmin(np.abs(res))]
-    print('Loss: x-3')
+    # print('Loss: x-3')
     print(xi)

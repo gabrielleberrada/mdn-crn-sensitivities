@@ -247,11 +247,11 @@ class CRN_Simulations:
                 edges = np.concatenate((times[i], self.time_windows[-1:]))
                 plt.stairs(values=samples[i], edges=edges, baseline=None, orientation='vertical')
         else:
-            data = pd.DataFrame(samples.transpose(), columns = [f'distr{i}' for i in range(self.n_trajectories)])
+            data = pd.DataFrame(samples.transpose(), columns = [f'Abundance{i}' for i in range(self.n_trajectories)])
             data['id'] = data.index
             data['time'] = times
-            data = pd.wide_to_long(data, ['distr'], i='time', j='id')
-            seaborn.lineplot(data=data, x='time', y='distr')
+            data = pd.wide_to_long(data, ['Abundance'], i='time', j='id')
+            seaborn.lineplot(data=data, x='time', y='Abundance')
         if targets is not None: # shape (n_targets,2)
             plt.scatter(x=targets[:,0], y=targets[:,1], marker='x', c='black', label='target values')
             plt.legend()
@@ -266,4 +266,4 @@ if __name__ == '__main__':
     crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, propensities.init_state, 1, 1)
     sim = CRN_Simulations(crn, np.array([5, 10, 15, 20]), 1_000, 0, complete_trajectory=False, sampling_times=np.arange(21))
     # sim.plot_simulations(np.array([5., 0.3, 0.4, 0.5, 0.3]))# targets=np.array([[0., 0.], [5., 2.], [10., 3.]]))
-    sim.plot_simulations(np.array([1., 0.77361136, 0.26151234, 0.70884851, 0.99037573]), targets=np.array([[5., 10.], [10., 10.], [15., 10.], [20., 10.]]))
+    sim.plot_simulations(np.array([2.,1.01, 1.01, 1.01, 1.01]), targets=np.array([[5., 2.], [10., 2.], [15., 2.], [20., 2.]]))
