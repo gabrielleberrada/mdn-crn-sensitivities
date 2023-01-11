@@ -12,6 +12,7 @@ class CRN:
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
         - **n_control_params** (int): Number of varying parameters required to define the propensity functions. 
           Their values vary from a time window to another.
+        - **propensities_drv** (np.ndarray, optional):
         - **exact** (bool, optional): If True, the exact distribution of the CRN is known. Defaults to False.
         - **exact_distr** (Tuple[Callable], optional): The exact probability mass function, when known. Defaults to None.
         - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of the mass function, when known. 
@@ -23,6 +24,7 @@ class CRN:
                 init_state: np.ndarray,
                 n_fixed_params: int,
                 n_control_params: int =0,
+                propensities_drv: np.ndarray =None,
                 exact: bool =False, 
                 exact_distr: Tuple[Callable] =None, 
                 exact_sensitivities_prob: Tuple[Callable] =None):
@@ -39,6 +41,7 @@ class CRN:
         self.n_fixed_params = n_fixed_params
         self.n_control_params = n_control_params
         self.exact = exact
+        self.propensities_drv = propensities_drv
         if exact:
             self.exact_distr = exact_distr
             self.exact_sensitivities_prob = exact_sensitivities_prob

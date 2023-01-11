@@ -254,7 +254,7 @@ class CRN_Simulations:
             self.crn.reset()
         return samples, times
 
-    def plot_simulations(self, params: np.ndarray, targets: np.ndarray =None):
+    def plot_simulations(self, params: np.ndarray, targets: np.ndarray =None, save: Tuple[bool, str] =(False, None)):
         """Plots either all the simulated trajectories if `complete_trajectory` os False or 
         the mean evolution of the abundance if `complete_trajectory` is True`.
 
@@ -262,6 +262,7 @@ class CRN_Simulations:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
               (n_time_windows, n_params).
             - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.
+            - **save** (Tuple[bool, str], optional):
         """        
         samples, times = self.run_simulations(params)
         if self.complete_trajectory:
@@ -278,6 +279,8 @@ class CRN_Simulations:
             plt.scatter(x=targets[:,0], y=targets[:,1], marker='x', c='black', label='target values')
             plt.legend()
         plt.ylim(-0.1, plt.ylim()[1])
+        if save[0]:
+            plt.savefig(f'{save[1]}.pdf')
         plt.show()
 
         

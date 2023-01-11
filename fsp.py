@@ -95,7 +95,7 @@ class SensitivitiesDerivation:
     """
     def __init__(self, crn: simulation.CRN, n_time_windows: int, index: Tuple[list, int], cr: int =4):     
         self.cr = cr
-        self.crn = crn
+        self.crn = crn # make sure to specify propensities_drv if we compute the sensitivities
         self.n_fixed_params = crn.n_fixed_params
         self.n_control_params = crn.n_control_params
         self.n_params = self.n_fixed_params + self.n_control_params
@@ -172,12 +172,11 @@ class SensitivitiesDerivation:
             Bs.append(B)
         return sum(Bs)
 
-    def create_generator_derivative(self, params: np.ndarray, propensities_drv: np.ndarray, param_ind: int) -> np.ndarray:
+    def create_gdrv(self, params: np.ndarray, ind: int) -> np.ndarray:
         """Computes the derivative of **A** with respect to the index-th parameter.
 
         Args:
             - **params** (np.ndarray): _description_
-            - **propensity_derivatives** (np.ndarray): _description_
             - **index** (int): _description_
 
         Returns:
@@ -188,7 +187,7 @@ class SensitivitiesDerivation:
             d = self.bijection.bijection.inverse
             n = self.n_states
             stoich_mat = self.crn.stoichiometry_mat[:,index]
-            propensity = propensities_drv[index, param_ind]
+            propensity = self.crn.propensities_drv[index, ind]
             # might contain negative elements
             outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
             # propensity parameter is 1
@@ -211,8 +210,54 @@ class SensitivitiesDerivation:
             dA.append(dAi)
         return sum(dA)
 
+    def create_gdrv_B(self, params: np.ndarray, ind: int) -> np.ndarray:
+        r"""Computes the matrix :math:`B_i` for the **ind**-th reaction as defined in :cite:`fox2019fspfim`.
+        Args:
+            - **ind** (int): index of the occuring reaction.
+        Returns:
+            - Rate matrix :math:`B_i` for the **ind**-th reaction over the truncated state-space.
+        """
+        d = self.bijection.bijection.inverse
+        n = self.n_states
+        stoich_mat = self.crn.stoichiometry_mat[:,ind]
+        propensity = self.crn.propensities[ind]
+        # might contain negative elements
+        outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
+        # propensity parameter is 1
+        data = np.array(list(map(lambda x: propensity(np.ones(self.n_params), x), self.entries)))
+        #
+        rows = np.array([d[entry] for entry in self.entries])
+        get_index = lambda key: d[key] if key in d else -1
+        columns = np.array([get_index(output) for output in outputs])
+        compute_diags = np.vectorize(lambda i: -data[rows==i].sum())
+        diags = compute_diags(np.arange(n))
+        # truncation
+        mask = (columns >= 0) & (columns < n)
+        rows = rows[mask]
+        columns = columns[mask]
+        data = data[mask]
+        # according tox Fox and Munsky's paper
+        B = sp.coo_matrix((data, (columns, rows)), shape=(n, n))
+        B.setdiag(diags)
+        B.eliminate_zeros()
+        return B
 
-    def extended_constant_matrix(self, params: np.ndarray, propensities_drv: np.ndarray =None) -> np.ndarray:
+    def create_generator_derivative(self, params: np.ndarray, ind: int) -> np.ndarray:
+        """_summary_
+
+        Args:
+            params (np.ndarray): _description_
+            ind (int): _description_
+
+        Returns:
+            np.ndarray: _description_
+        """
+        # by default, mass-action kinetics
+        if self.crn.propensities_drv is None: 
+            return self.create_gdrv_B(params, ind)
+        return self.create_gdrv(params, ind)
+
+    def extended_constant_matrix(self, params: np.ndarray) -> np.ndarray:
         r"""Computes an extension of the matrix **C** to solve the set of ODEs for multiple parameters at once.
 
         Let us define :math:`mathcal{I}` the set of parameters indexes whose sensitivities to compute.
@@ -251,7 +296,7 @@ class SensitivitiesDerivation:
                 if ind > self.n_fixed_params:
                     # this parameter is controlled and is the current one
                     ind = ind - self.current_time_window*self.n_control_params
-                B = self.create_generator_derivative(params, propensities_drv, ind)
+                B = self.create_generator_derivative(params, ind)
             row = sp.hstack([B] + [empty]*i + [A] + [empty]*(n-i-1))
             rows.append(row)
         return sp.vstack(rows)
@@ -262,7 +307,6 @@ class SensitivitiesDerivation:
                 tf: float, 
                 params: np.ndarray,  
                 t_eval: list,
-                propensities_drv: np.ndarray =None, # not necessary if with_stv=False
                 with_stv: bool =True):
         r"""Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
 
@@ -295,7 +339,7 @@ class SensitivitiesDerivation:
         """
         # init_state is a 1D vector
         if with_stv:  
-            constant = sp.csr_matrix(self.extended_constant_matrix(params, propensities_drv))
+            constant = sp.csr_matrix(self.extended_constant_matrix(params))
             def f(t, x):
                 return constant.dot(x)
             return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
@@ -310,7 +354,6 @@ class SensitivitiesDerivation:
                             sampling_times: np.ndarray,
                             time_windows: np.ndarray,
                             parameters: np.ndarray,
-                            propensities_drv: np.ndarray =None, # not necessary if with_stv = False
                             with_stv: bool =True) -> np.ndarray:
         """_summary_
 
@@ -349,7 +392,6 @@ class SensitivitiesDerivation:
                                         tf=t, 
                                         params=params,
                                         t_eval=t_eval,
-                                        propensities_drv=propensities_drv,
                                         with_stv=True)['y']
                 # reshaping the array
                 solution = solution.reshape((self.n_states, len(self.index)+1, len(t_eval)), order='F')
@@ -361,7 +403,6 @@ class SensitivitiesDerivation:
                                         tf=t, 
                                         params=params,
                                         t_eval=t_eval,
-                                        propensities_drv=None, # we do not compute the sensitivities
                                         with_stv=False)['y']
                 distributions.append(np.expand_dims(solution[:, :added_t], axis=-1))
                 self.current_state[:,0] = solution[:,-1]
@@ -375,7 +416,6 @@ class SensitivitiesDerivation:
                 time_windows: np.ndarray,
                 parameters: np.ndarray, 
                 ind_species: int,
-                propensities_drv: np.ndarray,
                 with_stv: bool =True
                 ) -> Tuple[np.ndarray]:
         """Computes marginal probabilities and marginal sensitivities of probability mass functions.
@@ -398,7 +438,7 @@ class SensitivitiesDerivation:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), len(self.index)+1))
         else:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), 1))
-        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, propensities_drv, with_stv)
+        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, with_stv)
         for n, state in self.bijection.bijection.items():
             for i, _ in enumerate(sampling_times):
                 marginal_distributions[state[ind_species],i,:] += solution[n,i,:]
@@ -409,7 +449,6 @@ class SensitivitiesDerivation:
                     time_windows: np.ndarray, 
                     parameters: np.ndarray, 
                     ind_species: list,
-                    propensities_drv: np.ndarray =None,
                     with_stv: bool =True):
         """Computes marginal distributions for multiple species.
 
@@ -429,7 +468,7 @@ class SensitivitiesDerivation:
         """
         marginal_distributions = {}
         for ind in ind_species:
-            marginal_distributions[ind] = self.marginal(sampling_times, time_windows, parameters, ind, propensities_drv, with_stv)
+            marginal_distributions[ind] = self.marginal(sampling_times, time_windows, parameters, ind, with_stv)
         return marginal_distributions
 
     def identity(self, x):
@@ -447,7 +486,6 @@ class SensitivitiesDerivation:
                                                 time_windows=time_windows,
                                                 parameters=parameters,
                                                 ind_species=ind_species,
-                                                propensities_drv=None,
                                                 with_stv=False)[:,:,0]
         self.reset()
         if isinstance(loss, abc.Hashable):
@@ -465,7 +503,6 @@ class SensitivitiesDerivation:
                             time_windows: np.ndarray, 
                             parameters: np.ndarray, 
                             ind_species: int,
-                            propensities_drv: np.ndarray,
                             loss: Callable =None):
         if loss is None:
             loss = self.identity
@@ -473,7 +510,6 @@ class SensitivitiesDerivation:
                                                 time_windows=time_windows, 
                                                 parameters=parameters, 
                                                 ind_species=ind_species,
-                                                propensities_drv=propensities_drv,
                                                 with_stv=True)
         self.reset()
         stv = marginal_distributions[:, :, 1:]

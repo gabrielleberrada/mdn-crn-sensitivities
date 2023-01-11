@@ -6,7 +6,7 @@ import neuralnetwork
 import get_sensitivities
 import seaborn
 import math
-import fsp_kinetics as fsp
+import fsp
 import get_fi
 import simulation
 from typing import Callable, Tuple
@@ -87,7 +87,8 @@ def plot_model(to_pred: torch.tensor,
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[5],
                             n_fixed_params=plot_fsp_result[7],
-                            n_control_params=plot_fsp_result[8])
+                            n_control_params=plot_fsp_result[8],
+                            propensities_drv=plot_fsp_result[3])
         stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
         # for now, time_window = [0, t], parameters has shape (n_params + 1)
         fixed_parameters = np.stack([to_pred[1:plot_fsp_result[7]+1].numpy()]*n_time_windows)
@@ -96,24 +97,12 @@ def plot_model(to_pred: torch.tensor,
         if plot[0] == 'probabilities':
             results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), 
                                                 time_windows, parameters, 
-                                                ind_species=plot_fsp_result[6], 
-                                                propensities_drv=None, 
+                                                ind_species=plot_fsp_result[6],
                                                 with_stv=False)[:,0,0]
         if plot[0] == 'sensitivities':
-            # by default, mass-action kinetics
-            if plot_fsp_result[3] is None:
-                n_params = plot_fsp_result[7] + plot_fsp_result[8]
-                def zeros(params, x):
-                    return 0
-                propensities_drv = np.array([zeros]*(crn.n_reactions*(crn.n_control_params+crn.n_fixed_params))).reshape((crn.n_reactions, crn.n_control_params+crn.n_fixed_params))
-                for i in range(crn.n_reactions):
-                    propensities_drv[i, i] = lambda params, x: plot_fsp_result[2][i](np.ones(n_params), x)
-            else:
-                propensities_drv = plot_fsp_result[3]
             results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), 
                                                 time_windows, parameters, 
                                                 ind_species=plot_fsp_result[6], 
-                                                propensities_drv=propensities_drv, 
                                                 with_stv=True)
             if plot[1] < crn.n_fixed_params:
                 results_fsp = results_fsp[:,0,1]
@@ -228,7 +217,8 @@ def multiple_plots(to_pred: list,
                                     propensities=plot_fsp_result[2], 
                                     init_state=plot_fsp_result[5],
                                     n_fixed_params=plot_fsp_result[7],
-                                    n_control_params=plot_fsp_result[8])
+                                    n_control_params=plot_fsp_result[8],
+                                    propensities_drv=plot_fsp_result[3])
                 stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
                 fixed_parameters = np.stack([to_pred_[1:plot_fsp_result[7]+1].numpy()]*n_time_windows)
                 control_parameters = to_pred_[plot_fsp_result[7]+1:].numpy().reshape(n_time_windows, plot_fsp_result[8])
@@ -237,24 +227,12 @@ def multiple_plots(to_pred: list,
                     results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), 
                                                         time_windows, 
                                                         parameters, 
-                                                        ind_species=plot_fsp_result[6], 
-                                                        propensities_drv=None, 
+                                                        ind_species=plot_fsp_result[6],
                                                         with_stv=False)[:,0,0]
                 if plot[0] == 'sensitivities':
-                    # by default, mass-action kinetics
-                    if plot_fsp_result[3] is None:
-                        n_params = plot_fsp_result[7] + plot_fsp_result[8]
-                        def zeros(params, x):
-                            return 0
-                        propensities_drv = np.array([zeros]*(crn.n_reactions*n_params)).reshape((crn.n_reactions, n_params))
-                        for i in range(crn.n_reactions):
-                            propensities_drv[i, i] = lambda params, x: plot_fsp_result[2][i](np.ones(n_params), x)
-                    else:
-                        propensities_drv = plot_fsp_result[3]
                     results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), 
                                                         time_windows, parameters, 
-                                                        ind_species=plot_fsp_result[6], 
-                                                        propensities_drv=propensities_drv, 
+                                                        ind_species=plot_fsp_result[6],
                                                         with_stv=True)
                     if plot[1] < crn.n_fixed_params:
                         results_fsp = results_fsp[:,0,1]
@@ -279,7 +257,7 @@ def multiple_plots(to_pred: list,
             data = pd.concat(preds, ignore_index=True)
             seaborn.lineplot(ax=axes[k//n_col, k%n_col], data=data, x=index_names[1], y=index_names[0], hue='Model', style='Model',
                 dashes={'training1': '', 'training2': '', 'training3': '', 'exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)})
-            axes[k//n_col, k%n_col].legend().set_title('')
+            # axes[k//n_col, k%n_col].annotate(f'({k})', xy=(length*0.9, ymax*0.8), xycoords='data', fontsize=11)
         plt.setp(axes, ylim=(ymin-0.05, ymax+0.05))
         plt.subplots_adjust(hspace=0.01)
         # fig.suptitle(f'{plot[0]} plot for params {params[1:]}')
@@ -363,7 +341,8 @@ def fi_table(time_samples: np.ndarray,
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[5],
                             n_fixed_params=plot_fsp_result[7],
-                            n_control_params=plot_fsp_result[8])
+                            n_control_params=plot_fsp_result[8],
+                            propensities_drv=plot_fsp_result[3])
         stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[4])
         fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
@@ -372,8 +351,7 @@ def fi_table(time_samples: np.ndarray,
         results_fsp = stv_calculator.marginal(time_samples, 
                                             time_windows, 
                                             parameters, 
-                                            plot_fsp_result[6], 
-                                            propensities_drv=plot_fsp_result[3],
+                                            plot_fsp_result[6],
                                             with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
         if ind_param < crn.n_fixed_params:
@@ -505,7 +483,8 @@ def fi_barplots(time_samples: np.ndarray,
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[5],
                             n_fixed_params=plot_fsp_result[7],
-                            n_control_params=plot_fsp_result[8])
+                            n_control_params=plot_fsp_result[8],
+                            propensities_drv=plot_fsp_result[3])
         stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[4])
         fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
@@ -514,8 +493,7 @@ def fi_barplots(time_samples: np.ndarray,
         results_fsp = stv_calculator.marginal(time_samples, 
                                             time_windows, 
                                             parameters, 
-                                            plot_fsp_result[6], 
-                                            propensities_drv=plot_fsp_result[3], 
+                                            plot_fsp_result[6],
                                             with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
         if ind_param < crn.n_fixed_params:
@@ -620,7 +598,8 @@ def expect_val_table(time_samples: np.ndarray,
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[5],
                             n_fixed_params=plot_fsp_result[7],
-                            n_control_params=plot_fsp_result[8])
+                            n_control_params=plot_fsp_result[8],
+                            propensities_drv=plot_fsp_result[3])
         stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
         fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
@@ -635,8 +614,7 @@ def expect_val_table(time_samples: np.ndarray,
             results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
                                                             time_windows=time_windows, 
                                                             parameters=parameters, 
-                                                            ind_species=plot_fsp_result[6], 
-                                                            propensities_drv=plot_fsp_result[3],
+                                                            ind_species=plot_fsp_result[6],
                                                             loss=loss)
             if plot[1] < crn.n_fixed_params:
                 index = 0
@@ -762,7 +740,8 @@ def expect_val_barplots(time_samples: np.ndarray,
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[5],
                             n_fixed_params=plot_fsp_result[7],
-                            n_control_params=plot_fsp_result[8])
+                            n_control_params=plot_fsp_result[8],
+                            propensities_drv=plot_fsp_result[3])
         stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
         fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
         control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
@@ -777,8 +756,7 @@ def expect_val_barplots(time_samples: np.ndarray,
             results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
                                                             time_windows=time_windows, 
                                                             parameters=parameters, 
-                                                            ind_species=plot_fsp_result[6], 
-                                                            propensities_drv=plot_fsp_result[3], 
+                                                            ind_species=plot_fsp_result[6],
                                                             loss=loss)
             if plot[1] < crn.n_fixed_params:
                 index = 0
@@ -819,29 +797,35 @@ if __name__ == '__main__':
     import save_load_MDN
     import get_sensitivities
 
-    from CRN6_toggle_switch import propensities_toggle as propensities
+    # from CRN6_toggle_switch import propensities_toggle as propensities
+    # X = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/X_toggle_test.csv')
+    # y = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/y_toggle_test.csv')
+    # model1 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model1.pt')
+    # model2 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model2.pt')
+    # model3 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model3.pt')
 
-    X = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/X_toggle_test.csv')
-    y = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/y_toggle_test.csv')
-    model1 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model1.pt')
-    model2 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model2.pt')
-    model3 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model3.pt')
 
+    from CRN4_control import propensities_bursting_gene as propensities
+    X = convert_csv.csv_to_tensor('CRN4_control/data/X_CRN4_control_test.csv')
+    y = convert_csv.csv_to_tensor('CRN4_control/data/y_CRN4_control_test.csv')
+    model1 = save_load_MDN.load_MDN_model('CRN4_control/saved_models/CRN4_model1.pt')
+    model2 = save_load_MDN.load_MDN_model('CRN4_control/saved_models/CRN4_model2.pt')
+    model3 = save_load_MDN.load_MDN_model('CRN4_control/saved_models/CRN4_model3.pt')
     
-    multiple_plots(to_pred = [X[10+k,:] for k in range(4)],
-                    models=[], 
+    multiple_plots(to_pred = [X[992+k,:] for k in range(4)],
+                    models=[model1, model2, model3], 
                     up_bound = [20]*4, 
                     n_comps=4,
                     time_windows=np.array([5, 10, 15, 20]),
-                    # plot=('sensitivities', 7),
-                    plot_test_result=(True, [y[10+k, :] for k in range(4)]),
+                    plot=('sensitivities', 1),
+                    plot_test_result=(False, [y[992+k, :] for k in range(4)]),
                     plot_fsp_result=(True, 
                                     propensities.stoich_mat, 
                                     propensities.propensities, 
-                                    propensities.propensities_drv, 
+                                    None, 
                                     50,
                                     propensities.init_state, 
                                     1, 
-                                    9, 
+                                    3, 
                                     1),
                     index_names=('Sensitivities', r'Abundance of species $S_2$'))
