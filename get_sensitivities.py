@@ -6,6 +6,14 @@ from typing import Union, Tuple, Callable
 def probabilities(inputs: torch.tensor,
                 model: neuralnetwork.NeuralNetwork,
                 length_output: int =200) -> torch.tensor:
+    """Computes the probability mass functions for the `length_output` first elements.
+    Output has shape (length_output).
+
+    Args:
+        - **inputs** (torch.tensor): Input data.
+        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
+        - **length_output** (int, optional): Length of the output. Defaults to :math:`200`.
+    """    
     mat_k = torch.arange(length_output).repeat(1, model.n_comps, 1).permute([2, 0, 1])
     return neuralnetwork.mix_pdf(model, inputs, mat_k)
 
@@ -14,6 +22,7 @@ def sensitivities(inputs: torch.tensor,
                 length_output: int =200, 
                 with_probs: bool =False) -> Union[torch.tensor, Tuple[torch.tensor]]:
     """Computes the sensitivities of probability mass functions with respect to the time and to the input parameters.
+    Output has shape (length_output, 1 + n_total_params).
 
     Args:
         - **inputs** (torch.tensor): Input data.
@@ -27,57 +36,40 @@ def sensitivities(inputs: torch.tensor,
         return torch.squeeze(torch.autograd.functional.jacobian(f, inputs)), f(inputs).detach()
     return torch.squeeze(torch.autograd.functional.jacobian(f, inputs))
 
-# def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, length_output: int =200) -> torch.tensor:
-#     stv = sensitivities(inputs, model, length_output)
-#     expec = stv.permute(1,0) * torch.arange(length_output)
-#     return expec.sum(dim=1)
-
 def identity(x):
     return x
 
-# def gradient_expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, loss: Callable =identity, length_output: int =200) -> torch.tensor:
-#     """Computes the expected value of the sensitivities of mass functions with respect to the time and to the input parameters.
-#     Args:
-#         - **inputs** (torch.tensor): Input data.
-#         - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
-#         - **length_output** (int, optional): Length of the output. Defaults to :math:`200`.
-#     Returns:
-#         - A tensor whose elements are the expected value of the sensitivities of probabilities.
-#     """    
-#     stv = sensitivities(inputs, model, length_output) # shape (length_output, n_total_params+1) (200, 6)
-#     vectorized_loss = np.vectorize(loss)
-#     expec = stv.permute(1, 0).detach().numpy() * vectorized_loss(np.arange(length_output))
-#     return expec.sum(axis=1) # shape n_total_params+1 (including t), output in numpy
+def expected_val(inputs: torch.tensor,
+                model: neuralnetwork.NeuralNetwork, 
+                loss: Callable =identity, 
+                length_output: int =200, 
+                array: bool =True) -> Union[np.ndarray, torch.tensor]:
+    """Computes the value of the loss function evaluated in the expectation of the density. Output is a scalar.
 
-# def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, loss: Callable =identity, length_output: int =200) -> torch.tensor:
-#     """Computes the expected value of the sensitivities of mass functions with respect to the time and to the input parameters.
-#     Args:
-#         - **inputs** (torch.tensor): Input data.
-#         - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
-#         - **length_output** (int, optional): Length of the output. Defaults to :math:`200`.
-#     Returns:
-#         - A tensor whose elements are the expected value of the sensitivities of probabilities.
-#     """
-#     vectorized_loss = np.vectorize(loss)
-#     expec = probabilities(inputs, model, length_output)[:,0].detach().numpy() * vectorized_loss(np.arange(length_output))
-#     return expec.sum() # shape 1, output in numpy
-
-def expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, loss: Callable =identity, length_output: int =200, array: bool =True) -> Union[np.ndarray, torch.tensor]:
-    """Computes the expected value of the sensitivities of mass functions with respect to the time and to the input parameters.
     Args:
         - **inputs** (torch.tensor): Input data.
         - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
+        - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to `identity`.
         - **length_output** (int, optional): Length of the output. Defaults to :math:`200`.
-        - **array** (bool):If True, the output is a NumPy array. If False, it is a PyTorch tensor. Defaults to True.  
-    Returns:
-        - A tensor whose elements are the expected value of the sensitivities of probabilities.
+        - **array** (bool, optional):If True, the output is a NumPy array. If False, it is a PyTorch tensor. Defaults to True.
     """
     expec = probabilities(inputs, model, length_output)[:,0] * torch.arange(length_output)
     if array:
         return loss(expec.sum()).detach().numpy() # shape 1, output in numpy
     return loss(expec.sum()) # shape 1, output in pytorch
 
-def gradient_expected_val(inputs: torch.tensor, model: neuralnetwork.NeuralNetwork, loss: Callable =identity, length_output: int =200) -> torch.tensor:
+def gradient_expected_val(inputs: torch.tensor, 
+                        model: neuralnetwork.NeuralNetwork, 
+                        loss: Callable =identity, 
+                        length_output: int =200) -> np.ndarray:
+    """Computes the gradient of the loss function evaluated in the expectation of the density. Output has shape (1 + n_total_params).
+
+    Args:
+        - **inputs** (torch.tensor): Input data.
+        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
+        - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to identity.
+        - **length_output** (int, optional): _description_. Defaults to 200.
+    """    
     def expec(inputs):
         return expected_val(inputs, model, loss, length_output, array=False)
     gradient =  torch.squeeze(torch.autograd.functional.jacobian(expec, inputs))

@@ -5,7 +5,8 @@ import numpy as np
 # from CRN1_control import propensities_pure_production as propensities
 # from CRN3_control import propensities_explosive_production as propensities
 # from CRN2_control import propensities_production_degradation as propensities
-from CRN4_control import propensities_bursting_gene as propensities
+# from CRN2_control import propensities_multiple_params as propensities
+from CRN6_toggle_switch import propensities_toggle as propensities
 from typing import Tuple
 
 def generate_csv_datasets(crn_name: str,
@@ -63,8 +64,7 @@ def generate_csv_datasets(crn_name: str,
     X, y = dataset.generate_data(data_length=data_length, 
                                 n_trajectories=n_trajectories, 
                                 sobol_start=sobol_start, 
-                                sobol_end=sobol_end,
-                                ind_species=ind_species)
+                                sobol_end=sobol_end)
     # writing CSV files
     somme = 0
     for key, value in datasets.items():
@@ -112,26 +112,27 @@ def generate_csv_simulations(crn_name: str,
                         init_state=initial_state,
                         n_fixed_params=n_fixed_params, 
                         n_control_params=n_control_params)
-    dataset = generate_data.CRN_Dataset(crn=crn,
-                                        time_windows=time_windows,
-                                        sampling_times=sampling_times, 
-                                        ind_species=ind_species, 
-                                        method=method)
-    distributions = dataset.run_simulations(params=params,
+    dataset = generate_data.CRN_Simulations(crn=crn,
+                                            time_windows=time_windows,
                                             n_trajectories=n_trajectories,
-                                            ind_species=ind_species)
+                                            ind_species=ind_species, 
+                                            complete_trajectory=False,
+                                            sampling_times=sampling_times, 
+                                            method=method)
+    samples, _ = dataset.run_simulations(params=params)
     # writing CSV files
-    convert_csv.array_to_csv(distributions, f'Distributions_{crn_name}')
+    convert_csv.array_to_csv(samples, f'Distributions_{crn_name}')
 
 
 # because we use multiprocessing
 if __name__ == '__main__':
 
-    CRN_NAME = 'CRN4_control'
+    CRN_NAME = 'toggle'
     # datasets = {'train': 3_300, 'valid': 300, 'test': 496}
     datasets = {'test': 16}
     # datasets = {'train1': 2464, 'train2': 2464, 'train3': 2464, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
-    N_PARAMS = 4
+    # datasets = {'train1': 10656, 'train2': 10656, 'train3': 10656, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
+    N_PARAMS = 10
     generate_csv_datasets(crn_name=CRN_NAME,
                           datasets=datasets,
                           n_fixed_params=N_PARAMS-1,
@@ -143,6 +144,6 @@ if __name__ == '__main__':
                           ind_species=propensities.ind_species,
                           n_trajectories=10**4,
                           sobol_start=np.zeros(N_PARAMS),
-                          sobol_end=np.array([1., 5., 1., 3.]),
+                          sobol_end=np.array([1., 1., 1., 1., 1., 1., 3., 3., 1., 1.]),
                           initial_state=(True, propensities.init_state))
 

@@ -6,7 +6,7 @@ import neuralnetwork
 import get_sensitivities
 import seaborn
 import math
-import fsp
+import fsp_kinetics as fsp
 import get_fi
 import simulation
 from typing import Callable, Tuple
@@ -21,7 +21,7 @@ def plot_model(to_pred: torch.tensor,
             index_names: Tuple[str, str] =('Probabilities', r'Abundance of species $S$'), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, Tuple[int], int, int, int] = (False, None),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, Tuple[int], int, int, int] = (False, None),
             plot: Tuple[str, int] =('probabilities', None),
             save: Tuple[bool, str] =(False, None)):
     r"""Plots distributions estimated with various methods for a single set of time and parameters and for a specified CRN.
@@ -43,12 +43,15 @@ def plot_model(to_pred: torch.tensor,
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
-                6. **ind_species** (int): Index of the species of interest.
-                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                4. **propensities_drv** (np.ndarray): Derivative of each propensity with respect to each parameter. Shape (n_reactions, n_parameters).
+                   If None, mass-action kinetics.
+                5. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
+                7. **ind_species** (int): Index of the species of interest.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
+                
         - **plot** (Tuple[str, int], optional): The first argument is either 'probabilities' to plot a probability distribution, or 'sensitivities' 
           to plot a sensitivities of probability mass function distribution. If it is 'sensitivities', the second argument is the index of the parameter 
           such that it plots the sensitivities with respect to this parameter. Defaults to ('probabilities', None).
@@ -82,25 +85,43 @@ def plot_model(to_pred: torch.tensor,
         n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
-                            init_state=plot_fsp_result[4],
-                            n_fixed_params=plot_fsp_result[6],
-                            n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
+                            init_state=plot_fsp_result[5],
+                            n_fixed_params=plot_fsp_result[7],
+                            n_control_params=plot_fsp_result[8])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
         # for now, time_window = [0, t], parameters has shape (n_params + 1)
-        fixed_parameters = np.stack([to_pred[1:plot_fsp_result[6]+1].numpy()]*n_time_windows)
-        control_parameters = to_pred[plot_fsp_result[6]+1:].numpy().reshape(n_time_windows, plot_fsp_result[7])
+        fixed_parameters = np.stack([to_pred[1:plot_fsp_result[7]+1].numpy()]*n_time_windows)
+        control_parameters = to_pred[plot_fsp_result[7]+1:].numpy().reshape(n_time_windows, plot_fsp_result[8])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         if plot[0] == 'probabilities':
-            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=False)[:,0,0]
+            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), 
+                                                time_windows, parameters, 
+                                                ind_species=plot_fsp_result[6], 
+                                                propensities_drv=None, 
+                                                with_stv=False)[:,0,0]
         if plot[0] == 'sensitivities':
-            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=True)
+            # by default, mass-action kinetics
+            if plot_fsp_result[3] is None:
+                n_params = plot_fsp_result[7] + plot_fsp_result[8]
+                def zeros(params, x):
+                    return 0
+                propensities_drv = np.array([zeros]*(crn.n_reactions*(crn.n_control_params+crn.n_fixed_params))).reshape((crn.n_reactions, crn.n_control_params+crn.n_fixed_params))
+                for i in range(crn.n_reactions):
+                    propensities_drv[i, i] = lambda params, x: plot_fsp_result[2][i](np.ones(n_params), x)
+            else:
+                propensities_drv = plot_fsp_result[3]
+            results_fsp = stv_calculator.marginal(to_pred[:1].numpy(), 
+                                                time_windows, parameters, 
+                                                ind_species=plot_fsp_result[6], 
+                                                propensities_drv=propensities_drv, 
+                                                with_stv=True)
             if plot[1] < crn.n_fixed_params:
                 results_fsp = results_fsp[:,0,1]
             elif crn.n_control_params < 2:
                 results_fsp = results_fsp[:, 0, 1+plot[1]-crn.n_fixed_params]
             else:
                 results_fsp = results_fsp[:,0,1+(plot[1]-crn.n_fixed_params)%crn.n_control_params]
-        length = min(up_bound, plot_fsp_result[3])
+        length = min(up_bound, plot_fsp_result[4])
         ymin = min(ymin, results_fsp.min())
         ymax = max(ymax, results_fsp.max())
         fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
@@ -133,7 +154,7 @@ def multiple_plots(to_pred: list,
             index_names: Tuple[str] =('Probabilities', r'Abundance of species $S$'),
             plot_test_result: Tuple[bool, torch.tensor] =(False, None),
             plot_exact_result: Tuple[bool, Callable] =(False, None),
-            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             plot: Tuple[str, int] =('probabilities', None),
             n_col: int =2,
             save: Tuple[bool, str] =(False, None)):
@@ -156,11 +177,13 @@ def multiple_plots(to_pred: list,
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                5. **init_state** (np.ndarray): Initial state.
-                6. **ind_species** (int): Index of the species of interest.
-                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                4. **propensities_drv** (np.ndarray): Derivative of each propensity with respect to each parameter. Shape (n_reactions, n_parameters).
+                   If None, mass-action kinetics.
+                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                6. **init_state** (np.ndarray): Initial state.
+                7. **ind_species** (int): Index of the species of interest.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
         - **plot** (Tuple[str, int], optional): The first argument is either 'probabilities' to plot a probability distribution, or 'sensitivities' 
           to plot a sensitivities of probability mass function distribution. If it is 'sensitivities', second argument is the index of the parameter 
@@ -203,24 +226,43 @@ def multiple_plots(to_pred: list,
                 n_time_windows = len(time_windows)
                 crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                                     propensities=plot_fsp_result[2], 
-                                    init_state=plot_fsp_result[4],
-                                    n_fixed_params=plot_fsp_result[6],
-                                    n_control_params=plot_fsp_result[7])
-                stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
-                fixed_parameters = np.stack([to_pred_[1:plot_fsp_result[6]+1].numpy()]*n_time_windows)
-                control_parameters = to_pred_[plot_fsp_result[6]+1:].numpy().reshape(n_time_windows, plot_fsp_result[7])
+                                    init_state=plot_fsp_result[5],
+                                    n_fixed_params=plot_fsp_result[7],
+                                    n_control_params=plot_fsp_result[8])
+                stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
+                fixed_parameters = np.stack([to_pred_[1:plot_fsp_result[7]+1].numpy()]*n_time_windows)
+                control_parameters = to_pred_[plot_fsp_result[7]+1:].numpy().reshape(n_time_windows, plot_fsp_result[8])
                 parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
                 if plot[0] == 'probabilities':
-                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=False)[:,0,0]
+                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), 
+                                                        time_windows, 
+                                                        parameters, 
+                                                        ind_species=plot_fsp_result[6], 
+                                                        propensities_drv=None, 
+                                                        with_stv=False)[:,0,0]
                 if plot[0] == 'sensitivities':
-                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), time_windows, parameters, ind_species=plot_fsp_result[5], with_stv=True)
+                    # by default, mass-action kinetics
+                    if plot_fsp_result[3] is None:
+                        n_params = plot_fsp_result[7] + plot_fsp_result[8]
+                        def zeros(params, x):
+                            return 0
+                        propensities_drv = np.array([zeros]*(crn.n_reactions*n_params)).reshape((crn.n_reactions, n_params))
+                        for i in range(crn.n_reactions):
+                            propensities_drv[i, i] = lambda params, x: plot_fsp_result[2][i](np.ones(n_params), x)
+                    else:
+                        propensities_drv = plot_fsp_result[3]
+                    results_fsp = stv_calculator.marginal(to_pred_[:1].numpy(), 
+                                                        time_windows, parameters, 
+                                                        ind_species=plot_fsp_result[6], 
+                                                        propensities_drv=propensities_drv, 
+                                                        with_stv=True)
                     if plot[1] < crn.n_fixed_params:
                         results_fsp = results_fsp[:,0,1]
                     elif crn.n_control_params < 2:
                         results_fsp = results_fsp[:, 0, 1+plot[1]-crn.n_fixed_params]
                     else:
                         results_fsp = results_fsp[:, 0, 1+(plot[1]-crn.n_fixed_params)%crn.n_control_params]
-                length = min(up_bound[k], plot_fsp_result[3])
+                length = min(up_bound[k], plot_fsp_result[4])
                 ymin = min(ymin, results_fsp.min())
                 ymax = max(ymax, results_fsp.max())
                 fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
@@ -243,6 +285,7 @@ def multiple_plots(to_pred: list,
         # fig.suptitle(f'{plot[0]} plot for params {params[1:]}')
         if save[0]:
             plt.savefig(save[1])
+        plt.show()
 
 
 
@@ -255,7 +298,7 @@ def fi_table(time_samples: np.ndarray,
             time_windows: np.ndarray,
             models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
             out_of_bounds_index: int =None,
             save: Tuple[bool, str] =(False, None)):
@@ -282,11 +325,12 @@ def fi_table(time_samples: np.ndarray,
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                5. **init_state** (np.ndarray): Initial state.
-                6. **ind_species** (int): Index of the species of interest.
-                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                4. **propensities_drv** (np.ndarray): 
+                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                6. **init_state** (np.ndarray): Initial state.
+                7. **ind_species** (int): Index of the species of interest.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**.
@@ -317,15 +361,20 @@ def fi_table(time_samples: np.ndarray,
         n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
-                            init_state=plot_fsp_result[4],
-                            n_fixed_params=plot_fsp_result[6],
-                            n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
-        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
-        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+                            init_state=plot_fsp_result[5],
+                            n_fixed_params=plot_fsp_result[7],
+                            n_control_params=plot_fsp_result[8])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[4])
+        fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
-        length = min(up_bound, plot_fsp_result[3])
-        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], with_stv=True)[:length,:,:]
+        length = min(up_bound, plot_fsp_result[4])
+        results_fsp = stv_calculator.marginal(time_samples, 
+                                            time_windows, 
+                                            parameters, 
+                                            plot_fsp_result[6], 
+                                            propensities_drv=plot_fsp_result[3],
+                                            with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
         if ind_param < crn.n_fixed_params:
             index = 1
@@ -379,7 +428,7 @@ def fi_barplots(time_samples: np.ndarray,
             time_windows: np.ndarray,
             models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
             save: Tuple[bool, str] =(False, None),
             colors: list =['blue', 'darkorange', 'forestgreen'],
@@ -406,12 +455,13 @@ def fi_barplots(time_samples: np.ndarray,
                 
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
-                6. **ind_species** (int): Index of the species of interest.
-                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
+                4. **propensities_drv** (np.ndarray): 
+                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
+                7. **ind_species** (int): Index of the species of interest.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
@@ -453,15 +503,20 @@ def fi_barplots(time_samples: np.ndarray,
         n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
-                            init_state=plot_fsp_result[4],
-                            n_fixed_params=plot_fsp_result[6],
-                            n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[3])
-        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
-        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+                            init_state=plot_fsp_result[5],
+                            n_fixed_params=plot_fsp_result[7],
+                            n_control_params=plot_fsp_result[8])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=ind_param, cr=plot_fsp_result[4])
+        fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
-        length = min(up_bound, plot_fsp_result[3])
-        results_fsp = stv_calculator.marginal(time_samples, time_windows, parameters, plot_fsp_result[5], with_stv=True)[:length,:,:]
+        length = min(up_bound, plot_fsp_result[4])
+        results_fsp = stv_calculator.marginal(time_samples, 
+                                            time_windows, 
+                                            parameters, 
+                                            plot_fsp_result[6], 
+                                            propensities_drv=plot_fsp_result[3], 
+                                            with_stv=True)[:length,:,:]
         fsp_fi = np.zeros(n_rows)
         if ind_param < crn.n_fixed_params:
             index = 1
@@ -499,7 +554,7 @@ def expect_val_table(time_samples: np.ndarray,
                     time_windows: np.ndarray,
                     models: Tuple[bool, list, int] =(False, None, 4),
                     plot_exact_result: Tuple[bool, Callable] =(False, None), 
-                    plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+                    plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
                     up_bound: int =200,
                     loss: Callable =None,
                     plot: Tuple[str, int] =('value', None),
@@ -528,11 +583,12 @@ def expect_val_table(time_samples: np.ndarray,
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                5. **init_state** (np.ndarray): Initial state.
-                6. **ind_species** (int): Index of the species of interest.
-                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                4. **propensities_drv** (np.ndarray):
+                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                6. **init_state** (np.ndarray): Initial state.
+                7. **ind_species** (int): Index of the species of interest.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**.
@@ -562,17 +618,26 @@ def expect_val_table(time_samples: np.ndarray,
         n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
-                            init_state=plot_fsp_result[4],
-                            n_fixed_params=plot_fsp_result[6],
-                            n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
-        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
-        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+                            init_state=plot_fsp_result[5],
+                            n_fixed_params=plot_fsp_result[7],
+                            n_control_params=plot_fsp_result[8])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
+        fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         if plot[0] == 'value':
-            fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+            fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, 
+                                                        time_windows=time_windows, 
+                                                        parameters=parameters, 
+                                                        ind_species=plot_fsp_result[6], 
+                                                        loss=loss)
         elif plot[0] == 'gradient':
-            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
+                                                            time_windows=time_windows, 
+                                                            parameters=parameters, 
+                                                            ind_species=plot_fsp_result[6], 
+                                                            propensities_drv=plot_fsp_result[3],
+                                                            loss=loss)
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -621,7 +686,7 @@ def expect_val_barplots(time_samples: np.ndarray,
             time_windows: np.ndarray,
             models: Tuple[bool, list, int] =(False, None, 4),
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
-            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
+            plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
             loss: Callable =None,
             plot: Tuple[str, int]=('value', None),
@@ -651,11 +716,12 @@ def expect_val_barplots(time_samples: np.ndarray,
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                5. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
-                6. **ind_species** (int): Index of the species of interest.
-                7. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                8. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                4. **propensities_drv** (np.ndarray):
+                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
+                7. **ind_species** (int): Index of the species of interest.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
+                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
@@ -694,17 +760,26 @@ def expect_val_barplots(time_samples: np.ndarray,
         n_time_windows = len(time_windows)
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
-                            init_state=plot_fsp_result[4],
-                            n_fixed_params=plot_fsp_result[6],
-                            n_control_params=plot_fsp_result[7])
-        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[3])
-        fixed_parameters = np.stack([params[:plot_fsp_result[6]]]*n_time_windows)
-        control_parameters = params[plot_fsp_result[6]:].reshape(n_time_windows, plot_fsp_result[7])
+                            init_state=plot_fsp_result[5],
+                            n_fixed_params=plot_fsp_result[7],
+                            n_control_params=plot_fsp_result[8])
+        stv_calculator = fsp.SensitivitiesDerivation(crn=crn, n_time_windows=n_time_windows, index=plot[1], cr=plot_fsp_result[4])
+        fixed_parameters = np.stack([params[:plot_fsp_result[7]]]*n_time_windows)
+        control_parameters = params[plot_fsp_result[7]:].reshape(n_time_windows, plot_fsp_result[8])
         parameters = np.concatenate((fixed_parameters, control_parameters), axis=1)
         if plot[0] == 'value':
-            fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+            fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, 
+                                                        time_windows=time_windows, 
+                                                        parameters=parameters, 
+                                                        ind_species=plot_fsp_result[6], 
+                                                        loss=loss)
         elif plot[0] == 'gradient':
-            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, time_windows=time_windows, parameters=parameters, ind_species=plot_fsp_result[5], loss=loss)
+            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
+                                                            time_windows=time_windows, 
+                                                            parameters=parameters, 
+                                                            ind_species=plot_fsp_result[6], 
+                                                            propensities_drv=plot_fsp_result[3], 
+                                                            loss=loss)
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -744,47 +819,29 @@ if __name__ == '__main__':
     import save_load_MDN
     import get_sensitivities
 
-    from scipy.stats import poisson
+    from CRN6_toggle_switch import propensities_toggle as propensities
 
-    from CRN2_control import propensities_production_degradation as propensities
+    X = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/X_toggle_test.csv')
+    y = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/y_toggle_test.csv')
+    model1 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model1.pt')
+    model2 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model2.pt')
+    model3 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model3.pt')
 
-    FILE_NAME = 'CRN2_control/data'
-    CRN_NAME = 'CRN2'
-    NUM_PARAMS = 5
-    N_COMPS = 4
-
-    X_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_test.csv')
-    y_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_test.csv')
-
-    model1 = save_load_MDN.load_MDN_model('CRN2_control/saved_models/CRN2_model1.pt')
-    model2 = save_load_MDN.load_MDN_model('CRN2_control/saved_models/CRN2_model2.pt')
-    model3 = save_load_MDN.load_MDN_model('CRN2_control/saved_models/CRN2_model3.pt')
-
-    # multiple_plots(to_pred=[X_test[1_000+k,:] for k in range(4)], 
-    #                 models=[model1, model2, model3],
-    #                 up_bound=4*[30],
-    #                 time_windows=np.array([5, 10, 15, 20]),
-    #                 n_comps=N_COMPS,
-    #                 index_names = ('Sensitivities', r'Abundance of species $S$'),
-    #                 plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 30, propensities.init_state, 1, 3, 1),
-    #                 plot=('sensitivities', 0),
-    #                 save=(False, "CRN2_SI_fig1.pdf"))
-    # plt.show()
-
-    def identity(x):
-        return x
-
-    def loss(x):
-        return (x-2)**2
-
-    expect_val_table(time_samples=np.array([5, 10, 15, 20]), 
-            #params=X_test[1_000,1:].numpy(),
-            params = np.array([2., 1., 0.5, 0.2, 0.7], dtype=np.float32),
-            time_windows=np.array([5, 10, 15, 20]),
-            loss=loss,
-            models = (True, [model1, model2, model3], N_COMPS),
-            plot_fsp_result=(True, propensities.stoich_mat, propensities.propensities, 50, propensities.init_state, 0, 1, 1),
-            up_bound=200,
-            plot=('gradient', 1),
-            save=(False, ""))
-    plt.show()
+    
+    multiple_plots(to_pred = [X[10+k,:] for k in range(4)],
+                    models=[], 
+                    up_bound = [20]*4, 
+                    n_comps=4,
+                    time_windows=np.array([5, 10, 15, 20]),
+                    # plot=('sensitivities', 7),
+                    plot_test_result=(True, [y[10+k, :] for k in range(4)]),
+                    plot_fsp_result=(True, 
+                                    propensities.stoich_mat, 
+                                    propensities.propensities, 
+                                    propensities.propensities_drv, 
+                                    50,
+                                    propensities.init_state, 
+                                    1, 
+                                    9, 
+                                    1),
+                    index_names=('Sensitivities', r'Abundance of species $S_2$'))

@@ -300,7 +300,8 @@ class NNTrainer:
         # divides the dataset into shuffled batches.
         self.train_loader = torch.utils.data.DataLoader(dataset=torch.utils.data.TensorDataset(self.args['train_data'][0], 
                                                                                         self.args['train_data'][1]), 
-                                                    batch_size=self.args['batchsize'], shuffle=True)
+                                                        batch_size=self.args['batchsize'], 
+                                                        shuffle=True) # to reshuffle after each epoch
         self.train_losses = []
         self.valid_losses = []
         self.lr_updates = [0]
@@ -405,7 +406,7 @@ def train_NN(model: NeuralNetwork,
 
     Returns:
         - Training and validation losses for each epoch.
-    """            
+    """
     trainer = NNTrainer(model, train_data, valid_data, **kwargs)
     if print_info:
         pbar = tqdm(total=trainer.args['max_rounds'], desc='Training ...', position=0)

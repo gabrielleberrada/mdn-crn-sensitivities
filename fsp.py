@@ -77,6 +77,7 @@ class StateSpaceEnumeration:
         self.bijection[self.ub] = tuple(self.cr)
         for z in range(self.lb, self.ub):
             self.bijection[z] = self.phi_inverse(z, self.dim)
+        # print(self.bijection)
 
 
 class SensitivitiesDerivation:
@@ -89,8 +90,8 @@ class SensitivitiesDerivation:
         - **index** (Tuple[list, int], optional): Index of the parameters to work on. Can either be a
             single integer value or a list of integer values. If the parameter is controlled, considers parameters
             for each time window. When None, computes the sensitivities for each parameter. Defaults to None.
-        - :math:`C_r` (int, optional): value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. 
-          Defaults to :math:`4`. 
+        - :math:`C_r` (int, optional): Value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. 
+          Defaults to :math:`4`.
     """
     def __init__(self, crn: simulation.CRN, n_time_windows: int, index: Tuple[list, int], cr: int =4):     
         self.cr = cr
@@ -134,81 +135,84 @@ class SensitivitiesDerivation:
         self.current_time_window = 0
         self.current_state = self.init_state.copy()
 
-    def create_B(self, index: int) -> np.ndarray:
+    def create_generator(self, params: np.ndarray) -> np.ndarray:
         r"""Computes the matrix :math:`B_i` for the **index**-th reaction as defined in :cite:`fox2019fspfim`.
 
         Args:
-            - **index** (int): index of the occuring reaction.
+            - **params** (np.ndarray): Parameters.
 
         Returns:
-            - Rate matrix :math:`B_i` for the **index**-th reaction over the truncated state-space.
+            - Generator **A** even for non-mass-action kinetics.
         """
-        d = self.bijection.bijection.inverse
-        n = self.n_states
-        stoich_mat = self.crn.stoichiometry_mat[:,index]
-        propensity = self.crn.propensities[index]
-        # might contain negative elements
-        outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
-        # propensity parameter is 1
-        data = np.array(list(map(lambda x: propensity(np.ones(self.n_params), x), self.entries)))
-        #
-        rows = np.array([d[entry] for entry in self.entries])
-        get_index = lambda key: d[key] if key in d else -1
-        columns = np.array([get_index(output) for output in outputs])
-        compute_diags = np.vectorize(lambda i: -data[rows==i].sum())
-        diags = compute_diags(np.arange(n))
-        # truncation
-        mask = (columns >= 0) & (columns < n)
-        rows = rows[mask]
-        columns = columns[mask]
-        data = data[mask]
-        # according tox Fox and Munsky's paper
-        B = sp.coo_matrix((data, (columns, rows)), shape=(n, n))
-        B.setdiag(diags)
-        B.eliminate_zeros()
-        return B
+        Bs = []
+        for index in range(self.n_reactions):
+            d = self.bijection.bijection.inverse
+            n = self.n_states
+            stoich_mat = self.crn.stoichiometry_mat[:,index]
+            propensity = self.crn.propensities[index]
+            # might contain negative elements
+            outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
+            # propensity parameter is 1
+            data = np.array(list(map(lambda x: propensity(params, x), self.entries)))
+            #
+            rows = np.array([d[entry] for entry in self.entries])
+            get_index = lambda key: d[key] if key in d else -1
+            columns = np.array([get_index(output) for output in outputs])
+            compute_diags = np.vectorize(lambda i: -data[rows==i].sum())
+            diags = compute_diags(np.arange(n))
+            # truncation
+            mask = (columns >= 0) & (columns < n)
+            rows = rows[mask]
+            columns = columns[mask]
+            data = data[mask]
+            # according tox Fox and Munsky's paper
+            B = sp.coo_matrix((data, (columns, rows)), shape=(n, n))
+            B.setdiag(diags)
+            B.eliminate_zeros()
+            Bs.append(B)
+        return sum(Bs)
 
-    def create_A(self, params: np.ndarray) -> np.ndarray:
-        r"""Computes the matrix **A** as defined in :cite:`fox2019fspfim`.
-
-        Args:
-            - **params** (np.ndarray): Parameters of the propensity functions.
-              Here, we assume that the i-th parameter corresponds to the i-th reaction.
-
-        Returns:
-            - The rate matrix **A** over the truncated state-space.
-        """        
-        # creates the rate matrix for each reaction
-        create_Bs = np.vectorize(lambda i: self.create_B(i))
-        Bs = create_Bs(np.arange(self.n_reactions))
-        return (Bs*params).sum()
-
-    def constant_matrix(self, params: np.ndarray, index: int) -> np.ndarray: # useless now
-        r"""Computes the matrix **C** as defined in :cite:`fox2019fspfim`.
+    def create_generator_derivative(self, params: np.ndarray, propensities_drv: np.ndarray, param_ind: int) -> np.ndarray:
+        """Computes the derivative of **A** with respect to the index-th parameter.
 
         Args:
-            - **params** (np.ndarray): Parameters of the propensity functions.
-            - **index** (int): Index of the reaction occuring.
+            - **params** (np.ndarray): _description_
+            - **propensity_derivatives** (np.ndarray): _description_
+            - **index** (int): _description_
 
         Returns:
-            - The constant matrix **C** in the ODEs as presented in equation (34) of :cite:`fox2019fspfim`.
-        """        
-        A = self.create_A(params)
-        current_params = self.n_fixed_params + self.current_time_window*self.n_control_params #
-        if index > self.n_fixed_params and (current_params > index or current_params + self.n_control_params <= index):
-            # this parameter has no action on the current time window
-            B = sp.coo_matrix(A.shape)
-        else:
-            if index > self.n_fixed_params:
-            # this parameter is controlled and is the current one
-                index = index - self.current_time_window*self.n_control_params
-            B = self.create_B(index)
-        empty = sp.coo_matrix(A.shape)
-        up = sp.hstack((A, empty))
-        bottom = sp.hstack((B, A))
-        return sp.vstack((up, bottom))
+            np.ndarray: _description_
+        """
+        dA = []
+        for index in range(self.n_reactions):
+            d = self.bijection.bijection.inverse
+            n = self.n_states
+            stoich_mat = self.crn.stoichiometry_mat[:,index]
+            propensity = propensities_drv[index, param_ind]
+            # might contain negative elements
+            outputs = list(map(lambda entry: tuple(entry + stoich_mat), self.entries))
+            # propensity parameter is 1
+            data = np.array(list(map(lambda x: propensity(params, x), self.entries)))
+            #
+            rows = np.array([d[entry] for entry in self.entries])
+            get_index = lambda key: d[key] if key in d else -1
+            columns = np.array([get_index(output) for output in outputs])
+            compute_diags = np.vectorize(lambda i: -data[rows==i].sum())
+            diags = compute_diags(np.arange(n))
+            # truncation
+            mask = (columns >= 0) & (columns < n)
+            rows = rows[mask]
+            columns = columns[mask]
+            data = data[mask]
+            # according tox Fox and Munsky's paper
+            dAi = sp.coo_matrix((data, (columns, rows)), shape=(n, n))
+            dAi.setdiag(diags)
+            dAi.eliminate_zeros()
+            dA.append(dAi)
+        return sum(dA)
 
-    def extended_constant_matrix(self, params: np.ndarray) -> np.ndarray:
+
+    def extended_constant_matrix(self, params: np.ndarray, propensities_drv: np.ndarray =None) -> np.ndarray:
         r"""Computes an extension of the matrix **C** to solve the set of ODEs for multiple parameters at once.
 
         Let us define :math:`mathcal{I}` the set of parameters indexes whose sensitivities to compute.
@@ -222,9 +226,6 @@ class SensitivitiesDerivation:
 
         Args:
             - **params** (np.ndarray): Parameters of the propensity functions. Shape :math:`(n_{\text{params}})`.
-            - **index** (Tuple[list, int]): Index of the reactions occuring. If the index is a single integer value,
-              calls the `constant_matrix` method. If the index is a list of integer values, builds the constant matrix
-              as previously presented.
             
         Returns:
             - The constant matrix of the equation **C** in the set of ODEs.
@@ -238,7 +239,7 @@ class SensitivitiesDerivation:
         
         """
         n = len(self.index)
-        A = self.create_A(params)
+        A = self.create_generator(params)
         empty = sp.coo_matrix(A.shape)
         rows = [sp.hstack([A]+[empty]*n)]
         current_params = self.n_fixed_params + self.current_time_window*self.n_control_params #
@@ -250,7 +251,7 @@ class SensitivitiesDerivation:
                 if ind > self.n_fixed_params:
                     # this parameter is controlled and is the current one
                     ind = ind - self.current_time_window*self.n_control_params
-                B = self.create_B(ind)
+                B = self.create_generator_derivative(params, propensities_drv, ind)
             row = sp.hstack([B] + [empty]*i + [A] + [empty]*(n-i-1))
             rows.append(row)
         return sp.vstack(rows)
@@ -260,7 +261,8 @@ class SensitivitiesDerivation:
                 t0: float, 
                 tf: float, 
                 params: np.ndarray,  
-                t_eval: list, 
+                t_eval: list,
+                propensities_drv: np.ndarray =None, # not necessary if with_stv=False
                 with_stv: bool =True):
         r"""Solves the set of linear ODEs (34) from :cite:`fox2019fspfim`.
 
@@ -293,11 +295,11 @@ class SensitivitiesDerivation:
         """
         # init_state is a 1D vector
         if with_stv:  
-            constant = sp.csr_matrix(self.extended_constant_matrix(params))
+            constant = sp.csr_matrix(self.extended_constant_matrix(params, propensities_drv))
             def f(t, x):
                 return constant.dot(x)
             return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
-        A = sp.csr_matrix(self.create_A(params))
+        A = sp.csr_matrix(self.create_generator(params))
         def f(t, x):
             return A.dot(x)
         return solve_ivp(f, (t0, tf), init_state, t_eval=t_eval)
@@ -308,6 +310,7 @@ class SensitivitiesDerivation:
                             sampling_times: np.ndarray,
                             time_windows: np.ndarray,
                             parameters: np.ndarray,
+                            propensities_drv: np.ndarray =None, # not necessary if with_stv = False
                             with_stv: bool =True) -> np.ndarray:
         """_summary_
 
@@ -329,6 +332,8 @@ class SensitivitiesDerivation:
         """        
         distributions = []
         for i, t in enumerate(time_windows):
+            if sampling_times[-1] < t:
+                break
             # parameters has shape (n_time_windows, n_params)
             params = parameters[i, :]
             t_eval = sampling_times[(sampling_times > self.time) & (sampling_times <= t)]
@@ -344,6 +349,7 @@ class SensitivitiesDerivation:
                                         tf=t, 
                                         params=params,
                                         t_eval=t_eval,
+                                        propensities_drv=propensities_drv,
                                         with_stv=True)['y']
                 # reshaping the array
                 solution = solution.reshape((self.n_states, len(self.index)+1, len(t_eval)), order='F')
@@ -355,6 +361,7 @@ class SensitivitiesDerivation:
                                         tf=t, 
                                         params=params,
                                         t_eval=t_eval,
+                                        propensities_drv=None, # we do not compute the sensitivities
                                         with_stv=False)['y']
                 distributions.append(np.expand_dims(solution[:, :added_t], axis=-1))
                 self.current_state[:,0] = solution[:,-1]
@@ -368,6 +375,7 @@ class SensitivitiesDerivation:
                 time_windows: np.ndarray,
                 parameters: np.ndarray, 
                 ind_species: int,
+                propensities_drv: np.ndarray,
                 with_stv: bool =True
                 ) -> Tuple[np.ndarray]:
         """Computes marginal probabilities and marginal sensitivities of probability mass functions.
@@ -390,13 +398,19 @@ class SensitivitiesDerivation:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), len(self.index)+1))
         else:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), 1))
-        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, with_stv)
+        solution = self.solve_multiple_odes(sampling_times, time_windows, parameters, propensities_drv, with_stv)
         for n, state in self.bijection.bijection.items():
             for i, _ in enumerate(sampling_times):
                 marginal_distributions[state[ind_species],i,:] += solution[n,i,:]
         return marginal_distributions # shape (cr+1, N_t, 1) or (cr+1, N_t, M+1)
 
-    def marginals(self, sampling_times: np.ndarray, time_windows: np.ndarray, parameters: np.ndarray, ind_species: list, with_stv: bool =True):
+    def marginals(self, 
+                    sampling_times: np.ndarray, 
+                    time_windows: np.ndarray, 
+                    parameters: np.ndarray, 
+                    ind_species: list,
+                    propensities_drv: np.ndarray =None,
+                    with_stv: bool =True):
         """Computes marginal distributions for multiple species.
 
         Args:
@@ -415,40 +429,25 @@ class SensitivitiesDerivation:
         """
         marginal_distributions = {}
         for ind in ind_species:
-            marginal_distributions[ind] = self.marginal(sampling_times, time_windows, parameters, ind, with_stv)
+            marginal_distributions[ind] = self.marginal(sampling_times, time_windows, parameters, ind, propensities_drv, with_stv)
         return marginal_distributions
 
     def identity(self, x):
         return x
 
-    # def expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable=None):
-    #     if loss is None:
-    #         loss = self.identity
-    #     marginal_distributions = self.marginal(sampling_times=sampling_times,
-    #                                             time_windows=time_windows,
-    #                                             parameters=parameters,
-    #                                             ind_species=ind_species,
-    #                                             with_stv=False)[:,:,0]
-    #     self.reset()
-    #     if isinstance(loss, abc.Hashable):
-    #         vectorized_loss = np.vectorize(loss)
-    #         scalar = vectorized_loss(np.arange(self.cr+1))
-    #         return np.dot(marginal_distributions.transpose(), scalar) # shape(Nt)
-    #     else:
-    #         scalar = np.zeros((self.n_time_windows, self.cr + 1))
-    #         for i, loss_f in enumerate(loss):
-    #             vectorized_loss_f = np.vectorize(loss_f)
-    #             scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
-    #         return np.diag(np.dot(scalar, marginal_distributions))
-    #     # Diag(np.dot(marginal_distributions, scalar.transpose())) for distr (Nt, cr) and scalar (Nt, cr)
-
-    def expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable=None):
+    def expected_val(self, 
+                    sampling_times: np.ndarray, 
+                    time_windows: np.ndarray, 
+                    parameters: np.ndarray, 
+                    ind_species: int,
+                    loss: Callable=None):
         if loss is None:
             loss = self.identity
         marginal_distributions = self.marginal(sampling_times=sampling_times,
                                                 time_windows=time_windows,
                                                 parameters=parameters,
                                                 ind_species=ind_species,
+                                                propensities_drv=None,
                                                 with_stv=False)[:,:,0]
         self.reset()
         if isinstance(loss, abc.Hashable):
@@ -460,97 +459,129 @@ class SensitivitiesDerivation:
                 scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
             return np.diag(np.dot(scalar, marginal_distributions))
         # Diag(np.dot(marginal_distributions, scalar.transpose())) for distr (Nt, cr) and scalar (Nt, cr)
- 
 
-
-    def gradient_expected_val(self, sampling_times, time_windows, parameters, ind_species, loss: Callable =None):
+    def gradient_expected_val(self, 
+                            sampling_times: np.ndarray, 
+                            time_windows: np.ndarray, 
+                            parameters: np.ndarray, 
+                            ind_species: int,
+                            propensities_drv: np.ndarray,
+                            loss: Callable =None):
         if loss is None:
             loss = self.identity
         marginal_distributions = self.marginal(sampling_times=sampling_times, 
                                                 time_windows=time_windows, 
                                                 parameters=parameters, 
                                                 ind_species=ind_species,
+                                                propensities_drv=propensities_drv,
                                                 with_stv=True)
         self.reset()
         stv = marginal_distributions[:, :, 1:]
-        if isinstance(loss, abc.Hashable):
-            return np.dot(np.transpose(stv, [1, 2, 0]), np.arange(self.cr+1)) # shape (Nt, len(index))
-        else:
-            scalar = np.zeros((self.n_time_windows, self.cr + 1))
-            for i, loss_f in enumerate(loss):
-                vectorized_loss_f = np.vectorize(loss_f)
-                scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
-            pass
-            # return np.diag(np.dot(scalar, marginal_distributions))
+        return np.dot(np.transpose(stv, [1, 2, 0]), np.arange(self.cr+1)) # shape (Nt, len(index))
+        # else:
+        #     scalar = np.zeros((self.n_time_windows, self.cr + 1))
+        #     for i, loss_f in enumerate(loss):
+        #         vectorized_loss_f = np.vectorize(loss_f)
+        #         scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
+        #     pass
+        #     # return np.diag(np.dot(scalar, marginal_distributions))
+
+
+if __name__ == '__main__':
+
+        # from CRN6_toggle_switch import propensities_toggle as propensities
+        # parameters = np.arange(10)
+
+        # crn = simulation.CRN(propensities.stoich_mat,
+        #                     propensities.propensities,
+        #                     propensities.init_state,
+        #                     n_fixed_params=10,
+        #                     n_control_params=0)
+        
+        # stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None)
+
+
+        from CRN4_control import propensities_bursting_gene as propensities
+        parameters = np.arange(7)
+        crn = simulation.CRN(propensities.stoich_mat,
+                            propensities.propensities,
+                            propensities.init_state,
+                            n_fixed_params=3,
+                            n_control_params=1)
+
+        stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None)
 
 
         
-if __name__ == '__main__':
-    from CRN2_control import propensities_production_degradation as propensities
-    # from CRN4_control import propensities_bursting_gene as propensities
-    import matplotlib.pyplot as plt
-    from scipy.stats import poisson
 
-    crn = simulation.CRN(propensities.stoich_mat,
-                    propensities.propensities,
-                    init_state=propensities.init_state,
-                    n_fixed_params=1,
-                    n_control_params=1)
 
-    def production_degradation_distribution(x, params):
-        t, theta1, theta2 = params[:3]
-        lambd = theta1*(1-np.exp(-theta2*t))/theta2
-        return poisson.pmf(x, lambd)
+# if __name__ == '__main__':
+#     # from CRN2_control import propensities_production_degradation as propensities
+#     from CRN4_control import propensities_bursting_gene as propensities
+#     import matplotlib.pyplot as plt
+#     from scipy.stats import poisson
+
+#     crn = simulation.CRN(propensities.stoich_mat,
+#                     propensities.propensities,
+#                     init_state=propensities.init_state,
+#                     n_fixed_params=3,
+#                     n_control_params=1)
+
+#     def production_degradation_distribution(x, params):
+#         t, theta1, theta2 = params[:3]
+#         lambd = theta1*(1-np.exp(-theta2*t))/theta2
+#         return poisson.pmf(x, lambd)
     
-    def production_degradation_stv_1(x, params):
-        t, theta1, theta2 = params[0], params[1], params[2]
-        lambd = theta1*(1-np.exp(-theta2*t))/theta2
-        return lambd/theta1 * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
+#     def production_degradation_stv_1(x, params):
+#         t, theta1, theta2 = params[0], params[1], params[2]
+#         lambd = theta1*(1-np.exp(-theta2*t))/theta2
+#         return lambd/theta1 * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
 
-    def production_degradation_stv_2(x, params):
-        t, theta1, theta2 = params[0], params[1], params[2]
-        lambd = theta1*(1-np.exp(-theta2*t))/theta2
-        return (-lambd/theta2 + theta1/theta2*t*np.exp(-t*theta2)) * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
+#     def production_degradation_stv_2(x, params):
+#         t, theta1, theta2 = params[0], params[1], params[2]
+#         lambd = theta1*(1-np.exp(-theta2*t))/theta2
+#         return (-lambd/theta2 + theta1/theta2*t*np.exp(-t*theta2)) * (poisson.pmf(x-1, lambd) - poisson.pmf(x, lambd))
 
 
-    stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None, cr=50)
-    to_pred = np.array([2., 2.01077429, 0.62170795, 1.67796615, 0.62086121, 1.5632251 , 2.67536833])
-    fixed_parameters = np.stack([to_pred[:crn.n_fixed_params]]*4)
-    # control_parameters= to_pred[crn.n_fixed_params:].reshape(4,1)
-    # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+#     stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None, cr=50)
+#     to_pred = np.array([2., 2.01077429, 0.62170795, 1.67796615, 0.62086121, 1.5632251 , 2.67536833])
+#     fixed_parameters = np.stack([to_pred[:crn.n_fixed_params]]*4)
+#     # control_parameters= to_pred[crn.n_fixed_params:].reshape(4,1)
+#     # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
 
-    # results_fsp = stv.marginal(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, with_stv=True)
-    # print(results_fsp.shape)
-    # for i, t in enumerate(np.array([5])):
-    # plt.plot(results_fsp[:,-1,0], label='i')
-    # plt.plot(production_degradation_distribution(np.arange(50), np.array([20., 2., 1.])), label='exact')
-    # plt.legend()
-    # plt.show()
+#     # results_fsp = stv.marginal(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, with_stv=True)
+#     # print(results_fsp.shape)
+#     # for i, t in enumerate(np.array([5])):
+#     # plt.plot(results_fsp[:,-1,0], label='i')
+#     # plt.plot(production_degradation_distribution(np.arange(50), np.array([20., 2., 1.])), label='exact')
+#     # plt.legend()
+#     # plt.show()
 
-    # res = stv.expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species)
-    # print(res.shape, res)
+#     # res = stv.expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species)
+#     # print(res.shape, res)
 
-    # fixed_parameters = np.stack([np.array([1.])]*4)
+#     # fixed_parameters = np.stack([np.array([1.])]*4)
 
-    def loss(x):
-        return np.abs(x-2)**2
+#     def loss(x):
+#         return np.abs(x-2)**2
 
-    def loss2(x):
-        return np.abs(x-1)**2
+#     def loss2(x):
+#         return np.abs(x-1)**2
 
-    res = []
-    # control_parameters = np.array([1.1]*4).reshape(4,1)
-    # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
-    # print(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).shape)
-    for elt in np.linspace(0., 3., 30):
-    # for elt in [1.4]:
-        control_parameters = np.array([elt]*4).reshape(4,1)
-        params = np.concatenate((fixed_parameters, control_parameters), axis=1)
-        # stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss2).sum()
-        res.append(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).sum(axis=0)[0])
-    # plt.plot(np.linspace(0., 1.5, 30), res)
-    # plt.ylim(min(res), max(res))
-    # plt.show()  
-    xi = np.linspace(0, 3., 30)[np.argmin(np.abs(res))]
-    # print('Loss: x-3')
-    print(xi)
+#     res = []
+#     # control_parameters = np.array([1.1]*4).reshape(4,1)
+#     # params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+#     # print(stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss).shape)
+#     for elt in np.linspace(0., 3., 30):
+#     # for elt in [1.4]:
+#         control_parameters = np.array([elt]*4).reshape(4,1)
+#         params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+#         # stv.gradient_expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss2).sum()
+#         a= stv.expected_val(sampling_times=np.array([5, 10, 15, 20]), time_windows=np.array([5, 10, 15, 20]), parameters=params, ind_species=propensities.ind_species, loss=loss)#.sum(axis=0)[0]
+#         print(a)
+#         res.append(a)
+#     # plt.plot(np.linspace(0., 1.5, 30), res)
+#     # plt.ylim(min(res), max(res))
+#     # plt.show()  
+#     xi = np.linspace(0, 3., 30)[np.argmin(np.abs(res))]
+#     # print('Loss: x-3')

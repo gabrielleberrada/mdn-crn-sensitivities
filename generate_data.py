@@ -8,7 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn
 import pandas as pd
-from typing import Tuple
+from typing import Tuple, Union
 
 
 class CRN_Dataset:
@@ -105,8 +105,7 @@ class CRN_Dataset:
                     data_length: int, 
                     sobol_start: np.ndarray =None,
                     sobol_end: np.ndarray =None,
-                    n_trajectories: int =10**4, 
-                    ind_species: int =0) -> Tuple[np.ndarray]:
+                    n_trajectories: int =10**4) -> Tuple[np.ndarray]:
         r"""Generates a dataset which can be used for training, validation or testing.
         Uses multiprocessing to run multiple simulations in parallel.
         Parameters are generated from the Sobol Sequence (Low Discrepancy Sequence).
@@ -119,8 +118,6 @@ class CRN_Dataset:
               If None, an array of ones. Defaults to None.
             - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute to estimate the distribution. 
               Defaults to :math:`10^4`.
-            - **ind_species** (int, optional): Index of the species whose distribution is estimated. 
-              Defaults to :math:`0`.
 
         Returns:
             - **(X, y)**:
@@ -133,7 +130,6 @@ class CRN_Dataset:
         if sobol_end is None:
             sobol_end = np.ones(self.n_params)
         self.n_trajectories = n_trajectories
-        self.ind_species = ind_species
         start = time.time()
         # generating parameters theta_i
         sobol_theta = qmc.Sobol(self.n_fixed_params)
@@ -175,7 +171,21 @@ class CRN_Dataset:
         return X, y
 
 class CRN_Simulations:
+    """_summary_
 
+    Args:
+        - **crn** (simulation.CRN): CRN to work on.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`100`.
+        - **ind_species** (int, optional): Index of the species of study. Defaults to :math:`0`.
+        - **method** (str, optional): Stochastic Simulation to compute. Defaults to 'SSA'.
+        - **complete_trajectory** (bool, optional): If True, computes the complete Jump Process. If False,
+          computes the abundance of the species to study at the specified sampling times. Defaults to True.
+        - **sampling_times** (np.ndarray, optional): Times to sample. Should not be specified when `complete_trajectory`is True.
+          Defaults to np.empty(0).
+    """     
     def __init__(self, 
             crn: simulation.CRN,
             time_windows: np.ndarray,
@@ -183,7 +193,7 @@ class CRN_Simulations:
             ind_species: int =0,
             method: str ='SSA',
             complete_trajectory: bool =True,
-            sampling_times: np.ndarray =np.empty(0)): # optional when complete_trajectory is True
+            sampling_times: np.ndarray =np.empty(0)):
         self.crn = crn
         self.n_fixed_params = crn.n_fixed_params
         self.n_control_params = crn.n_control_params
@@ -201,7 +211,7 @@ class CRN_Simulations:
         self.sampling_times = sampling_times
 
 
-    def run_simulations(self, params: np.ndarray) -> Tuple[list, int]:
+    def run_simulations(self, params: np.ndarray) -> Union[Tuple[dict], Tuple[np.ndarray]]:
         r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the 
         corresponding distribution for the species indexed by **ind_species**.
 
@@ -209,10 +219,14 @@ class CRN_Simulations:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
               (n_time_windows, n_params).
         Returns:
-            - **samples**: List of the distributions for the corresponding species at sampling times. This list begins with time and 
-              parameters: :math:`[t, \theta_1, ..., \theta_M, \xi_1^1, \xi_2^1, ..., \xi_{M'}^1, ..., \xi_{M'}^T, p_0(t,\theta), ...]`.
-            - **max_value**: Maximum value reached during simulations + number of total parameters + 1 (for time). 
-              Used to standardize each data length to turn the data list into a tensor.
+            When `complete_trajectory` is True:
+                - **samples** (dict): Each key is the index of the corresponding computed trajectory. Its value is an array with the abundance 
+                  values after each jump.
+                - **times** (dict): Each key is the index of the corresponding computed trajectory. Its alue is an array with the times at which
+                  each jump occured.
+            When `complete_trajectory` is False:
+                - **samples** (np.ndarray): Measured abundance for each trajectory at the sampling times. Shape (n_trajectories, n_sampling_times).
+                - **times** (np.ndarray): Sampling times.
         """
         if self.complete_trajectory:
             samples = {}
@@ -231,16 +245,24 @@ class CRN_Simulations:
                                 complete_trajectory=self.complete_trajectory)
             if self.complete_trajectory:
                 times[i] = np.concatenate((np.array([0]), self.crn.sampling_times))
-                samples[i] = np.concatenate((self.initial_state, self.crn.sampling_states[:, self.ind_species]))
+                samples[i] = np.concatenate((np.array([self.initial_state[self.ind_species]]), self.crn.sampling_states[:, self.ind_species]))
             else:
                 if times[0] == 0:
-                    samples[i,:] = np.concatenate((self.initial_state, self.crn.sampling_states[:, self.ind_species]))
+                    samples[i,:] = np.concatenate((np.array([self.initial_state[self.ind_species]]), self.crn.sampling_states[:, self.ind_species]))
                 else:
                     samples[i,:] = self.crn.sampling_states[:, self.ind_species]
             self.crn.reset()
         return samples, times
 
     def plot_simulations(self, params: np.ndarray, targets: np.ndarray =None):
+        """Plots either all the simulated trajectories if `complete_trajectory` os False or 
+        the mean evolution of the abundance if `complete_trajectory` is True`.
+
+        Args:
+            - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
+              (n_time_windows, n_params).
+            - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.
+        """        
         samples, times = self.run_simulations(params)
         if self.complete_trajectory:
             for i in range(self.n_trajectories):
@@ -261,9 +283,10 @@ class CRN_Simulations:
         
 if __name__ == '__main__':
 
-    from CRN2_control import propensities_production_degradation as propensities
+    # from CRN2_control import propensities_production_degradation as propensities
+    from CRN4_control import propensities_bursting_gene as propensities
 
-    crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, propensities.init_state, 1, 1)
-    sim = CRN_Simulations(crn, np.array([5, 10, 15, 20]), 1_000, 0, complete_trajectory=False, sampling_times=np.arange(21))
+    crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, propensities.init_state, 3, 1)
+    sim = CRN_Simulations(crn, np.array([5, 10, 15, 20]), 1_000, 1, complete_trajectory=False, sampling_times=np.arange(21))
     # sim.plot_simulations(np.array([5., 0.3, 0.4, 0.5, 0.3]))# targets=np.array([[0., 0.], [5., 2.], [10., 3.]]))
-    sim.plot_simulations(np.array([2.,1.01, 1.01, 1.01, 1.01]), targets=np.array([[5., 2.], [10., 2.], [15., 2.], [20., 2.]]))
+    sim.plot_simulations(np.array([1., 2., 1., 0.001, 0.001, 0.001, 0.001]), targets=np.array([[5., 2.], [10., 2.], [15., 2.], [20., 2.]]))

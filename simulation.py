@@ -69,13 +69,13 @@ class CRN:
         """
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
         lambdas = set_parameters(self.propensities, params)
-        simulations = StochasticSimulation(x0=init_state, 
+        simulations = StochasticSimulation(x0=init_state,
                                             t0=t0,
-                                            tf=tf, 
-                                            sampling_times=sampling_times, 
-                                            propensities=lambdas, 
-                                            n_species=self.n_species, 
-                                            n_reactions=self.n_reactions, 
+                                            tf=tf,
+                                            sampling_times=sampling_times,
+                                            propensities=lambdas,
+                                            n_species=self.n_species,
+                                            n_reactions=self.n_reactions,
                                             stoich_mat=self.stoichiometry_mat)
         if method == 'SSA':
             samples = simulations.SSA(complete_trajectory)
@@ -158,12 +158,16 @@ class StochasticSimulation:
         self.stoich_mat = stoich_mat
 
 
-    def SSA(self, complete_trajectory=False) -> Tuple[np.ndarray]:
+    def SSA(self, complete_trajectory: bool =False) -> Tuple[np.ndarray]:
         """Computes the SSA.
 
+        Args:
+            - **complete_trajectory** (bool): If True, returns the complete jump process, ie the time
+              of each jump and the corresponding abundance.
+
         Returns:
-            - **sampling_times** (np.ndarray): Times to sample.
-            - **samples** (np.ndarray): Samples at the sampling times.
+            - **sampling_times** (np.ndarray): Sampling times.
+            - **samples** (np.ndarray): Abundance samples at the sampling times.
         """
         # samples = [] instead of self.samples?
         while True:
