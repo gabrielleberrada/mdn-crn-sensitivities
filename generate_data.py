@@ -16,9 +16,9 @@ class CRN_Dataset:
 
     Args: 
         - **crn** (simulation.CRN): CRN to work on.
-        - **sampling_times** (np.ndarray): Times to sample.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+        - **sampling_times** (np.ndarray): Sampling times.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. 
           Can also be defined when calling the ``generate_data`` function. Defaults to :math:`10^4`.
@@ -171,14 +171,14 @@ class CRN_Dataset:
         return X, y
 
 class CRN_Simulations:
-    """_summary_
+    """Class to run simulations over time and to estimate the abundance evolution of a species.
 
     Args:
         - **crn** (simulation.CRN): CRN to work on.
         - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
-        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`100`.
+        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`10^3`.
         - **ind_species** (int, optional): Index of the species of study. Defaults to :math:`0`.
         - **method** (str, optional): Stochastic Simulation to compute. Defaults to 'SSA'.
         - **complete_trajectory** (bool, optional): If True, computes the complete Jump Process. If False,
@@ -189,7 +189,7 @@ class CRN_Simulations:
     def __init__(self, 
             crn: simulation.CRN,
             time_windows: np.ndarray,
-            n_trajectories: int =100, 
+            n_trajectories: int =10**3, 
             ind_species: int =0,
             method: str ='SSA',
             complete_trajectory: bool =True,
@@ -218,6 +218,7 @@ class CRN_Simulations:
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
               (n_time_windows, n_params).
+
         Returns:
             When `complete_trajectory` is True:
                 - **samples** (dict): Each key is the index of the corresponding computed trajectory. Its value is an array with the abundance 
@@ -254,15 +255,19 @@ class CRN_Simulations:
             self.crn.reset()
         return samples, times
 
-    def plot_simulations(self, params: np.ndarray, targets: np.ndarray =None, save: Tuple[bool, str] =(False, None)):
-        """Plots either all the simulated trajectories if `complete_trajectory` os False or 
+    def plot_simulations(self, 
+                        params: np.ndarray,
+                        targets: np.ndarray =None, 
+                        save: Tuple[bool, str] =(False, None)):
+        """Plots either all the simulated trajectories if `complete_trajectory` is False or 
         the mean evolution of the abundance if `complete_trajectory` is True`.
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
               (n_time_windows, n_params).
             - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.
-            - **save** (Tuple[bool, str], optional):
+            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the plot. The second argument 
+              is the name of the file under which to save the plot. Defaults to (False, None).
         """        
         samples, times = self.run_simulations(params)
         if self.complete_trajectory:
@@ -286,10 +291,10 @@ class CRN_Simulations:
         
 if __name__ == '__main__':
 
-    # from CRN2_control import propensities_production_degradation as propensities
-    from CRN4_control import propensities_bursting_gene as propensities
+    from CRN2_control import propensities_production_degradation as propensities
+    # from CRN4_control import propensities_bursting_gene as propensities
 
-    crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, propensities.init_state, 3, 1)
-    sim = CRN_Simulations(crn, np.array([5, 10, 15, 20]), 1_000, 1, complete_trajectory=False, sampling_times=np.arange(21))
-    # sim.plot_simulations(np.array([5., 0.3, 0.4, 0.5, 0.3]))# targets=np.array([[0., 0.], [5., 2.], [10., 3.]]))
-    sim.plot_simulations(np.array([1., 2., 1., 0.001, 0.001, 0.001, 0.001]), targets=np.array([[5., 2.], [10., 2.], [15., 2.], [20., 2.]]))
+    crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, init_state=propensities.init_state, n_fixed_params=1, n_control_params=1)
+    sim = CRN_Simulations(crn, np.array([5, 10, 15, 20]), 10_000, propensities.ind_species, complete_trajectory=False, sampling_times=np.arange(21))
+    sim.plot_simulations(np.array([2., 2.00432852, 0.99680416, 0.99743332, 0.6582418]), targets=np.array([[5., 1.], [10., 2.], [15., 2.], [20., 3.]]))
+    # sim.plot_simulations(np.array([1., 2., 1., 0.9727892751672087, 1.000185943874426, 0.9999474975579944, 1.0006398944905717]), targets=np.array([[5., 1.], [10., 1.], [15., 1.], [20., 1.]]))

@@ -12,11 +12,12 @@ class CRN:
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
         - **n_control_params** (int): Number of varying parameters required to define the propensity functions. 
           Their values vary from a time window to another.
-        - **propensities_drv** (np.ndarray, optional):
-        - **exact** (bool, optional): If True, the exact distribution of the CRN is known. Defaults to False.
-        - **exact_distr** (Tuple[Callable], optional): The exact probability mass function, when known. Defaults to None.
-        - **exact_sensitivities_prob** (Tuple[Callable], optional): The exact sensitivities of the mass function, when known. 
+        - **propensities_drv** (np.ndarray, optional): Gradient functions of the propensities with respect to the parameters.
+          Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
           Defaults to None.
+        - **exact** (Tuple[bool, Tuple[Callable], Tuple[Callable]], optional): If the first element is True, 
+          the exact distribution of the CRN is known. The second element is then the exact probability mass function. The third
+          element is the exact sensitivities of the mass function. Defaults to (False, None, None).
     """    
     def __init__(self,
                 stoichiometry_mat: np.ndarray, 
@@ -25,9 +26,7 @@ class CRN:
                 n_fixed_params: int,
                 n_control_params: int =0,
                 propensities_drv: np.ndarray =None,
-                exact: bool =False, 
-                exact_distr: Tuple[Callable] =None, 
-                exact_sensitivities_prob: Tuple[Callable] =None):
+                exact_distr: Tuple[bool, Tuple[Callable], Tuple[Callable]] =(False, None, None)):
         # stoichiometry_mat has shape (n_species, n_reactions)
         self.stoichiometry_mat = stoichiometry_mat
         # total number of reactions, including those whose parameters change
@@ -40,11 +39,11 @@ class CRN:
         self.propensities = propensities
         self.n_fixed_params = n_fixed_params
         self.n_control_params = n_control_params
-        self.exact = exact
+        self.exact = exact_distr[0]
         self.propensities_drv = propensities_drv
-        if exact:
-            self.exact_distr = exact_distr
-            self.exact_sensitivities_prob = exact_sensitivities_prob
+        if exact_distr[0]:
+            self.exact_distr = exact_distr[1]
+            self.exact_sensitivities_prob = exact_distr[2]
 
     def step(self, 
             init_state: np.ndarray, 
@@ -53,7 +52,7 @@ class CRN:
             t0: float,
             tf: float,
             method: str,
-            complete_trajectory: bool) -> Tuple[np.ndarray]: 
+            complete_trajectory: bool): 
         """Computes a simulation for a time window during which all parameters are fixed.
 
         Args:
@@ -63,12 +62,7 @@ class CRN:
             - :math:`t_0` (float): Time at which the simulation starts.
             - :math:`t_f` (float): Time to end the simulation.
             - **method** (str): Stochastic Simulation to compute.
-
-        Returns:
-            Results of the Stochastic Simulations.
-
-            - **sampling_times** (np.ndarray): Times to sample.
-            - **samples** (np.ndarray): Samples at the sampling times.
+            - **complete_trajectory** (bool):
         """
         set_parameters = np.vectorize(lambda f, params: (lambda x: f(params, x)), excluded=[1])          
         lambdas = set_parameters(self.propensities, params)
@@ -105,6 +99,7 @@ class CRN:
             - **parameters** (np.ndarray): Parameters of the simulation, including fixed parameters for the whole simulation and varying
               parameters for each time window. Its form is `:math:`[\theta_1, ..., \theta_M, \xi_1^1, ..., \xi_{M'}^1, \xi_1^2, ..., \xi_{M'}^T]`. \
             - **method** (str, optional): Stochastic Simulation to compute. Defaults to 'SSA'.
+            - **complete_trajectory** (bool, optional): __description__. Defaults to False.
         """       
         # time_windows [t1, ..., tf] with t0 = 0
         for i, t in enumerate(time_windows):
@@ -161,7 +156,7 @@ class StochasticSimulation:
         self.stoich_mat = stoich_mat
 
 
-    def SSA(self, complete_trajectory: bool =False) -> Tuple[np.ndarray]:
+    def SSA(self, complete_trajectory: bool =False) -> np.ndarray:
         """Computes the SSA.
 
         Args:
@@ -169,10 +164,8 @@ class StochasticSimulation:
               of each jump and the corresponding abundance.
 
         Returns:
-            - **sampling_times** (np.ndarray): Sampling times.
-            - **samples** (np.ndarray): Abundance samples at the sampling times.
+            - **samples**: Abundance samples at the sampling times.
         """
-        # samples = [] instead of self.samples?
         while True:
             eval_propensities = np.vectorize(lambda f, x: f(x), excluded=[1], otypes=[np.ndarray])
             lambdas = eval_propensities(self.propensities, self.current_state)

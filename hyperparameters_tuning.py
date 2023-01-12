@@ -14,22 +14,21 @@ def test_multiple_combs(testing_function: Callable,
     r"""Tests all combinations of the given hyperparameters.
 
     Args:
-        - **lrs** (list): List of learning rates to try.
-        - **max_rounds** (list): List of maximal number of training rounds to try.
-        - **batchsizes** (list): List of batchsizes to try.
-        - **n_hidden** (list): List of number of hidden layer neurons to try.
-        - **early_stopping** (Tuple[bool, list, list]): 
+        - **lrs** (list): List of learning rates to test.
+        - **max_rounds** (list): List of maximal number of training rounds to test.
+        - **batchsizes** (list): List of batchsizes to test.
+        - **n_hidden** (list): List of number of hidden layer neurons to test.
+        - **early_stopping**: 
         
             - (bool): If True, use the early stopping regularization. Defaults to False.            
             - **patience** (list): List of patience levels.
               At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that
-              of the last :math:`n_p` epochs. Defaults to :math:`50`.
+              of the last :math:`n_p` epochs.
             - **delta** (list): List of tolerance thresholds. Training is stopped if the decrease between
-              the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.
-        - **file_name** (str): Name of the CSV file in which the results will be saved. Each line of the CSV file corresponds to
-          one hyperparameter combination. The first 4 elements of each line are the chosen learning rate, number of iterations, 
-          batchsizes, number of hidden layer neurons. The next and last 2 elements of each line are the training and validation losses 
-          for these hyperparameters.
+              the elements of one of those pairs is lower than :math:`\delta`.
+        - **file_name** (str): Name of the CSV file under which to save the results. Each line of the CSV file corresponds to
+          one hyperparameter combination. The first elements of each line are the selected hyperparameters. The next and last 
+          2 elements of each line are the training and validation losses for these hyperparameters.
 
     Returns:
         - Array of the training and validation losses for each combination of hyperparameters. It has shape 

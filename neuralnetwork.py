@@ -14,8 +14,8 @@ class NeuralNetwork(nn.Module):
         - **n_comps** (int): Number of components of the output mixture.
         - **n_params** (int): Number of parameters in input :math:`M`, excluding time parameter.
         - **n_hidden** (int, optional): Number of neurons in the hidden layer. Defaults to :math:`128`.
-        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial mixture. \
-            Can also be 'Poisson' for a Poisson mixture.
+        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial mixture.
+          Can also be 'Poisson' for a Poisson mixture.
         - **print_info** (bool, optional): If True, prints 'Mixture Density Network created' once the network is built. Defaults to True.
     """                
     def __init__(self, 
@@ -93,8 +93,8 @@ def distr_pdf(params: Tuple[torch.tensor],
         - **params** (Tuple[torch.tensor]): Parameters needed to define the probability distribution.
         - **k** (torch.tensor): Points at which to evaluate the pdf.
         - **mixture** (str): Name of the chosen distribution for the mixture.
-        - **eps** (float, optional): Corrective term since a Negative Binomial cannot be evaluated at :math:`p=1.0`. \
-            Defaults to :math:`10^{-5}`.
+        - **eps** (float, optional): Corrective term since a Negative Binomial cannot be evaluated at :math:`p=1.0`.
+          Defaults to :math:`10^{-5}`.
 
     Returns:
         - The pdf of the distribution evaluated at **k**.
@@ -209,8 +209,8 @@ def loss_hellinger(x: torch.tensor,
         - **model** (NeuralNetwork): Mixture Density Network model.
 
     Returns:
-        - :math:`H(y, \hat{y})`: Hellinger distance between the predicted distributions of the Neural Network at input points **X** \
-            and the expected outputs **y**.
+        - :math:`H(y, \hat{y})`: Hellinger distance between the predicted distributions of the Neural Network at input points **X**
+          and the expected outputs **y**.
     """
     y_size = y.size()
     if len(y_size) == 1:
@@ -269,11 +269,11 @@ class NNTrainer:
         - **add_early_stopping** (Tuple[bool, int, float], optional): Defaults to (False, :math:`50`, :math:`10^{-6}`).  
         
             - (bool): If True, uses the early stopping regularization. Defaults to False.            
-            - **patience** (int): Patience level. \
-                At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that \
-                of the last :math:`n_p` epochs. Defaults to :math:`50`.
-            - **delta** (float): Tolerance threshold. Training is stopped if the decrease between \
-                the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.          
+            - **patience** (int): Patience level. 
+              At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that 
+              of the last :math:`n_p` epochs. Defaults to :math:`50`.
+            - **delta** (float): Tolerance threshold. Training is stopped if the decrease between 
+              the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.          
     """
     def __init__(self,
                 model: NeuralNetwork,
@@ -400,8 +400,8 @@ def train_NN(model: NeuralNetwork,
                         - **X_valid**: Tensor of input data.
                         - **y_valid**: Tensor of expected outputs.
         - **loss** (Callable, optional): Chosen loss for optimization. Defaults to loss_kldivergence.
-        - **print_results** (bool, optional): If True, prints the final results \
-            (learning rate, train and valid losses at the end of the training). Defaults to True.
+        - **print_results** (bool, optional): If True, prints the final results
+          (learning rate, train and valid losses at the end of the training). Defaults to True.
         - **print_info** (bool, optional): If True, prints a progress bar. Defaults to True.
 
     Returns:

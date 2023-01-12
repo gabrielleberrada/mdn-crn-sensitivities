@@ -31,6 +31,9 @@ def plot_model(to_pred: torch.tensor,
           :math:`[t, \theta_1, ..., \theta_M]`.
         - **models** (list): Mixture Density Network models to compute.
         - **up_bound** (int): Upper boundary of the predicted distribution.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **n_comps** (int): Number of components of the predicted mixture.
         - **index_names** (Tuple[str, str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If the first argument is True, plots the expected results 
@@ -43,8 +46,8 @@ def plot_model(to_pred: torch.tensor,
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. **propensities_drv** (np.ndarray): Derivative of each propensity with respect to each parameter. Shape (n_reactions, n_parameters).
-                   If None, mass-action kinetics.
+                4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
+                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
                 7. **ind_species** (int): Index of the species of interest.
@@ -56,7 +59,7 @@ def plot_model(to_pred: torch.tensor,
           to plot a sensitivities of probability mass function distribution. If it is 'sensitivities', the second argument is the index of the parameter 
           such that it plots the sensitivities with respect to this parameter. Defaults to ('probabilities', None).
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument is the name of the file 
-          in which to save the plot. Defaults to (False, None).
+          under which to save the plot. Defaults to (False, None).
     """            
     # prediction
     x = torch.arange(up_bound).repeat(1, n_comps,1).permute([2,0,1])
@@ -154,6 +157,9 @@ def multiple_plots(to_pred: list,
           :math:`[t, \theta_1, ..., \theta_M]`.
         - **models** (list): Mixture Density Network models to compute.
         - **up_bound** (int): Upper boundary of the predicted distributions.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **n_comps** (int): Number of components of the predicted mixture.
         - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If the first argument is True, plots the expected results 
@@ -166,8 +172,8 @@ def multiple_plots(to_pred: list,
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. **propensities_drv** (np.ndarray): Derivative of each propensity with respect to each parameter. Shape (n_reactions, n_parameters).
-                   If None, mass-action kinetics.
+                4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
+                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
@@ -283,9 +289,12 @@ def fi_table(time_samples: np.ndarray,
     r"""Plots a table of the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
-        - **time_samples** (list): Times to sample.
+        - **time_samples** (list): Sampling time.
         - **params** (list): Parameters of the propensity functions.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
           with MDN models. Defaults to (False, None, 4).
 
@@ -293,9 +302,10 @@ def fi_table(time_samples: np.ndarray,
                 2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
                 3. **n_comps** (int): Number of mixture components.
 
-        - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
+        - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to compute the exact value of the Fisher Information. 
+          Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
+                - **exact_value** (bool): If True, computes the exact value of the Fisher Information.
                 - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
@@ -303,7 +313,8 @@ def fi_table(time_samples: np.ndarray,
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. **propensities_drv** (np.ndarray): 
+                4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
+                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
@@ -311,9 +322,10 @@ def fi_table(time_samples: np.ndarray,
                 9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
-        - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**.
+        - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**. If None, all
+          times are within the training range. Defaults to None.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
-          The second argument is the name of the file in which to save the plot. Defaults to (False, None).
+          The second argument is the name of the file under which to save the plot. Defaults to (False, None).
     """            
     rows = [fr'$t={t}$' for t in time_samples]
     n_rows = len(time_samples)
@@ -414,9 +426,12 @@ def fi_barplots(time_samples: np.ndarray,
     """Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
-        - **time_samples** (np.ndarray): Times to sample.
+        - **time_samples** (np.ndarray): Sampling times.
         - **params** (np.ndarray): Parameters of the propensity functions.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
           with MDN models. Defaults to (False, None, 4).
 
@@ -424,17 +439,19 @@ def fi_barplots(time_samples: np.ndarray,
                 2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
                 3. **n_comps** (int): Number of mixture components.
 
-        - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
+        - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to compute the exact value of the Fisher Information. 
+          Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
-                - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
+                - **exact_value** (bool): If True, computes the exact value of the Fisher Information.
+                - **fisher_information_function** (Callable): Function that computes the Fisher Information exact value.
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. **propensities_drv** (np.ndarray): 
+                4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
+                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
@@ -443,7 +460,7 @@ def fi_barplots(time_samples: np.ndarray,
                    Their values vary from a time window to another.
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
-          The second argument is the name of the file in which to save the plot. Defaults to (False, None).
+          The second argument is the name of the file under which to save the plot. Defaults to (False, None).
         - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
         - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """            
@@ -538,41 +555,51 @@ def expect_val_table(time_samples: np.ndarray,
                     plot: Tuple[str, int] =('value', None),
                     out_of_bounds_index: int =None,
                     save: Tuple[bool, str] =(False, None)):
-    r"""Plots a table of the diagonal element of the Fisher Information estimated by various methods at various times.
+    """Plots a table of the expected value :math:`E_{\theta, \xi}[\mathcal{L}(X_t)]` or its gradient 
+    :math:`\nabla_{\theta_i} E_{\theta, \xi}[\mathcal{L}(X_t)]` or :math:`\nabla_{\xi_i} E_{\theta, \xi}[\mathcal{L}(X_t)]`, 
+    estimated by various methods at various times.
 
     Args:
-        - **time_samples** (list): Times to sample.
-        - **params** (list): Parameters of the propensity functions.
-        - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
-        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
-          with MDN models. Defaults to (False, None, 4).
+        - **time_samples** (np.ndarray): Sampling times.
+        - **params** (np.ndarray): Parameters of the propensity functions.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the expected value with MDN models. 
+          Defaults to (False, None, 4).
 
-                1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
-                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
+                1. **model_estimation** (bool): If True, estimates the expected value with MDN models.
+                2. **models_list** (list): List of MDN models from which to estimate the expected value.
                 3. **n_comps** (int): Number of mixture components.
 
         - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
-                - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
+                - **exact_value** (bool): If True, calculates the exact expected value.
+                - **expected_value_function** (Callable): Function that computes the expected value.
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
-                1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
+                1. **fsp_estimation** (bool): If True, estimates the expected value with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
-                4. **propensities_drv** (np.ndarray):
+                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
+                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
-                6. **init_state** (np.ndarray): Initial state.
+                6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
                 9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
-        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
-        - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**.
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
+        - **loss** (Callable, optional): Loss function :math:`\mathcal{L}`.
+        - **plot** (Tuple[str, int], optional): The first argument is either 'value' to compute the expected value, or 'gradient' to compute the
+          gradient of the expected value. If it is 'gradient', the second argument is the index of the parameter such that it computes the gradient
+          with respect to this parameter. Defaults to ('value', None). 
+        - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**. If None, all
+          times are within the training range. Defaults to None.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
-          The second argument is the name of the file in which to save the plot. Defaults to (False, None).
-    """ 
+          The second argument is the name of the file under which to save the plot. Defaults to (False, None).
+    """
     rows = [fr'$t={t}$' for t in time_samples]
     n_rows = len(time_samples)
     if loss is None:
@@ -671,39 +698,48 @@ def expect_val_barplots(time_samples: np.ndarray,
             save: Tuple[bool, str] =(False, None),
             colors: list =['blue', 'darkorange', 'forestgreen'],
             mean: bool =True):
-    """Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
+    """Plots rectangular bars to visualize the expected value :math:`E_{\theta, \xi}[\mathcal{L}(X_t)]` or its gradient 
+    :math:`\nabla_{\theta_i} E_{\theta, \xi}[\mathcal{L}(X_t)]` or :math:`\nabla_{\xi_i} E_{\theta, \xi}[\mathcal{L}(X_t)]`, 
+    estimated by various methods at various times.
 
     Args:
-        - **time_samples** (np.ndarray): Times to sample.
+        - **time_samples** (np.ndarray): Sampling times.
         - **params** (np.ndarray): Parameters of the propensity functions.
-        - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
-        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
-          with MDN models. Defaults to (False, None, 4).
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **models** (Tuple[bool, list, int], optional): Arguments to estimate the expected value with MDN models. 
+          Defaults to (False, None, 4).
 
-                1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
-                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
+                1. **model_estimation** (bool): If True, estimates the expected value with MDN models.
+                2. **models_list** (list): List of MDN models from which to estimate the expected value.
                 3. **n_comps** (int): Number of mixture components.
 
         - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, calculates the exact value of the Fisher Information.
-                - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
+                - **exact_value** (bool): If True, calculates the exact expected value.
+                - **expected_value_function** (Callable): Function that computes the expected value.
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
-                1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
+                1. **fsp_estimation** (bool): If True, estimates the expected value with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
-                4. **propensities_drv** (np.ndarray):
+                4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
+                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
                 9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
                    Their values vary from a time window to another.
-        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
+        - **loss** (Callable, optional): Loss function :math:`\mathcal{L}`.
+        - **plot** (Tuple[str, int], optional): The first argument is either 'value' to compute the expected value, or 'gradient' to compute the
+          gradient of the expected value. If it is 'gradient', the second argument is the index of the parameter such that it computes the gradient
+          with respect to this parameter. Defaults to ('value', None). 
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
-          The second argument is the name of the file in which to save the plot. Defaults to (False, None).
+          The second argument is the name of the file under which to save the plot. Defaults to (False, None).
         - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
         - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """    

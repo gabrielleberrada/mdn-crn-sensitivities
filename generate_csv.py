@@ -26,18 +26,18 @@ def generate_csv_datasets(crn_name: str,
     r"""Generates datasets from Stochastic Simulations and saves them in CSV files.
 
     Args:
-        - **crn_name** (str): Name of the CRN to use for the filenames.
+        - **crn_name** (str): Name of the CRN to use for the files names.
         - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. Their values vary \
-          from a time window to another.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+          Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterized propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
-        - **ind_species** (int): Index of the species to study.
+        - **ind_species** (int): Index of the species of interest.
         - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
         - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params})`.
         - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
@@ -85,24 +85,23 @@ def generate_csv_simulations(crn_name: str,
                               params: np.ndarray,
                               initial_state: np.ndarray,
                               method: str ='SSA'):
-    r"""Generates datasets from Stochastic Simulations and saves them in CSV files.
+    r"""Generates simulations of the abundance evolution of a species from Stochastic Simulations
+    and saves them in CSV files.
 
     Args:
-        - **crn_name** (str): Name of the CRN to use for the filenames.
-        - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
+        - **crn_name** (str): Name of the CRN to use for the file name.
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. Their values vary \
-          from a time window to another.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+          Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterized propensity functions.
         - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
-        - **ind_species** (int): Index of the species to study.
+        - **ind_species** (int): Index of the species of interest.
         - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
-        - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params})`.
-        - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+        - **params** (np.ndarray): Parameters used to run simulations.
         - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
           sets the initial state to :math:`0` for all species.
         - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
@@ -115,7 +114,7 @@ def generate_csv_simulations(crn_name: str,
     dataset = generate_data.CRN_Simulations(crn=crn,
                                             time_windows=time_windows,
                                             n_trajectories=n_trajectories,
-                                            ind_species=ind_species, 
+                                            ind_species=ind_species,
                                             complete_trajectory=False,
                                             sampling_times=sampling_times, 
                                             method=method)
@@ -128,7 +127,6 @@ def generate_csv_simulations(crn_name: str,
 if __name__ == '__main__':
 
     CRN_NAME = 'toggle'
-    # datasets = {'train': 3_300, 'valid': 300, 'test': 496}
     datasets = {'test': 16}
     # datasets = {'train1': 2464, 'train2': 2464, 'train3': 2464, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
     # datasets = {'train1': 10656, 'train2': 10656, 'train3': 10656, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}

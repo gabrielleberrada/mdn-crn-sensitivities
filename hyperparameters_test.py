@@ -27,13 +27,13 @@ def test_comb(lr: float,
         - **early_stopping** (Tuple[bool, int, float]):  
         
             - (bool): If True, uses the early stopping regularization. Defaults to False.            
-            - **patience** (int): Patience level. \
-                At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that \
-                of the last :math:`n_p` epochs. Defaults to :math:`50`.
-            - **delta** (float): Tolerance threshold. Training is stopped if the decrease between \
-                the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.
-        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial Mixture. \
-            Can also be 'Poisson' for a Poisson mixture.
+            - **patience** (int): Patience level.
+              At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that 
+              of the last :math:`n_p` epochs. Defaults to :math:`50`.
+            - **delta** (float): Tolerance threshold. Training is stopped if the decrease between 
+              the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.
+        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial Mixture.
+          Can also be 'Poisson' for a Poisson mixture.
         - **n_models** (int): Number of models to train. The return losses are the mean of the losses computed for each model.
 
     Returns:
