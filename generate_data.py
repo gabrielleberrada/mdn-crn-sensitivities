@@ -171,11 +171,11 @@ class CRN_Dataset:
         return X, y
 
 class CRN_Simulations:
-    """Class to run simulations over time and to estimate the abundance evolution of a species.
+    r"""Class to run simulations over time and to estimate the abundance evolution of a species.
 
     Args:
         - **crn** (simulation.CRN): CRN to work on.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_T]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`10^3`.

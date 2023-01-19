@@ -33,7 +33,7 @@ def generate_csv_datasets(crn_name: str,
           Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterized propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
@@ -95,7 +95,7 @@ def generate_csv_simulations(crn_name: str,
           Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterized propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_T]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.

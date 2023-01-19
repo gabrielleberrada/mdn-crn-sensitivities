@@ -29,7 +29,7 @@ def pgdFSP(crn: simulation.CRN,
                                             'gradients_losses', 
                                             'real_losses', 
                                             'exp_results'])):
-    """Performs the PGD with the FSP method, saves the selected parameters for the algorithm and the results in a .txt file,
+    r"""Performs the PGD with the FSP method, saves the selected parameters for the algorithm and the results in a .txt file,
     plots the results and saves them in CSV files. 
 
     Args:
@@ -60,7 +60,7 @@ def pgdFSP(crn: simulation.CRN,
         - **directory** (str, optional): Name of the directory under which to save the files. Defaults to "", which means no directory.
         - **save** (Tuple[bool, list], optional): If the first argument is True, saves the file. The second argument is the name of the file under 
           which to save the plot. Defaults to (True, ['control_values', 'experimental_losses', 'parameters', 'gradients_losses', 'real_losses', 'exp_results']).
-    """    
+    """
     optimizerFSP = pgd.ProjectedGradientDescent_FSP(crn=crn,
                                                     ind_species=ind_species,
                                                     domain=domain,
@@ -116,7 +116,7 @@ def pgdMDN(crn: simulation.CRN,
                                             'gradients_losses', 
                                             'real_losses', 
                                             'exp_results'])):
-    """Performs the PGD using a MDN, saves the selected parameters for the algorithm and the results in a .txt file,
+    r"""Performs the PGD using a MDN, saves the selected parameters for the algorithm and the results in a .txt file,
     plots the results and saves them in CSV files. 
 
     Args:
@@ -141,10 +141,10 @@ def pgdMDN(crn: simulation.CRN,
         - **crn_name** (str): Name of the CRN to use for the files.
         - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L)`. If None, all targets
           have the same weight. Defaults to None.
-        - **directory** (str, optional): Name of the directory under which to save the files. Defaults to "", which means no directory.
+        - **directory** (str, optional): Name of the directory under which to save the files. If not "", must end with "/". Defaults to "", which means no directory.
         - **save** (Tuple[bool, list], optional): If the first argument is True, saves the file. The second argument is the name of the file under 
           which to save the plot. Defaults to (True, ['control_values', 'experimental_losses', 'parameters', 'gradients_losses', 'real_losses', 'exp_results']).
-    """ 
+    """
     optimizerMDN = pgd.ProjectedGradientDescent_MDN(crn=crn,
                                                     model=model,
                                                     domain=domain,

@@ -44,7 +44,8 @@ def expected_val(inputs: torch.tensor,
                 loss: Callable =identity, 
                 length_output: int =200, 
                 array: bool =True) -> Union[np.ndarray, torch.tensor]:
-    """Computes the value of the loss function evaluated in the expectation of the density. Output is a scalar.
+    r"""Computes the value of the loss function evaluated at the expectation of the density 
+    :math:`\mathcal{L}\big(E_{\theta,\xi}[X_t]\big)`. Output is a scalar.
 
     Args:
         - **inputs** (torch.tensor): Input data.
@@ -62,7 +63,8 @@ def gradient_expected_val(inputs: torch.tensor,
                         model: neuralnetwork.NeuralNetwork, 
                         loss: Callable =identity, 
                         length_output: int =200) -> np.ndarray:
-    """Computes the gradient of the loss function evaluated in the expectation of the density. Output has shape (1 + n_total_params).
+    r"""Computes the gradient of the loss function evaluated in the expectation of the density
+    :math:`\nabla_{\theta, \xi} \mathcal{L}\big(E_{\theta,\xi}[X_t]\big)`. Output has shape (1 + n_total_params).
 
     Args:
         - **inputs** (torch.tensor): Input data.

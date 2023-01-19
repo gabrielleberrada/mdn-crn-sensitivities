@@ -3,7 +3,7 @@ import random
 from typing import Tuple, Callable
 
 class CRN:
-    """Class to specify the CRN to work on.
+    r"""Class to specify the CRN to work on.
 
     Args:
         - **stoichiometry_mat** (np.ndarray): Stoichiometry matrix. It has shape (N, N_reactions).
@@ -93,7 +93,7 @@ class CRN:
 
         Args:
             - **sampling_times** (np.ndarray): Times to sample.
-            - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_T]`,
+            - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_T]`,
               such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
               with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
             - **parameters** (np.ndarray): Parameters of the simulation, including fixed parameters for the whole simulation and varying

@@ -13,11 +13,11 @@ import time
 from tqdm import tqdm
 
 class ProjectedGradientDescent():
-    """Class to compute the Projected Gradient Descent Algorithm.
+    r"""Class to compute the Projected Gradient Descent Algorithm.
 
     Args:
         - **grad_loss** (Callable): Gradient function of the loss.
-        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has hape :math:`(dim, 2)`.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
             **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
             upper boundaries for each dimension.
         - **dim** (int): Dimension of the projection space.
@@ -36,7 +36,7 @@ class ProjectedGradientDescent():
                                 clipping_value: float = 50.,
                                 progress_bar: bool =False
                                 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
-        """Computes the Projected Gradient Descent.
+        r"""Computes the Projected Gradient Descent.
 
         Args:
             - **init** (np.ndarray): Initial state for the controlled parameters. 
@@ -66,9 +66,9 @@ class ProjectedGradientDescent():
         while i < n_iter and np.linalg.norm(self.grad_loss(xt[-1]))**2 > eps:
             if progress_bar:
                 pbar.update(1)
-            # gradient clipping
             grad = self.grad_loss(xt[-1])
             grads.append(grad)
+            # gradient clipping
             if np.linalg.norm(grad) > clipping_value:
                 grad = clipping_value / np.linalg.norm(grad) * grad
             x = xt[-1] - gamma*grad
@@ -84,7 +84,7 @@ class ProjectedGradientDescent():
         return np.array(xt), np.array(losses), np.array(grads), i
 
 class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
-    """Class to compute a Projected Gradient Descent for a CRN.
+    r"""Class to compute a Projected Gradient Descent for a CRN.
 
     Args:
         - **crn** (simulation.CRN): CRN to compute the PGD on.
@@ -92,7 +92,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
@@ -131,7 +131,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
                     gamma: float, 
                     n_iter: int =1_000, 
                     eps: float =1e-3) -> Tuple[np.ndarray, float]:       
-        """Computes the Projected Gradient Descent.
+        r"""Computes the Projected Gradient Descent.
 
         Args:
             - **gamma** (float): Step size.
@@ -146,7 +146,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
     
     def plot_control_values(self, 
                             save: Tuple[bool, str] =(False, None)):
-        """Plots the parameters :math:`\xi_i` values over the iterations.
+        r"""Plots the parameters :math:`\xi_i` values over the iterations.
 
         Args:
             - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
@@ -165,7 +165,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
     
     def plot_losses_trajectory(self, 
                             save: Tuple[bool, str] =(False, None)):
-        """Plots the loss values over the iterations.
+        r"""Plots the loss values over the iterations.
 
         Args:
             - **save** (Tuple[bool, str]):
@@ -181,7 +181,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
     def plot_control_params_trajectory(self, 
                                     save: Tuple[bool, str] =(False, None)):
-        """Plots the values of the controlled parameters at each iteration.
+        r"""Plots the values of the controlled parameters at each iteration.
 
         Args:
             - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
@@ -199,7 +199,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
     def plot_gradients_trajectory(self, 
                                 save: Tuple[bool, str] =(False, None)):
-        """Plots the values of the gradients at each iteration.
+        r"""Plots the values of the gradients at each iteration.
 
         Args:
             - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
@@ -221,7 +221,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
                         targets: np.ndarray =None, 
                         rate: int =1_000, 
                         save: Tuple[bool, str] =(False, None)):
-        """Plots the mean evolution of the abundance over time based on the SSA method.
+        r"""Plots the mean evolution of the abundance over time based on the SSA method.
 
         Args:
             - **ind_species** (int): Index of the species of interest.
@@ -240,7 +240,9 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
         res = []
         n_iter = self.buffer_params.shape[0]
         for i in range(n_iter//rate):
+            print(self.fixed_parameters.shape, self.buffer_params.shape)
             parameters = np.concatenate((self.fixed_parameters, self.buffer_params[i*rate,:]))
+            print('parameters')
             samples, _ = sim.run_simulations(parameters)
             res.append(np.mean(samples, axis=0))
         res = np.array(res)
@@ -261,7 +263,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
                             ind_species: int, 
                             rate: int=200, 
                             save: Tuple[bool, str] =(False, None)):
-        """Plots the accurate values of the losses over the iterations.
+        r"""Plots the accurate values of the losses over the iterations.
 
         Args:
             - **ind_species** (int): Index of the species of interest.
@@ -294,7 +296,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
 
 class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
-    """Class to compute the Projected Gradient Descent based on a Mixture Density Network model.
+    r"""Class to compute the Projected Gradient Descent based on a Mixture Density Network model.
 
     Args:
         - **crn** (simulation.CRN): CRN to compute the PGD on.
@@ -303,7 +305,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. 
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
@@ -372,7 +374,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
         self.grad_loss = grad_loss
 
     def create_loss(self, length_output: int):
-        """Computes the loss function evaluated at the expected value.
+        r"""Computes the loss function evaluated at the expected value.
 
         Args:
             - **length_output** (int): Length of the output.
@@ -391,7 +393,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
 
 
 class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
-    """Class to compute the Projected Gradient Descent based on the Finite State Projection method.
+    r"""Class to compute the Projected Gradient Descent based on the Finite State Projection method.
 
     Args:
         - **crn** (simulation.CRN): CRN to work on.
@@ -400,7 +402,7 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
@@ -435,13 +437,13 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
 
 
     def create_loss(self):
-        """Computes the loss function evaluated at the expected value.
+        r"""Computes the loss function evaluated at the expected value :math:`\mathcal{L}\big( E_{\theta, \xi}[X_t]\big)`.
         """  
         def loss_function(control_params):
             fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
             control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
             params = np.concatenate((fixed_parameters, control_parameters), axis=1)
-            res= self.stv_calculator.expected_val(sampling_times=self.time_windows, 
+            res = self.stv_calculator.expected_val(sampling_times=self.time_windows, 
                                                     time_windows=self.time_windows, 
                                                     parameters=params, 
                                                     ind_species=self.ind_species, 
@@ -450,7 +452,7 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
         self.loss = loss_function
 
     def create_gradient(self):
-        """Computes the gradient function of the loss evaluated at the expected value with respect to 
+        r"""Computes the gradient function of the loss evaluated at the expected value with respect to 
         all controlled parameters.
         """
         def gradient_loss(control_params):
@@ -483,7 +485,7 @@ def control_method(optimizer: ProjectedGradientDescent_CRN,
                                                     'gradients_losses', 
                                                     'real_losses', 
                                                     'exp_results'])) -> Tuple[float, np.ndarray, float]:
-    """Computes the PGD, plots the results and saves the algorithm and results data.
+    r"""Computes the PGD, plots the results and saves the algorithm and results data.
 
     Args:
         - **optimizer** (ProjectedGradientDescent_CRN): Either of type ProjectedGradientDescent_MDn or
