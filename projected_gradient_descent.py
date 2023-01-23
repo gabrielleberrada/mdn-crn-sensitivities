@@ -34,7 +34,7 @@ class ProjectedGradientDescent():
                                 n_iter: int =20_000,
                                 eps: float =1e-5,
                                 clipping_value: float = 50.,
-                                progress_bar: bool =False
+                                progress_bar: bool =True
                                 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
         r"""Computes the Projected Gradient Descent.
 
@@ -240,9 +240,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
         res = []
         n_iter = self.buffer_params.shape[0]
         for i in range(n_iter//rate):
-            print(self.fixed_parameters.shape, self.buffer_params.shape)
             parameters = np.concatenate((self.fixed_parameters, self.buffer_params[i*rate,:]))
-            print('parameters')
             samples, _ = sim.run_simulations(parameters)
             res.append(np.mean(samples, axis=0))
         res = np.array(res)
@@ -271,11 +269,11 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
             - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).
         """        
-        sim = generate_data.CRN_Simulations(self.crn, 
-                                            self.time_windows, 
-                                            n_trajectories=10**4, 
-                                            ind_species=ind_species, 
-                                            complete_trajectory=False, 
+        sim = generate_data.CRN_Simulations(self.crn,
+                                            self.time_windows,
+                                            n_trajectories=10**4,
+                                            ind_species=ind_species,
+                                            complete_trajectory=False,
                                             sampling_times = self.time_windows)
         n_iter = self.buffer_params.shape[0]
         performance_index = np.zeros(n_iter//rate)
@@ -287,6 +285,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
             for j in range(self.n_time_windows):
                 res += self.weights[j] * self.loss_function[j](expect[j])
             performance_index[i] = res
+        print('Final exact loss: ', performance_index[-1])
         plt.plot(np.linspace(0, n_iter, n_iter//rate), performance_index)
         plt.title('Performance index')
         if save[0]:
@@ -428,49 +427,75 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
         super().__init__(crn=crn, domain=domain, fixed_params=fixed_params, time_windows=time_windows, loss=loss, weights=weights)
         self.ind_species = ind_species
         self.stv_calculator = fsp.SensitivitiesDerivation(self.crn, self.n_time_windows, index=None, cr=cr)
-        if isinstance(grad_loss, abc.Hashable):
-            self.grad_loss_function = [grad_loss]*self.n_time_windows
-        else:
-            self.grad_loss_function = grad_loss
+        self.grad_loss_function = grad_loss
         self.create_gradient()
         self.create_loss()
 
 
     def create_loss(self):
         r"""Computes the loss function evaluated at the expected value :math:`\mathcal{L}\big( E_{\theta, \xi}[X_t]\big)`.
-        """  
-        def loss_function(control_params):
-            fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
-            control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
-            params = np.concatenate((fixed_parameters, control_parameters), axis=1)
-            res = self.stv_calculator.expected_val(sampling_times=self.time_windows, 
-                                                    time_windows=self.time_windows, 
-                                                    parameters=params, 
-                                                    ind_species=self.ind_species, 
-                                                    loss=self.loss_function) # shape (n_controlled_parameters)
-            return np.dot(self.weights, res) # res.sum()
+        """
+        if isinstance(self.loss_function, abc.Hashable):
+            def loss_function(control_params):
+                fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
+                control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
+                params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+                res = self.stv_calculator.expected_val(sampling_times=self.time_windows, 
+                                                        time_windows=self.time_windows, 
+                                                        parameters=params, 
+                                                        ind_species=self.ind_species)
+                for i in range(self.n_time_windows):
+                    res[i] = self.loss_function(res[i])
+                return np.dot(self.weights, res) # res.sum()
+        else:
+            def loss_function(control_params):
+                fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
+                control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
+                params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+                res = self.stv_calculator.expected_val(sampling_times=self.time_windows, 
+                                                        time_windows=self.time_windows, 
+                                                        parameters=params, 
+                                                        ind_species=self.ind_species)
+                for i, f in enumerate(self.loss_function):
+                    res[i] = f(res[i])
+                return np.dot(self.weights, res) # res.sum()
         self.loss = loss_function
 
     def create_gradient(self):
         r"""Computes the gradient function of the loss evaluated at the expected value with respect to 
         all controlled parameters.
         """
-        def gradient_loss(control_params):
-            fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
-            control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
-            params = np.concatenate((fixed_parameters, control_parameters), axis=1)
-            gradient = self.stv_calculator.gradient_expected_val(sampling_times=self.time_windows,
-                                                            time_windows=self.time_windows,
-                                                            parameters=params,
-                                                            ind_species=self.ind_species)[:,self.n_fixed_params:]
-            expec = self.stv_calculator.expected_val(sampling_times=self.time_windows,
-                                                    time_windows=self.time_windows,
-                                                    parameters=params,
-                                                    ind_species=self.ind_species)
-            res = np.zeros((self.n_time_windows, self.n_control_params*self.n_time_windows))
-            for i, f in enumerate(self.grad_loss_function):
-                res[i, :] = f(expec[i], gradient[i,:])
-            return np.dot(self.weights, res)
+        if isinstance(self.grad_loss_function, abc.Hashable):
+            def gradient_loss(control_params):
+                fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
+                control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
+                params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+                gradient, expect = self.stv_calculator.gradient_expected_val(sampling_times=self.time_windows,
+                                                                time_windows=self.time_windows,
+                                                                parameters=params,
+                                                                ind_species=self.ind_species,
+                                                                with_probs=True)
+                gradient = gradient[:,self.n_fixed_params:]
+                res = np.zeros((self.n_time_windows, self.n_control_params*self.n_time_windows))
+                for i in range(self.n_time_windows):
+                    for j in range(self.n_control_params*self.n_time_windows):
+                        res[i, j] = self.grad_loss_function(expect[i], gradient[i, j])
+                return np.dot(self.weights, res)
+        else: 
+            def gradient_loss(control_params):
+                fixed_parameters = np.stack([self.fixed_parameters]*self.n_time_windows)
+                control_parameters = control_params.reshape(self.n_time_windows, self.n_control_params)
+                params = np.concatenate((fixed_parameters, control_parameters), axis=1)
+                gradient, expect = self.stv_calculator.gradient_expected_val(sampling_times=self.time_windows,
+                                                                time_windows=self.time_windows,
+                                                                parameters=params,
+                                                                ind_species=self.ind_species,
+                                                                with_probs=True)[:,self.n_fixed_params:]
+                res = np.zeros((self.n_time_windows, self.n_control_params*self.n_time_windows))
+                for i, f in enumerate(self.grad_loss_function):
+                    for j in range(self.n_control_params*self.n_time_windows):
+                        res[i, j] = f(expect[i], gradient[i, j])
+                return np.dot(self.weights, res)
         self.grad_loss = gradient_loss
 
 def control_method(optimizer: ProjectedGradientDescent_CRN, 

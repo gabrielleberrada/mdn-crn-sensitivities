@@ -468,8 +468,7 @@ class SensitivitiesDerivation:
                     sampling_times: np.ndarray, 
                     time_windows: np.ndarray, 
                     parameters: np.ndarray, 
-                    ind_species: int,
-                    loss: Union[Callable, list] =None) -> np.ndarray:
+                    ind_species: int) -> np.ndarray:
         r"""Computes the expected value of a loss function evaluated at an abundance random variable
         :math:`E_{\theta, \xi}[\mathcal{L}(X_t)]`.
 
@@ -482,39 +481,21 @@ class SensitivitiesDerivation:
             - **ind_species** (int): Index of the species of interest.
             - **loss** (Union[Callable, list], optional): Loss function. If it is a list, each element is the loss function for the
               corresponding time window. By defaults when None, the loss is set to the identity function. Defaults to None.
-        """        
-        if loss is None:
-            # by default, identity function
-            loss = self.identity
+        """
         marginal_distributions = self.marginal(sampling_times=sampling_times,
                                                 time_windows=time_windows,
                                                 parameters=parameters,
                                                 ind_species=ind_species,
                                                 with_stv=False)[:,:,0]
         self.reset()
-        if isinstance(loss, abc.Hashable):
-            # one loss for all time windows
-            return loss(np.dot(marginal_distributions.transpose(), np.arange(self.cr+1))) # shape(Nt)
-        else:
-            res = []
-            x = np.arange(self.cr + 1)
-            for i, loss_f in enumerate(loss):
-                res.append(loss_f(np.dot(marginal_distributions[:, i], x)))
-            return np.concatenate(res)
-        # else:
-        #     scalar = np.zeros((self.n_time_windows, self.cr + 1))
-        #     for i, loss_f in enumerate(loss):
-        #         vectorized_loss_f = np.vectorize(loss_f)
-        #         scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
-        #     return np.diag(np.dot(scalar, marginal_distributions))
+        return np.dot(marginal_distributions.transpose(), np.arange(self.cr+1)) # shape(Nt)
 
     def gradient_expected_val(self, 
                             sampling_times: np.ndarray, 
                             time_windows: np.ndarray, 
                             parameters: np.ndarray, 
                             ind_species: int,
-                            loss: Union[Callable, list] =None,
-                            grad_loss: Union[Callable, list] =None) -> np.ndarray:
+                            with_probs: bool =True) -> Union[np.ndarray, Tuple[np.ndarray]]:
         r"""Computes the gradient of the loss function evaluated at the expected value with respect to 
         one or several parameters defined in `index` 
         
@@ -528,12 +509,7 @@ class SensitivitiesDerivation:
               with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
             - **parameters** (np.ndarray): Parameters of the propensity functions.
             - **ind_species** (int): Index of the species of interest.
-            - **loss** (Union[Callable, list], optional): Loss function. If it is a list, each element is the loss function for the
-              corresponding time window. By defaults when None, the loss is set to the identity function. Defaults to None.
-            - **grad_loss** (Union[Callable, list], optional):
-        """       
-        if loss is None:
-            loss = self.identity
+        """ 
         marginal_distributions = self.marginal(sampling_times=sampling_times, 
                                                 time_windows=time_windows, 
                                                 parameters=parameters, 
@@ -541,14 +517,12 @@ class SensitivitiesDerivation:
                                                 with_stv=True)
         self.reset()
         stv = marginal_distributions[:, :, 1:]
-        return np.dot(np.transpose(stv, [1, 2, 0]), np.arange(self.cr+1)) # shape (Nt, len(index))
-        # else:
-        #     scalar = np.zeros((self.n_time_windows, self.cr + 1))
-        #     for i, loss_f in enumerate(loss):
-        #         vectorized_loss_f = np.vectorize(loss_f)
-        #         scalar[i, :] = vectorized_loss_f(np.arange(self.cr + 1))
-        #     pass
-        #     # return np.diag(np.dot(scalar, marginal_distributions))
+        x = np.arange(self.cr + 1)
+        expect = np.dot(marginal_distributions[:, :, 0].transpose(), x)
+        grad_expect = np.dot(np.transpose(stv, [1, 2, 0]), x)
+        if with_probs:
+            return grad_expect, expect
+        return grad_expect
 
 
     def create_gradient(self, sampling_times, time_windows, parameters, ind_species, grad_loss):
@@ -574,31 +548,7 @@ class SensitivitiesDerivation:
             for g in grad_loss:
                 gradient_loss.append(g(expected_val, gradient))
             return np.concatenate(gradient_loss) # shape (L)
-        
 
-if __name__ == '__main__':
-
-        # from CRN6_toggle_switch import propensities_toggle as propensities
-        # parameters = np.arange(10)
-
-        # crn = simulation.CRN(propensities.stoich_mat,
-        #                     propensities.propensities,
-        #                     propensities.init_state,
-        #                     n_fixed_params=10,
-        #                     n_control_params=0)
-        
-        # stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None)
-
-
-        from CRN4_control import propensities_bursting_gene as propensities
-        parameters = np.arange(7)
-        crn = simulation.CRN(propensities.stoich_mat,
-                            propensities.propensities,
-                            propensities.init_state,
-                            n_fixed_params=3,
-                            n_control_params=1)
-
-        stv = SensitivitiesDerivation(crn, n_time_windows=4, index=None)
 
 
         

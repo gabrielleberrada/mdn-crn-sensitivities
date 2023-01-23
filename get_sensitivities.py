@@ -75,5 +75,6 @@ def gradient_expected_val(inputs: torch.tensor,
     def expec(inputs):
         return expected_val(inputs, model, loss, length_output, array=False)
     gradient =  torch.squeeze(torch.autograd.functional.jacobian(expec, inputs))
+    print('gradient', gradient.shape)
     return gradient.detach().numpy()
 
