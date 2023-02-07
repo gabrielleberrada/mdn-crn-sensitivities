@@ -22,3 +22,15 @@ optimisation_nn.ipynb
 **/*.pt
 docs/
 losses/
+CRN2_control/gradient_descent
+CRN4_control/gradient_descent
+CRN1_control/
+CRN3_control/
+CRN6_toggle_switch/gradient_descent
+gradient_descent/
+**/images/
+**/gradient_descent/
+CRN5_*/
+mdn_training/
+new_loss/
+saved_models/

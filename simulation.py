@@ -1,22 +1,22 @@
 import numpy as np
 import random
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 class CRN:
     r"""Class to specify the CRN to work on.
 
     Args:
-        - **stoichiometry_mat** (np.ndarray): Stoichiometry matrix. It has shape (N, N_reactions).
-        - **propensities** (np.ndarray): Non-parameterized propensity functions.
+        - **stoichiometry_mat** (np.ndarray): Stoichiometry matrix. Has shape :math:`(N, M)`.
+        - **propensities** (np.ndarray): Non-parameterised propensity functions.
         - **init_state** (np.ndarray): Initial state of the system.
-        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions. 
+        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions :math:`q_1+q_2`. 
           Their values vary from a time window to another.
         - **propensities_drv** (np.ndarray, optional): Gradient functions of the propensities with respect to the parameters.
-          Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
+          Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
           Defaults to None.
         - **exact** (Tuple[bool, Tuple[Callable], Tuple[Callable]], optional): If the first element is True, 
-          the exact distribution of the CRN is known. The second element is then the exact probability mass function. The third
+          the exact distribution of the CRN is known. The second element then is the exact probability mass function. The third
           element is the exact sensitivities of the mass function. Defaults to (False, None, None).
     """    
     def __init__(self,
@@ -89,17 +89,18 @@ class CRN:
                 parameters: np.ndarray, 
                 method: str ='SSA', 
                 complete_trajectory: bool =False):
-        r"""Computes a simulation between two time points with parameters variations in time windows.
+        r"""Computes a simulation between two time points.
 
         Args:
             - **sampling_times** (np.ndarray): Times to sample.
-            - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_T]`,
-              such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+            - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
+              such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
               with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
             - **parameters** (np.ndarray): Parameters of the simulation, including fixed parameters for the whole simulation and varying
-              parameters for each time window. Its form is `:math:`[\theta_1, ..., \theta_M, \xi_1^1, ..., \xi_{M'}^1, \xi_1^2, ..., \xi_{M'}^T]`. \
-            - **method** (str, optional): Stochastic Simulation to compute. Defaults to 'SSA'.
-            - **complete_trajectory** (bool, optional): __description__. Defaults to False.
+              parameters for each time window. Its form is :math:`[\theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi^{q_1+q_2}_1, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+            - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.
+            - **complete_trajectory** (bool, optional): If True, saves the complete trajectory of the simulation, ie the time of each jump and the
+              corresponding abundance. Defaults to False.
         """       
         # time_windows [t1, ..., tf] with t0 = 0
         for i, t in enumerate(time_windows):
@@ -112,8 +113,8 @@ class CRN:
                         complete_trajectory=complete_trajectory)
 
     def reset(self):
-        """Resets the CRN to the inital setting: sets the time to :math:`t=0`, the current state to the initial state and
-        empties the sampling times and samples.
+        """Resets the CRN to the initial setting: sets the time to :math:`t=0`, the current state to the initial state and
+        empties the sampling times and samples arrays.
         """
         self.time = 0
         self.current_state = self.init_state.copy()
@@ -122,20 +123,20 @@ class CRN:
 
 
 
-class StochasticSimulation:
+class StochasticSimulation: 
     """
-    Class to run a simulation between two time points with fixed parameters using the Stochastic Simulation Algorithm.
+    Class to run a simulation between two time points of the same time window using the Stochastic Simulation Algorithm.
     
     Args:
         - :math:`x_0` (np.ndarray): Initial state.
-        - :math:`t_0`(float): Initial time of the simulation.
+        - :math:`t_0` (float): Initial time of the simulation.
         - :math:`t_f` (float): Final time of the simulation.
         - **sampling_times** (np.ndarray): Times to sample.
-        - **propensities** (np.ndarray): Propensity functions (parameterized).
-        - **n_species** (int): :math:`N`, Number of species involved.
-        - **n_reactions** (int): Number of reactions that can occur.
+        - **propensities** (np.ndarray): Propensity functions (parameterised).
+        - **n_species** (int): Number of species involved :math:`N`.
+        - **n_reactions** (int): Number of reactions of the CRN.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.     
-    """    
+    """   
     def __init__(self,
                 x0: np.ndarray,
                 t0: float, 
@@ -156,7 +157,7 @@ class StochasticSimulation:
         self.stoich_mat = stoich_mat
 
 
-    def SSA(self, complete_trajectory: bool =False) -> np.ndarray:
+    def SSA(self, complete_trajectory: bool =False) -> Union[np.ndarray, Tuple[np.ndarray]]:
         """Computes the SSA.
 
         Args:
@@ -165,6 +166,7 @@ class StochasticSimulation:
 
         Returns:
             - **samples**: Abundance samples at the sampling times.
+            - **sampling_times**: If **complete_trajectory** is True, also returns the time of each jump.
         """
         while True:
             eval_propensities = np.vectorize(lambda f, x: f(x), excluded=[1], otypes=[np.ndarray])
@@ -201,6 +203,8 @@ class StochasticSimulation:
 
     def mNRM(self, complete_trajectory=False):
         """Computes the mNRM.
+        
+        To be implemented.
         """
         pass
 

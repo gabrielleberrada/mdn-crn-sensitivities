@@ -7,16 +7,17 @@ from typing import Callable, Tuple
 
 
 class NeuralNetwork(nn.Module):
-    """Class to build a Mixture Density Network.
+    r"""Class to build a Mixture Density Network.
     Based on :cite:`sukys2022nessie`.
 
     Args:
         - **n_comps** (int): Number of components of the output mixture.
-        - **n_params** (int): Number of parameters in input :math:`M`, excluding time parameter.
+        - **n_params** (int): Number of parameters in input :math:`M_{\text{tot}}`, excluding the time parameter.
         - **n_hidden** (int, optional): Number of neurons in the hidden layer. Defaults to :math:`128`.
-        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial mixture.
-          Can also be 'Poisson' for a Poisson mixture.
-        - **print_info** (bool, optional): If True, prints 'Mixture Density Network created' once the network is built. Defaults to True.
+        - **mixture** (str, optional): Type of mixture to compute. Defaults to `NB` for a Negative Binomial mixture.
+          Can also be `Poisson` for a Poisson mixture.
+        - **print_info** (bool, optional): If True, prints 'Mixture Density Network created' once the Neural Network is built. 
+          Defaults to True.
     """                
     def __init__(self, 
                 n_comps: int, 
@@ -50,10 +51,11 @@ class NeuralNetwork(nn.Module):
             print('Mixture Density Network created.')
 
     def forward(self, input: torch.tensor) -> Tuple[torch.tensor]:
-        """Runs the forward function of the Mixture Density Network.
+        r"""Runs the forward function of the Mixture Density Network.
 
         Args:
-            - **input** (torch.tensor): The input parameters to predict: :math:`[t, \theta_1, ..., \theta_M]`.
+            - **input** (torch.tensor): The input parameters to predict: 
+              :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2},\xi_2^1, ..., \xi^{q_1+q_2}_L]`.
 
         Returns:
             - A tuple of three tensors.
@@ -135,11 +137,12 @@ def mix_pdf(model: NeuralNetwork,
 
     .. math::
 
-        q(k) = \sum_i w_i Distr(n, params_i)
+        q(k) = \sum_i w_i \text{Distr}(k, \text{params}_i)
 
     Args:
         - **model** (NeuralNetwork): Mixture Density Network model.
-        - **x** (torch.tensor): Input points, :math:`[t, \theta_1, ..., \theta_M]`.
+        - **x** (torch.tensor): Input points, 
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, ..., \xi_L^{q_1+q_2}]`.
         - **yy** (torch.tensor): Points at which to evaluate the pdf.
 
     Returns:
@@ -163,7 +166,7 @@ def loss_kldivergence(x: torch.tensor,
 
     .. math::
 
-        KL(y, \hat{y}) = y\log \bigl(\frac{y}{\hat{y}}\bigl)
+        KL(y, \hat{y}) = y \log \bigl(\frac{y}{\hat{y}}\bigl)
 
     Args:
         - **x** (torch.tensor): Vector of inputs.
@@ -262,17 +265,17 @@ class NNTrainer:
         - **train_data** (Tuple[torch.tensor, torch.tensor]): Training dataset.
         - **valid_data** (Tuple[torch.tensor, torch.tensor]): Validation dataset.
         - :math:`l_r` (float, optional): Initial learning rate. Defaults to :math:`0.005`.
-        - **l2_reg** (float, optional): L2-regularization term. Defaults to :math:`0`.
+        - **l2_reg** (float, optional): L2-regularisation term. Defaults to :math:`0`.
         - **max_rounds** (int, optional): Maximal number of epochs. Defaults to :math:`700`.
         - **batchsize** (int, optional): Number of elements in a batch. Defaults to :math:`64`.
-        - **optimizer** (Callable, optional): Chosen optimizer. Defaults to torch.optim.Adam.
+        - **optimiser** (Callable, optional): Chosen optimiser. Defaults to torch.optim.Adam.
         - **add_early_stopping** (Tuple[bool, int, float], optional): Defaults to (False, :math:`50`, :math:`10^{-6}`).  
         
-            - (bool): If True, uses the early stopping regularization. Defaults to False.            
-            - **patience** (int): Patience level. 
+            - (bool): If True, uses the early stopping regularisation. Defaults to False.            
+            - **patience** (int): Patience level :math:`n_p`. 
               At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that 
               of the last :math:`n_p` epochs. Defaults to :math:`50`.
-            - **delta** (float): Tolerance threshold. Training is stopped if the decrease between 
+            - **delta** (float): Tolerance threshold :math:`\delta`. Training is stopped if the decrease between 
               the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.          
     """
     def __init__(self,
@@ -283,7 +286,7 @@ class NNTrainer:
                 l2_reg: float =0.,
                 max_rounds: int =700,
                 batchsize: int =64, 
-                optimizer: Callable =torch.optim.Adam,
+                optimiser: Callable =torch.optim.Adam,
                 add_early_stopping: Tuple[bool, int, float] =(False, None, 1e-6)
                 ):               
         self.args = {
@@ -293,7 +296,7 @@ class NNTrainer:
             'l2_reg': l2_reg,
             'max_rounds': max_rounds,
             'batchsize': batchsize,
-            'optimizer': optimizer,
+            'optimiser': optimiser,
             'patience': add_early_stopping[1],
             'delta': add_early_stopping[2]
         }
@@ -306,7 +309,7 @@ class NNTrainer:
         self.valid_losses = []
         self.lr_updates = [0]
         self.model = model
-        self.opt = self.args['optimizer'](model.parameters(), lr=self.args['lr'], weight_decay=self.args['l2_reg'])
+        self.opt = self.args['optimiser'](model.parameters(), lr=self.args['lr'], weight_decay=self.args['l2_reg'])
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, self.args['max_rounds'])
         self.iteration = 0
         self.add_early_stopping = add_early_stopping[0]
@@ -322,8 +325,8 @@ class NNTrainer:
         self.valid_losses.append(float(valid_loss.detach().numpy()))
 
     def early_stopping(self) -> bool:
-        """Computes early stopping regularization to avoid overfitting.
-        If **patience** number of rounds pass without improving the validation loss by at least **delta**,
+        """Computes early stopping regularisation to avoid overfitting.
+        If :math:`n_p` number of rounds pass without improving the validation loss by at least :math:`\delta`,
         stops the training.
 
         Only called if `add_early_stopping` is True.
@@ -346,7 +349,7 @@ class NNTrainer:
         iter = len(self.train_losses)
         if iter >= self.args['max_rounds']:
             raise StopIteration
-        # early stopping regularization
+        # early stopping regularisation
         if self.add_early_stopping and self.early_stopping():
             raise StopIteration
         return iter+1, self
@@ -359,10 +362,10 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence):
 
     Args:
         - **trainer** (NNTrainer): Training structure.
-        - **loss** (Callable, optional): Chosen loss for optimization. Defaults to loss_kldivergence.
+        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to loss_kldivergence.
     """
     model = trainer.model
-    optimizer = trainer.opt
+    optimiser = trainer.opt
     scheduler = trainer.scheduler
     for x, y in trainer.train_loader:
         model.zero_grad()
@@ -370,7 +373,7 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence):
         loss_y.backward()
         # clipping gradients to tackle exploding gradient.
         nn.utils.clip_grad_norm_(model.parameters(), 10.)
-        optimizer.step()
+        optimiser.step()
     # updating learning rate
     scheduler.step()
     trainer.args['lr'] = scheduler.get_last_lr()[0]
@@ -399,7 +402,7 @@ def train_NN(model: NeuralNetwork,
 
                         - **X_valid**: Tensor of input data.
                         - **y_valid**: Tensor of expected outputs.
-        - **loss** (Callable, optional): Chosen loss for optimization. Defaults to loss_kldivergence.
+        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to loss_kldivergence.
         - **print_results** (bool, optional): If True, prints the final results
           (learning rate, train and valid losses at the end of the training). Defaults to True.
         - **print_info** (bool, optional): If True, prints a progress bar. Defaults to True.

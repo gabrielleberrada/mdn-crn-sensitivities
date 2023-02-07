@@ -28,22 +28,22 @@ def generate_csv_datasets(crn_name: str,
     Args:
         - **crn_name** (str): Name of the CRN to use for the files names.
         - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
-        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions :math:`q_1+q_2`.
           Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
-        - **propensities** (np.ndarray): Non-parameterized propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
+        - **propensities** (np.ndarray): Non-parameterised propensity functions.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
         - **ind_species** (int): Index of the species of interest.
         - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
-        - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params})`.
-        - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+        - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
+        - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
         - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
           sets the initial state to :math:`0` for all species.
-        - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
+        - **method** (str): Stochastic Simulation to compute. Defaults to `SSA`.
     """                         
     data_length = sum(datasets.values())
     n_times = len(sampling_times)
@@ -90,21 +90,21 @@ def generate_csv_simulations(crn_name: str,
 
     Args:
         - **crn_name** (str): Name of the CRN to use for the file name.
-        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+        - **n_control_params** (int): Number of varying parameters required to define the propensity functions :math:`q_1+q_2`.
           Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
-        - **propensities** (np.ndarray): Non-parameterized propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_T]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+        - **propensities** (np.ndarray): Non-parameterised propensity functions.
+        - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
         - **ind_species** (int): Index of the species of interest.
-        - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
+        - :math:`n_{\text{trajectories}}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
         - **params** (np.ndarray): Parameters used to run simulations.
         - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
           sets the initial state to :math:`0` for all species.
-        - **method** (str): Stochastic Simulation to compute. Defaults to 'SSA'.
+        - **method** (str): Stochastic Simulation to compute. Defaults to `SSA`.
     """
     crn = simulation.CRN(stoichiometry_mat=stoich_mat,
                         propensities=propensities, 
@@ -133,8 +133,8 @@ if __name__ == '__main__':
     N_PARAMS = 10
     generate_csv_datasets(crn_name=CRN_NAME,
                           datasets=datasets,
-                          n_fixed_params=N_PARAMS-1,
-                          n_control_params=1,
+                          n_fixed_params=N_PARAMS-2,
+                          n_control_params=2,
                           stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
                           propensities=propensities.propensities,
                           time_windows=np.array([5, 10, 15, 20]),

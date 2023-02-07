@@ -9,33 +9,34 @@ import math
 import fsp
 import get_fi
 import simulation
+import time
 from typing import Callable, Tuple
 
 # Plot probability distributions or sensitivities of probabilities distributions
 
-def plot_model(to_pred: torch.tensor, 
+def plot_model(to_pred: torch.tensor,
             models: list, 
             up_bound: int,
             time_windows: np.ndarray,
             n_comps: int,
-            index_names: Tuple[str, str] =('Probabilities', r'Abundance of species $S$'), 
+            index_names: Tuple[str, str] =("Probabilities", r"Abundance of species $S$"), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, Tuple[int], int, int, int] = (False, None),
-            plot: Tuple[str, int] =('probabilities', None),
+            plot: Tuple[str, int] =("probabilities", None),
             save: Tuple[bool, str] =(False, None)):
-    r"""Plots distributions estimated with various methods for a single set of time and parameters and for a specified CRN.
+    r"""Plots distributions estimated with various methods for a single set of time and parameters and for a specified CRN. 
 
     Args:
-        - **to_pred** (torch.tensor): Time and parameters in the form requested by the MDN model: 
-          :math:`[t, \theta_1, ..., \theta_M]`.
-        - **models** (list): Mixture Density Network models to compute.
+        - **to_pred** (torch.tensor): Time and parameters in the form requested by the Mixture Density Networks: 
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+        - **models** (list): Mixture Density Network models to use.
         - **up_bound** (int): Upper boundary of the predicted distribution.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
-          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **n_comps** (int): Number of components of the predicted mixture.
-        - **index_names** (Tuple[str, str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
+        - **index_names** (Tuple[str, str], optional): Labels of x-axis and y-axis. Defaults to ("Probabilities", "Abundance of species S").
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If the first argument is True, plots the expected results 
           from the datasets for the chosen set of parameters. The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If the first argument is True, plots the exact results 
@@ -45,19 +46,19 @@ def plot_model(to_pred: torch.tensor,
                 
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
+                3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
                 7. **ind_species** (int): Index of the species of interest.
-                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
-                   Their values vary from a time window to another.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                   Their values vary from one time window to another.
                 
-        - **plot** (Tuple[str, int], optional): The first argument is either 'probabilities' to plot a probability distribution, or 'sensitivities' 
-          to plot a sensitivities of probability mass function distribution. If it is 'sensitivities', the second argument is the index of the parameter 
-          such that it plots the sensitivities with respect to this parameter. Defaults to ('probabilities', None).
+        - **plot** (Tuple[str, int], optional): The first argument is either "probabilities" to plot a probability distribution, or "sensitivities"
+          to plot a sensitivity of the likelihood distribution. If it is "sensitivities", the second argument is the index of the parameter 
+          such that it plots the sensitivities with respect to this parameter. Defaults to ("probabilities", None).
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument is the name of the file 
           under which to save the plot. Defaults to (False, None).
     """            
@@ -112,7 +113,7 @@ def plot_model(to_pred: torch.tensor,
             elif crn.n_control_params < 2:
                 results_fsp = results_fsp[:, 0, 1+plot[1]-crn.n_fixed_params]
             else:
-                results_fsp = results_fsp[:,0,1+(plot[1]-crn.n_fixed_params)%crn.n_control_params]
+                results_fsp = results_fsp[:, 0, 1+(plot[1]-crn.n_fixed_params)%crn.n_control_params]
         length = min(up_bound, plot_fsp_result[4])
         ymin = min(ymin, results_fsp.min())
         ymax = max(ymax, results_fsp.max())
@@ -153,15 +154,15 @@ def multiple_plots(to_pred: list,
     r"""Plots distributions estimated with various methods for multiple sets of time and parameters and for a specified CRN.
 
     Args:
-        - **to_pred** (list): List of time and parameters in the form requested by the Mixture Density Network models:
-          :math:`[t, \theta_1, ..., \theta_M]`.
-        - **models** (list): Mixture Density Network models to compute.
+        - **to_pred** (list): Time and parameters in the form requested by the Mixture Density Networks:
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+        - **models** (list): Mixture Density Network models to use.
         - **up_bound** (int): Upper boundary of the predicted distributions.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
-          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **n_comps** (int): Number of components of the predicted mixture.
-        - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ('Probabilities', 'Abundance of species S').
+        - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ("Probabilities", "Abundance of species S").
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If the first argument is True, plots the expected results 
           from the datasets for the chosen set of parameters. The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If the first argument is True, plots the exact results for the
@@ -171,19 +172,20 @@ def multiple_plots(to_pred: list,
                 
                 1. **fsp_estimation** (bool): If True, estimates the distribution with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
+                3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
-                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
-                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
-                   Their values vary from a time window to another.
-        - **plot** (Tuple[str, int], optional): The first argument is either 'probabilities' to plot a probability distribution, or 'sensitivities' 
-          to plot a sensitivities of probability mass function distribution. If it is 'sensitivities', second argument is the index of the parameter 
-          such that it plots the sensitivities with respect to this parameter. Defaults to ('probabilities', None).
-        - **n_col** (int, optional): Number of columns to plot. Defaults to 2.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                   Their values vary from one time window to another.
+
+        - **plot** (Tuple[str, int], optional): The first argument is either "probabilities" to plot a probability distribution, or "sensitivities" 
+          to plot a sensitivity of the likelihood distribution. If it is "sensitivities", second argument is the index of the parameter 
+          such that it plots the sensitivities with respect to this parameter. Defaults to ("probabilities", None).
+        - **n_col** (int, optional): Number of columns to plot. Defaults to :math:`2`.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. Second element is the name of the file 
           in which to save the plot. Defaults to (False, None).
     """          
@@ -290,38 +292,41 @@ def fi_table(time_samples: np.ndarray,
 
     Args:
         - **time_samples** (list): Sampling time.
-        - **params** (list): Parameters of the propensity functions.
+        - **params** (list): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
-          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
           with MDN models. Defaults to (False, None, 4).
 
                 1. **model_estimation** (bool): If True, estimates the Fisher Information with MDN models.
-                2. **models_list** (list): List of MDN models from which to estimate the Fisher Information.
+                2. **models_list** (list): List of MDN models to use.
                 3. **n_comps** (int): Number of mixture components.
 
         - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to compute the exact value of the Fisher Information. 
           Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, computes the exact value of the Fisher Information.
-                - **fisher_information_function** (Callable): Function that computes the Fisher Information value.
+                1. **exact_value** (bool): If True, computes the exact value of the Fisher Information.
+                2. **fisher_information_function** (Callable): Exact function of the Fisher Information value.
+
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
+                3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
-                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
-                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
-                   Their values vary from a time window to another.
-        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                   Their values vary from one time window to another.
+
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
         - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**. If None, all
           times are within the training range. Defaults to None.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
@@ -349,6 +354,7 @@ def fi_table(time_samples: np.ndarray,
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
         n_time_windows = len(time_windows)
+        start = time.time()
         crn = simulation.CRN(stoichiometry_mat=plot_fsp_result[1], 
                             propensities=plot_fsp_result[2], 
                             init_state=plot_fsp_result[5],
@@ -365,6 +371,8 @@ def fi_table(time_samples: np.ndarray,
                                             parameters, 
                                             plot_fsp_result[6],
                                             with_stv=True)[:length,:,:]
+        end = time.time()
+        print(end-start)
         fsp_fi = np.zeros(n_rows)
         if ind_param < crn.n_fixed_params:
             index = 1
@@ -421,17 +429,18 @@ def fi_barplots(time_samples: np.ndarray,
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
             save: Tuple[bool, str] =(False, None),
-            colors: list =['blue', 'darkorange', 'forestgreen'],
+            colors: list =["blue", "darkorange", "forestgreen"],
             mean: bool =True):
-    """Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
+    r"""Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
         - **time_samples** (np.ndarray): Sampling times.
-        - **params** (np.ndarray): Parameters of the propensity functions.
+        - **params** (np.ndarray): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
-          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **models** (Tuple[bool, list, int], optional): Arguments to estimate the Fisher Information 
           with MDN models. Defaults to (False, None, 4).
 
@@ -442,26 +451,28 @@ def fi_barplots(time_samples: np.ndarray,
         - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to compute the exact value of the Fisher Information. 
           Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, computes the exact value of the Fisher Information.
-                - **fisher_information_function** (Callable): Function that computes the Fisher Information exact value.
+                1. **exact_value** (bool): If True, computes the exact value of the Fisher Information.
+                2. **fisher_information_function** (Callable): Exact function of the Fisher Information exact value.
+
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
                 1. **fsp_estimation** (bool): If True, estimates the Fisher Information with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray): Non-parameterized propensity functions.
+                3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
-                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
-                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
-                   Their values vary from a time window to another.
-        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to 200.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                   Their values vary from one time window to another.
+
+        - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
           The second argument is the name of the file under which to save the plot. Defaults to (False, None).
-        - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
+        - **colors** (list, optional): Chosen colors for the bars. Defaults to ["blue", "darkorange", "forestgreen"].
         - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """            
     n_rows = len(time_samples)
@@ -551,20 +562,20 @@ def expect_val_table(time_samples: np.ndarray,
                     plot_exact_result: Tuple[bool, Callable] =(False, None), 
                     plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
                     up_bound: int =200,
-                    loss: Callable =None,
-                    plot: Tuple[str, int] =('value', None),
+                    plot: Tuple[str, int] =("value", None),
                     out_of_bounds_index: int =None,
                     save: Tuple[bool, str] =(False, None)):
-    """Plots a table of the expected value :math:`E_{\theta, \xi}[\mathcal{L}(X_t)]` or its gradient 
-    :math:`\nabla_{\theta_i} E_{\theta, \xi}[\mathcal{L}(X_t)]` or :math:`\nabla_{\xi_i} E_{\theta, \xi}[\mathcal{L}(X_t)]`, 
+    r"""Plots a table of the expectation :math:`E_{\theta, \xi}[X_t]` or its gradient with respect to a specified parameter
+    :math:`\frac{\partial E_{\theta, \xi}[X_t]}{\partial \theta_i}` or :math:`\frac{\partial E_{\theta, \xi}[X_t]}{\partial \xi_i}`, 
     estimated by various methods at various times.
 
     Args:
         - **time_samples** (np.ndarray): Sampling times.
-        - **params** (np.ndarray): Parameters of the propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
-          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **params** (np.ndarray): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **models** (Tuple[bool, list, int], optional): Arguments to estimate the expected value with MDN models. 
           Defaults to (False, None, 4).
 
@@ -574,27 +585,28 @@ def expect_val_table(time_samples: np.ndarray,
 
         - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, calculates the exact expected value.
-                - **expected_value_function** (Callable): Function that computes the expected value.
+                1. **exact_value** (bool): If True, calculates the exact expected value.
+                2. **expected_value_function** (Callable): Function that computes the expected value.
+
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
                 1. **fsp_estimation** (bool): If True, estimates the expected value with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                3. **propensities** (np.ndarray[Callable]): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
-                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
-                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
                    Their values vary from a time window to another.
+
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
-        - **loss** (Callable, optional): Loss function :math:`\mathcal{L}`.
-        - **plot** (Tuple[str, int], optional): The first argument is either 'value' to compute the expected value, or 'gradient' to compute the
-          gradient of the expected value. If it is 'gradient', the second argument is the index of the parameter such that it computes the gradient
-          with respect to this parameter. Defaults to ('value', None). 
+        - **plot** (Tuple[str, int], optional): The first argument is either "value" to compute the expected value, or "gradient" to compute the
+          gradient of the expected value. If it is "gradient", the second argument is the index of the parameter such that it computes the gradient
+          with respect to this parameter. Defaults to ("value", None). 
         - **out_of_bounds_index** (int, optional): Index of the first time out of the training range in **time_samples**. If None, all
           times are within the training range. Defaults to None.
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
@@ -602,10 +614,6 @@ def expect_val_table(time_samples: np.ndarray,
     """
     rows = [fr'$t={t}$' for t in time_samples]
     n_rows = len(time_samples)
-    if loss is None:
-        def identity(x):
-            return x
-        loss = identity
     # compute probabilities and sensitivities with the neural networks
     if models[0]:
         predicted_expectation = np.zeros(n_rows)
@@ -614,9 +622,9 @@ def expect_val_table(time_samples: np.ndarray,
             val = 0
             for model in models[1]:
                 if plot[0] == 'value':
-                    val += get_sensitivities.expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)
+                    val += get_sensitivities.expected_val(inputs=to_pred, model=model, length_output=up_bound)
                 elif plot[0] == 'gradient':
-                    val += get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)[plot[1]+1]
+                    val += get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, length_output=up_bound)[plot[1]+1]
             predicted_expectation[i] = val/len(models[1])
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
@@ -635,14 +643,12 @@ def expect_val_table(time_samples: np.ndarray,
             fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, 
                                                         time_windows=time_windows, 
                                                         parameters=parameters, 
-                                                        ind_species=plot_fsp_result[6], 
-                                                        loss=loss)
+                                                        ind_species=plot_fsp_result[6])
         elif plot[0] == 'gradient':
             results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
                                                             time_windows=time_windows, 
                                                             parameters=parameters, 
-                                                            ind_species=plot_fsp_result[6],
-                                                            loss=loss)
+                                                            ind_species=plot_fsp_result[6])
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -693,21 +699,21 @@ def expect_val_barplots(time_samples: np.ndarray,
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
-            loss: Callable =None,
-            plot: Tuple[str, int]=('value', None),
+            plot: Tuple[str, int]=("value", None),
             save: Tuple[bool, str] =(False, None),
-            colors: list =['blue', 'darkorange', 'forestgreen'],
+            colors: list =["blue", "darkorange", "forestgreen"],
             mean: bool =True):
-    """Plots rectangular bars to visualize the expected value :math:`E_{\theta, \xi}[\mathcal{L}(X_t)]` or its gradient 
-    :math:`\nabla_{\theta_i} E_{\theta, \xi}[\mathcal{L}(X_t)]` or :math:`\nabla_{\xi_i} E_{\theta, \xi}[\mathcal{L}(X_t)]`, 
+    r"""Plots rectangular bars to visualize the expectation :math:`E_{\theta, \xi}[X_t]` or its gradient with respect to a specified parameter
+    :math:`\frac{\partial E_{\theta, \xi}[X_t]}{\partial \theta_i}` or :math:`\frac{\partial E_{\theta, \xi}[X_t]}{\partial \xi_i}`, 
     estimated by various methods at various times.
 
     Args:
         - **time_samples** (np.ndarray): Sampling times.
-        - **params** (np.ndarray): Parameters of the propensity functions.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_T` must match
-          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+        - **params** (np.ndarray): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **models** (Tuple[bool, list, int], optional): Arguments to estimate the expected value with MDN models. 
           Defaults to (False, None, 4).
 
@@ -717,36 +723,33 @@ def expect_val_barplots(time_samples: np.ndarray,
 
         - **plot_exact_result** (Tuple[bool, Callable], optional): Arguments to calculate the exact value of the Fisher Information. Defaults to (False, None).
                 
-                - **exact_value** (bool): If True, calculates the exact expected value.
-                - **expected_value_function** (Callable): Function that computes the expected value.
+                1. **exact_value** (bool): If True, calculates the exact expected value.
+                2. **expected_value_function** (Callable): Function that computes the expected value.
+
         - **plot_fsp_result** (Tuple[bool, np.ndarray, np.ndarray, int, np.ndarray, int, int, int], optional): Arguments to estimate the Fisher Information 
           with the FSP method.
                 
                 1. **fsp_estimation** (bool): If True, estimates the expected value with the FSP method. Defaults to False.
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
-                3. **propensities** (np.ndarray[Callable]): Non-parameterized propensity functions.
+                3. **propensities** (np.ndarray[Callable]): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(n_{\text{reactions}}, n_{\text{params}})`. If None, the CRN is assumed to follow mass-action kinetics.
-                5. :math:`C_r`: Value such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
+                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
-                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions.
-                9. **n_control_params** (int): Number of varying parameters required to define the propensity functions.
+                8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
                    Their values vary from a time window to another.
+
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
-        - **loss** (Callable, optional): Loss function :math:`\mathcal{L}`.
-        - **plot** (Tuple[str, int], optional): The first argument is either 'value' to compute the expected value, or 'gradient' to compute the
-          gradient of the expected value. If it is 'gradient', the second argument is the index of the parameter such that it computes the gradient
-          with respect to this parameter. Defaults to ('value', None). 
+        - **plot** (Tuple[str, int], optional): The first argument is either "value" to compute the expected value, or "gradient" to compute the
+          gradient of the expected value. If it is "gradient", the second argument is the index of the parameter such that it computes the gradient
+          with respect to this parameter. Defaults to ("value", None).
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
           The second argument is the name of the file under which to save the plot. Defaults to (False, None).
-        - **colors** (list, optional): Chosen colors for the bars. Defaults to ['blue', 'darkorange', 'forestgreen'].
+        - **colors** (list, optional): Chosen colors for the bars. Defaults to ["blue", "darkorange", "forestgreen"].
         - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
-    """    
-    if loss is None:
-        def identity(x):
-            return x
-        loss = identity        
+    """      
     n_rows = len(time_samples)
     preds=[]
     index_names = ('Fisher Information', 'Time')
@@ -757,9 +760,9 @@ def expect_val_barplots(time_samples: np.ndarray,
             to_pred = torch.concat((torch.tensor([t]), torch.tensor(params)))
             for m, model in enumerate(models[1]):
                 if plot[0] == 'value':
-                    predicted_expectation[i, m] = get_sensitivities.expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)
+                    predicted_expectation[i, m] = get_sensitivities.expected_val(inputs=to_pred, model=model, length_output=up_bound)
                 elif plot[0] == 'gradient':
-                    predicted_expectation[i, m] = get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, loss=loss, length_output=up_bound)[plot[1]+1]
+                    predicted_expectation[i, m] = get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, length_output=up_bound)[plot[1]+1]
         if mean:
             pred = pd.DataFrame([list(np.mean(predicted_expectation, axis=1)), time_samples], index = index_names).transpose()
             pred['Model'] = 'MDN (mean)'
@@ -786,14 +789,12 @@ def expect_val_barplots(time_samples: np.ndarray,
             fsp_expectation = stv_calculator.expected_val(sampling_times=time_samples, 
                                                         time_windows=time_windows, 
                                                         parameters=parameters, 
-                                                        ind_species=plot_fsp_result[6], 
-                                                        loss=loss)
+                                                        ind_species=plot_fsp_result[6])
         elif plot[0] == 'gradient':
             results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
                                                             time_windows=time_windows, 
                                                             parameters=parameters, 
-                                                            ind_species=plot_fsp_result[6],
-                                                            loss=loss)
+                                                            ind_species=plot_fsp_result[6])
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -824,44 +825,36 @@ def expect_val_barplots(time_samples: np.ndarray,
 
 if __name__ == '__main__':
 
-    import numpy as np
-    import torch
-    import matplotlib.pyplot as plt
+    from CRN6_toggle_switch import propensities_toggle as propensities
+    # from CRN2_control import propensities_production_degradation as propensities
+    # from CRN4_control import propensities_bursting_gene as propensities
 
-    import neuralnetwork
     import convert_csv
-    import save_load_MDN
-    import get_sensitivities
 
-    # from CRN6_toggle_switch import propensities_toggle as propensities
-    # X = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/X_toggle_test.csv')
-    # y = convert_csv.csv_to_tensor('CRN6_toggle_switch/data/y_toggle_test.csv')
-    # model1 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model1.pt')
-    # model2 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model2.pt')
-    # model3 = save_load_MDN.load_MDN_model('CRN6_toggle_switch/saved_models/CRN6_model3.pt')
+    # X_test=convert_csv.csv_to_tensor('CRN4_control/data/X_controlled_bg_test.csv')
+    X_test=convert_csv.csv_to_tensor('CRN6_toggle_switch/data/X_toggle_test.csv')
+
+    # params=np.array([0.7455, 0.3351, 0.0078, 0.4656, 0.0193, 0.2696, 2.5266, 0.4108,
+    #                                 0.6880, 0.6880, 0.6880, 0.6880, 0.9276, 0.2132, 0.8062, 0.3897])
+
+    params=np.array([0.7455, 0.3351, 0.0078, 0.4656, 0.0193, 0.2696, 2.5266, 0.4108,
+                                    0.6880, 0.9276, 0.6880, 0.2132, 0.6880, 0.8062, 0.6880, 0.3897])
 
 
-    from CRN4_control import propensities_bursting_gene as propensities
-    X = convert_csv.csv_to_tensor('CRN4_control/data/X_CRN4_control_test.csv')
-    y = convert_csv.csv_to_tensor('CRN4_control/data/y_CRN4_control_test.csv')
-    model1 = save_load_MDN.load_MDN_model('CRN4_control/saved_models/CRN4_model1.pt')
-    model2 = save_load_MDN.load_MDN_model('CRN4_control/saved_models/CRN4_model2.pt')
-    model3 = save_load_MDN.load_MDN_model('CRN4_control/saved_models/CRN4_model3.pt')
-    
-    multiple_plots(to_pred = [X[992+k,:] for k in range(4)],
-                    models=[model1, model2, model3], 
-                    up_bound = [20]*4, 
-                    n_comps=4,
-                    time_windows=np.array([5, 10, 15, 20]),
-                    plot=('sensitivities', 1),
-                    plot_test_result=(False, [y[992+k, :] for k in range(4)]),
-                    plot_fsp_result=(True, 
-                                    propensities.stoich_mat, 
-                                    propensities.propensities, 
-                                    None, 
-                                    50,
-                                    propensities.init_state, 
-                                    1, 
-                                    3, 
-                                    1),
-                    index_names=('Sensitivities', r'Abundance of species $S_2$'))
+    fi_table(time_samples=np.array([5, 10, 15, 20]), 
+            params=X_test[1_000,1:].numpy(),
+            # params=params,
+            ind_param=0,
+            up_bound=200,
+            time_windows=np.array([5, 10, 15, 20]),
+            models=(False, [], 4), 
+            plot_fsp_result=(True, 
+                            propensities.stoich_mat, 
+                            propensities.propensities, 
+                            None, 
+                            50, 
+                            propensities.init_state, 
+                            propensities.ind_species, 
+                            9, 
+                            1))
+

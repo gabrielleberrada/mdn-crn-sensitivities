@@ -13,7 +13,7 @@ def test_comb(lr: float,
             early_stopping: Tuple[bool, int, float],
             mixture: str ='NB',
             n_models: int =2) -> Tuple[list]:
-    """Trains a Mixture Density Network on the input data with the given combination of hyperparameters.
+    r"""Trains a Mixture Density Network on the input data with the given combination of hyperparameters.
 
     Args:
         - :math:`l_r` (float): Initial learning rate.
@@ -22,18 +22,18 @@ def test_comb(lr: float,
         - **n_hidden** (int): Number of neurons in the hidden layer.
         - **train_data** (Tuple[torch.tensor]): Training dataset.
         - **valid_data** (Tuple[torch.tensor]): Validation dataset.
-        - **n_params** (int): Number of CRN parameters in input, excluding time parameter.
+        - **n_params** (int): Number of CRN parameters in input, excluding time parameter :math:`M_{\text{tot}}`.
         - **n_comps** (int): Number of components of the output mixture.
         - **early_stopping** (Tuple[bool, int, float]):  
         
             - (bool): If True, uses the early stopping regularization. Defaults to False.            
-            - **patience** (int): Patience level.
+            - **patience** (int): Patience level :math:`n_p`.
               At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that 
               of the last :math:`n_p` epochs. Defaults to :math:`50`.
-            - **delta** (float): Tolerance threshold. Training is stopped if the decrease between 
+            - **delta** (float): Tolerance threshold :math:`\delta`. Training is stopped if the decrease between 
               the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.
-        - **mixture** (str, optional): Type of mixture to compute. Defaults to 'NB' for a Negative Binomial Mixture.
-          Can also be 'Poisson' for a Poisson mixture.
+        - **mixture** (str, optional): Type of mixture to compute. Defaults to "NB" for a Negative Binomial Mixture.
+          Can also be "Poisson" for a Poisson mixture.
         - **n_models** (int): Number of models to train. The return losses are the mean of the losses computed for each model.
 
     Returns:

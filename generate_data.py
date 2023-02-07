@@ -17,14 +17,14 @@ class CRN_Dataset:
     Args: 
         - **crn** (simulation.CRN): CRN to work on.
         - **sampling_times** (np.ndarray): Sampling times.
-        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. Its form is :math:`[t_1, ..., t_L]`,
+        - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. 
           Can also be defined when calling the ``generate_data`` function. Defaults to :math:`10^4`.
         - **ind_species** (int, optional): Index of the species of interest. 
           The distribution generated will be the one of that species. Defaults to :math:`0`.
-        - **method** (str, optional): Stochastic Simulation to compute. Defaults to 'SSA'.
+        - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.
     """
     def __init__(self, 
             crn: simulation.CRN, 
@@ -50,17 +50,17 @@ class CRN_Dataset:
 
 
     def samples_probs(self, params: np.ndarray) -> Tuple[list, int]:
-        r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the 
+        r"""Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and estimates the 
         corresponding distribution for the species indexed by **ind_species**.
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
-              (n_time_windows, n_params).
+              :math:`(L, M_{\theta}+q_1+q_2)`.
         Returns:
             - **samples**: List of the distributions for the corresponding species at sampling times. This list begins with time and 
-              parameters: :math:`[t, \theta_1, ..., \theta_M, \xi_1^1, \xi_2^1, ..., \xi_{M'}^1, ..., \xi_{M'}^T, p_0(t,\theta), ...]`.
+              parameters: :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, ..., \xi^{q_1+q_2}_L, p_0(t,\theta,\xi), ...]`.
             - **max_value**: Maximum value reached during simulations + number of total parameters + 1 (for time). 
-              Used to standardize each data length to turn the data list into a tensor.
+              Used to standardize each data length to turn the data list into an array.
         """
         res = []
         for i in range(self.n_trajectories):
@@ -97,7 +97,7 @@ class CRN_Dataset:
             - **length** (int): Expected length of array.
 
         Returns:
-            - The array in input with zeros at the end so that its length equals 'length'.
+            - The array in input with zeros at the end so that its length equals `length`.
         """   
         return onedim_tab + [0] * max(length - len(onedim_tab), 0)
 
@@ -112,9 +112,9 @@ class CRN_Dataset:
 
         Args:
             - **data_length** (int): Length of the expected output data.
-            - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+            - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
               If None, an array of zeros. Defaults to None.
-            - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Shape :math:`(n_total_params)`.
+            - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
               If None, an array of ones. Defaults to None.
             - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute to estimate the distribution. 
               Defaults to :math:`10^4`.
@@ -122,7 +122,8 @@ class CRN_Dataset:
         Returns:
             - **(X, y)**:
 
-                - Each entry of **X** is an input to the neural network of the form :math:`[t, \theta_1,..., \theta_M, \xi_1^1, ..., \xi_{M'}^T]`.
+                - Each entry of **X** is an input to the neural network of the form 
+                  :math:`[t, \theta_1,..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi^{q_1+q_2}_L]`.
                 - The corresponding entry of **y** is the estimated probability distribution for these parameters.
         """
         if sobol_start is None:
@@ -138,16 +139,16 @@ class CRN_Dataset:
         thetas = sobol_theta.random(n_elts)*(sobol_end[:self.n_fixed_params]-sobol_start[:self.n_fixed_params])+sobol_start[:self.n_fixed_params] 
         # to avoid all zeros
         thetas[np.count_nonzero(thetas, axis=1) == 0] = sobol_theta.random()*(sobol_end[:self.n_fixed_params]-sobol_start[:self.n_fixed_params])+sobol_start[:self.n_fixed_params]
-        theta = np.stack([thetas]*self.n_time_windows, axis=1) # shape (n_elts, n_time_windows, n_fixed_params)
+        theta = np.stack([thetas]*self.n_time_windows, axis=1) # shape (n_elts, L, q_1+q_2)
         # generating parameters xi_i
         sobol_xi = qmc.Sobol(self.n_control_params*self.n_time_windows)
         xi = sobol_xi.random(n_elts)
         # to avoid all zeros
         xi[np.count_nonzero(xi, axis=1)==0] = sobol_xi.random()
-        xi = np.reshape(xi, (n_elts, self.n_time_windows, self.n_control_params)) # shape (n_elts, n_time_windows, n_control_params)
+        xi = np.reshape(xi, (n_elts, self.n_time_windows, self.n_control_params)) # shape (n_elts, L, q_1+q_2)
         # rescaling
         xi = xi*(sobol_end[self.n_fixed_params:] - sobol_start[self.n_fixed_params:]) + sobol_start[self.n_fixed_params:]
-        params = np.concatenate((theta, xi), axis=-1) # shape (n_elts, n_time_windows, n_params)
+        params = np.concatenate((theta, xi), axis=-1) # shape (n_elts, L, M_theta + q_1+q_2)
         # using multithreading to process faster
         with concurrent.futures.ProcessPoolExecutor() as executor:
             res = list(tqdm(executor.map(self.samples_probs, params), total=n_elts, desc='Generating data ...'))
@@ -175,21 +176,21 @@ class CRN_Simulations:
 
     Args:
         - **crn** (simulation.CRN): CRN to work on.
-        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_T]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{T-1}, t_T]`. :math:`t_T` must match
+        - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_T]`,
+          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
-        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`10^3`.
+        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`10^4`.
         - **ind_species** (int, optional): Index of the species of study. Defaults to :math:`0`.
-        - **method** (str, optional): Stochastic Simulation to compute. Defaults to 'SSA'.
+        - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.
         - **complete_trajectory** (bool, optional): If True, computes the complete Jump Process. If False,
           computes the abundance of the species to study at the specified sampling times. Defaults to True.
-        - **sampling_times** (np.ndarray, optional): Times to sample. Should not be specified when `complete_trajectory`is True.
-          Defaults to np.empty(0).
+        - **sampling_times** (np.ndarray, optional): Times to sample. Should not be specified when **complete_trajectory** is True.
+          Defaults to `np.empty(0)`.
     """     
     def __init__(self, 
             crn: simulation.CRN,
             time_windows: np.ndarray,
-            n_trajectories: int =10**3, 
+            n_trajectories: int =10**4, 
             ind_species: int =0,
             method: str ='SSA',
             complete_trajectory: bool =True,
@@ -217,15 +218,15 @@ class CRN_Simulations:
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
-              (n_time_windows, n_params).
+              :math:`(L, M_{\theta}+q_1+q_2)`.
 
         Returns:
-            When `complete_trajectory` is True:
+            When **complete_trajectory** is True:
                 - **samples** (dict): Each key is the index of the corresponding computed trajectory. Its value is an array with the abundance 
                   values after each jump.
-                - **times** (dict): Each key is the index of the corresponding computed trajectory. Its alue is an array with the times at which
+                - **times** (dict): Each key is the index of the corresponding computed trajectory. Its value is an array with the times at which
                   each jump occured.
-            When `complete_trajectory` is False:
+            When **complete_trajectory** is False:
                 - **samples** (np.ndarray): Measured abundance for each trajectory at the sampling times. Shape (n_trajectories, n_sampling_times).
                 - **times** (np.ndarray): Sampling times.
         """
@@ -259,12 +260,12 @@ class CRN_Simulations:
                         params: np.ndarray,
                         targets: np.ndarray =None, 
                         save: Tuple[bool, str] =(False, None)):
-        """Plots either all the simulated trajectories if `complete_trajectory` is False or 
-        the mean evolution of the abundance if `complete_trajectory` is True`.
+        r"""Plots either all the simulated trajectories if **complete_trajectory** is False or 
+        the mean evolution of the abundance if **complete_trajectory** is True.
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
-              (n_time_windows, n_params).
+              :math:`(L, M_{\theta}+q_1+q_2,)`.
             - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.
             - **save** (Tuple[bool, str], optional): If the first argument is True, saves the plot. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).

@@ -21,19 +21,19 @@ def test_multiple_combs(testing_function: Callable,
         - **early_stopping**: 
         
             - (bool): If True, use the early stopping regularization. Defaults to False.            
-            - **patience** (list): List of patience levels.
+            - **patience** (list): List of patience levels :math:`n_p`.
               At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that
               of the last :math:`n_p` epochs.
-            - **delta** (list): List of tolerance thresholds. Training is stopped if the decrease between
+            - **delta** (list): List of tolerance thresholds :math:`\delta`. Training is stopped if the decrease between
               the elements of one of those pairs is lower than :math:`\delta`.
         - **file_name** (str): Name of the CSV file under which to save the results. Each line of the CSV file corresponds to
           one hyperparameter combination. The first elements of each line are the selected hyperparameters. The next and last 
           2 elements of each line are the training and validation losses for these hyperparameters.
 
     Returns:
-        - Array of the training and validation losses for each combination of hyperparameters. It has shape 
+        - Array of the training and validation losses for each combination of hyperparameters. Has shape 
           :math:`(N_{\text{comb}}, 2)` where :math:`N_{\text{comb}}` is the number of possible hyperparameters combinations.
-        - Array of tested combinations of hyperparameters. It has shape :math:`(N_{\text{comb}}, n_{\text{params}})`.
+        - Array of tested combinations of hyperparameters. Has shape :math:`(N_{\text{comb}}, M_{\text{tot}})`.
     """                        
     if early_stopping[0]:
       n_params = 6

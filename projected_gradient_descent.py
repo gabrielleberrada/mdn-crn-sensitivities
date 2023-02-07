@@ -17,9 +17,9 @@ class ProjectedGradientDescent():
 
     Args:
         - **grad_loss** (Callable): Gradient function of the loss.
-        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
-            **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
-            upper boundaries for each dimension.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.
+          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
+          upper boundaries for each dimension.
         - **dim** (int): Dimension of the projection space.
     """
     def __init__(self, grad_loss: Callable, domain: np.ndarray, dim: int):
@@ -33,35 +33,40 @@ class ProjectedGradientDescent():
                                 gamma: float,
                                 n_iter: int =20_000,
                                 eps: float =1e-5,
-                                clipping_value: float = 50.,
+                                clipping_value: float =50.,
                                 progress_bar: bool =True
                                 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
         r"""Computes the Projected Gradient Descent.
 
+        .. math::
+        
+            \xi_{n+1} \leftarrow \xi_n - \gamma \nabla_{\xi} C_{\xi_n}^J
+
         Args:
-            - **init** (np.ndarray): Initial state for the controlled parameters. 
-              Has shape :math:`L \times n_control_params`.
-            - **gamma** (float): Step size.
+            - **init** (np.ndarray): Initial values of the control parameters. 
+              Has shape :math:`(q_1+q_2)\times L`.
+            - **gamma** (float): Step size :math:`\gamma`.
             - :math:`n_{\text{iter}}` (int, optional): Maximal number of iterations allowed for the gradient descent. 
-              Defaults to :math:`20000`.
-            - **eps** (float, optional): Tolerance rate. The algorithm halts when the squared norm of the gradient of 
-              the loss value is smaller than **eps**. Defaults to :math:`10^{-5}`.
+              Defaults to :math:`20 000`.
+            - **eps** (float, optional): Threshold level :math:`\varepsilon`. The algorithm halts when the squared norm of the gradient of 
+              the loss value is smaller than :math:`\varepsilon`. Defaults to :math:`10^{-5}`.
             - **clipping_value** (float, optional): Maximal gradient norm value. Used to avoid explosing gradients.
               Defaults to :math:`50`.
-            - **progress_bar** (bool, optional): If True, plots a progress bar during optimisation. Defaults to False.
+            - **progress_bar** (bool, optional): If True, plots a progress bar during the optimisation process. Defaults to True.
 
         Returns:
-            - Array of the controlled parameters values estimated at each iteration. Has shape :math:`(n, dim)`.
-            - Array of the loss values estimated at each iteration. Has shape :math:`(n)`.
-            - Array of the gradient values estimated at each iteration. Has shape :math:`(n, dim)`.
-            - :math:`n`: number of iterations performed by the algorithm.
+            - Array of the control parameters values estimated at each iteration. Has shape (n, dim).
+            - Array of the loss values estimated at each iteration. Has shape (n,).
+            - Array of the gradient values estimated at each iteration. Has shape (n, dim).
+            - Number of iterations :math:`n` performed by the algorithm.
         """   
         xt = [init]
         losses = []
         grads = []
-        print('Optimizing...')
         if progress_bar:
-            pbar = tqdm(total=n_iter, desc = 'Optimizing ...', position=0)
+            pbar = tqdm(total=n_iter, desc = 'Optimising ...', position=0)
+        else: 
+            print('Optimising...')
         i = 0
         while i < n_iter and np.linalg.norm(self.grad_loss(xt[-1]))**2 > eps:
             if progress_bar:
@@ -88,16 +93,17 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
     Args:
         - **crn** (simulation.CRN): CRN to compute the PGD on.
-        - *domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
-          :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
-        - **loss** (Union[Callable, np.ndarray]): Loss function used for the gradient descent.
-        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L)`. If None, all targets
+          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
+        - **loss** (Union[Callable, np.ndarray]): Loss function(s) used for the gradient descent. Either a single
+          function for all time windows, or an array of functions of shape :math:`(L,)`, each function corresponding to one time window.
+        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets
           have the same weight. Defaults to None.
         """   
     def __init__(self,
@@ -106,8 +112,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
                 fixed_params: np.ndarray,
                 time_windows: np.ndarray,
                 loss: Union[Callable, np.ndarray],
-                weights: np.ndarray =None
-                ):     
+                weights: np.ndarray =None):     
         self.domain = domain.copy()
         self.fixed_parameters = fixed_params
         self.n_fixed_params = len(fixed_params)
@@ -117,7 +122,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
         self.n_time_windows = len(time_windows)
         self.n_control_params = self.dim // self.n_time_windows
         if weights is None:
-            # All controlled parameters have the same weight.
+            # All control parameters have the same weight.
             self.weights = np.ones(self.n_time_windows)
         else:
             self.weights = weights
@@ -131,13 +136,13 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
                     gamma: float, 
                     n_iter: int =1_000, 
                     eps: float =1e-3) -> Tuple[np.ndarray, float]:       
-        r"""Computes the Projected Gradient Descent.
+        r"""Computes the Projected Gradient Descent algorithm.
 
         Args:
-            - **gamma** (float): Step size.
-            - **n_iter** (int): Number of iterations for the gradient descent. Defaults to :math:`1000`.
-            - **eps** (int): Tolerance rate. Defaults to :math:`10^{-3}`.
-        """        
+            - **gamma** (float): Step size :math:`\gamma`.
+            - **n_iter** (int, optional): Number of iterations for the gradient descent. Defaults to :math:`1000`.
+            - **eps** (int, optional): Tolerance rate :math:`\varepsilon`. Defaults to :math:`10^{-3}`.
+        """
         self.buffer_params, self.buffer_losses, self.buffer_grads, i = self.projected_gradient_descent(self.init_control_params, 
                                                                                                         gamma, 
                                                                                                         n_iter, 
@@ -146,29 +151,30 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
     
     def plot_control_values(self, 
                             save: Tuple[bool, str] =(False, None)):
-        r"""Plots the parameters :math:`\xi_i` values over the iterations.
+        r"""Plots the final values of the parameters :math:`\xi` over time.
 
         Args:
-            - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
-              is the name of the file under which to save the plot. Defaults to (False, None).
+            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument 
+              then is the name of the file under which to save the plot. Defaults to (False, None).
         """      
         edges = np.concatenate(([0], self.time_windows))
         plt.stairs(self.buffer_params[-1,:], edges, baseline=None)
         plt.ylim(plt.ylim()[0]-0.1, plt.ylim()[1])
         plt.ylabel('Parameter value')
         plt.xlabel('Time')
-        plt.title('Controlled parameters')
+        plt.title('Control parameters')
         if save[0]:
             convert_csv.array_to_csv(self.buffer_params[-1, :], save[1])
             plt.savefig(f'{save[1]}.pdf')
         plt.show()
     
     def plot_losses_trajectory(self, 
-                            save: Tuple[bool, str] =(False, None)):
-        r"""Plots the loss values over the iterations.
+                                save: Tuple[bool, str] =(False, None)):
+        r"""Plots the loss values over the iterations as estimated by the chosen model.
 
         Args:
-            - **save** (Tuple[bool, str]):
+            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument 
+              then is the name of the file under which to save the plot. Defaults to (False, None).
         """        
         plt.plot(self.buffer_losses)
         plt.xlabel('Iterations')
@@ -180,11 +186,11 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
         plt.show()
 
     def plot_control_params_trajectory(self, 
-                                    save: Tuple[bool, str] =(False, None)):
-        r"""Plots the values of the controlled parameters at each iteration.
+                                        save: Tuple[bool, str] =(False, None)):
+        r"""Plots the values of the parameters :math:`\xi` at each iteration.
 
         Args:
-            - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
+            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).
         """  
         for i in range(self.n_control_params):
@@ -198,11 +204,11 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
         plt.show()
 
     def plot_gradients_trajectory(self, 
-                                save: Tuple[bool, str] =(False, None)):
+                                    save: Tuple[bool, str] =(False, None)):
         r"""Plots the values of the gradients at each iteration.
 
         Args:
-            - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
+            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).
         """        
         for i in range(self.n_control_params):
@@ -228,7 +234,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
             - **targets** (np.ndarray, optional): Target values at each time point.
               If None, no target is plotted. Defaults to None.
             - **rate** (int, optional): Plotting rate. Defaults to :math:`1000`.
-            - **save** (Tuple[bool, str]): If the first argument is True, saves the file. The second argument 
+            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).
         """        
         sim = generate_data.CRN_Simulations(self.crn, 
@@ -239,13 +245,14 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
                                             sampling_times=self.time_windows)
         res = []
         n_iter = self.buffer_params.shape[0]
-        for i in range(n_iter//rate):
+        n = max(n_iter//rate, 1)
+        for i in range(n):
             parameters = np.concatenate((self.fixed_parameters, self.buffer_params[i*rate,:]))
             samples, _ = sim.run_simulations(parameters)
             res.append(np.mean(samples, axis=0))
         res = np.array(res)
         for i, t in enumerate(self.time_windows):
-            plt.scatter(np.linspace(0, n_iter, n_iter//rate), res[:,i], marker = '+', label=f'$t={t}$')
+            plt.scatter(np.linspace(0, n_iter, n), res[:,i], marker = '+', label=f'$t={t}$')
         if targets is not None:
             for target in targets:
                 plt.axhline(y = target, linestyle = 'dashed', color='gray')
@@ -259,9 +266,9 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
     def plot_performance_index(self, 
                             ind_species: int, 
-                            rate: int=200, 
+                            rate: int =200, 
                             save: Tuple[bool, str] =(False, None)):
-        r"""Plots the accurate values of the losses over the iterations.
+        r"""Plots the values of the losses over the iterations estimated by the SSA method.
 
         Args:
             - **ind_species** (int): Index of the species of interest.
@@ -295,7 +302,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
 
 class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
-    r"""Class to compute the Projected Gradient Descent based on a Mixture Density Network model.
+    r"""Class to compute the Projected Gradient Descent (PGD) based on a Mixture Density Network model.
 
     Args:
         - **crn** (simulation.CRN): CRN to compute the PGD on.
@@ -307,14 +314,16 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. 
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
-          :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element
           is the loss function for the corresponding time window.
-        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L)`. If None, all targets
+        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets
           have the same weight. Defaults to None.
         - **length_output** (int, optional): Length of the output of the MDN prediction. Defaults to :math:`200`.
-        - **with_correction** (bool, optional): If True, sensitivities are set to zero when controlled parameters
-            have no influence on that time window. If False, works with the computed sensitivities. Defaults to True.
+        - **with_correction** (bool, optional): If True, sensitivities are set to zero when control parameters
+          have no influence on that time window. If False, works with the computed sensitivities untouched. Defaults to True.
+          (:math:`\forall i \in [\![1, L]\!], \forall j \in [\![i+1, L]\!], \forall k \in [\![1, q_1+q_2]\!], [\hat{S}_{t_i}^{\theta, \xi}]_{.M+(q_1+q_2)j+k} = 0`).
+
     """ 
     def __init__(self, 
                 crn: simulation.CRN,
@@ -333,18 +342,19 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
 
     def create_gradient(self, length_output: int, with_correction: bool):
         r"""Computes the gradient function of the loss evaluated at the expected value with respect to 
-        all controlled parameters.
+        all control parameters.
 
         .. math::
 
             \xi \mapsto \sum_{i=1}^L w_i \nabla_{\xi} \mathcal{L}_i(E[X_t^{\theta, \xi}])
 
-        Usually, we set :math:`\mathcal{L}_i` of the form :math:`\mathcal{L}_i(x) = (x-\text{target}_i)^2`. 
+        Usually, we set :math:`\mathcal{L}_i` of the form :math:`\mathcal{L}_i : x \mapsto (x-h_i)^2` 
+        where :math:`h \in \mathbb{R}^L` is the target vector. 
 
         Args:
-            - **length_output** (int): Length of the output.
-            - **with_correction** (bool): If True, sensitivities are set to zero when controlled parameters
-              have no influence on that time window. If False, lets the computed sensitivities. Defaults to True.
+            - **length_output** (int): Upper bound of the truncated expectation.
+            - **with_correction** (bool): If True, sensitivities are set to zero when control parameters have no influence 
+              on that time window. If False, works with the computed sensitivities untouched. Defaults to True.
         """
         if with_correction:
             def grad_loss(control_params):
@@ -376,7 +386,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
         r"""Computes the loss function evaluated at the expected value.
 
         Args:
-            - **length_output** (int): Length of the output.
+            - **length_output** (int): Upper bound of the truncated expected value.
         """ 
         def loss(control_params):
             params = np.concatenate((self.fixed_parameters, control_params))
@@ -397,20 +407,20 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
     Args:
         - **crn** (simulation.CRN): CRN to work on.
         - **ind_species** (int): Index of the species to study.
-        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
-          :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
+          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element
           is the loss function for the corresponding time window.
         - **grad_loss** (Union[Callable, list]): Gradient of the loss function. If it is a list, each element is the gradient
           of the loss function for the corresponding time window.
-        - **weights** (np.ndarray, optional):  If True, sensitivities are set to zero when controlled parameters
-            have no influence on that time window. If False, works with the computed sensitivities. Defaults to True.
+        - **weights** (np.ndarray, optional):  If True, sensitivities are set to zero when control parameters
+          have no influence on that time window. If False, works with the computed sensitivities. Defaults to True.
         - :math:`C_r` (int, optional): Value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. 
           Defaults to :math:`50`.
     """       
@@ -426,14 +436,21 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
                 cr: int =50): 
         super().__init__(crn=crn, domain=domain, fixed_params=fixed_params, time_windows=time_windows, loss=loss, weights=weights)
         self.ind_species = ind_species
-        self.stv_calculator = fsp.SensitivitiesDerivation(self.crn, self.n_time_windows, index=None, cr=cr)
+        self.stv_calculator = fsp.SensitivitiesDerivation(self.crn, 
+                                                        self.n_time_windows, 
+                                                        # only the control parameters
+                                                        index=np.arange(crn.n_fixed_params, crn.n_fixed_params+crn.n_control_params), 
+                                                        cr=cr)
         self.grad_loss_function = grad_loss
         self.create_gradient()
         self.create_loss()
 
 
     def create_loss(self):
-        r"""Computes the loss function evaluated at the expected value :math:`\mathcal{L}\big( E_{\theta, \xi}[X_t]\big)`.
+        r"""Computes the loss function evaluated at the expectation.
+
+        .. math::
+            \xi \mapsto \mathcal{L}\big( E_{\theta, \xi}[X_t]\big)
         """
         if isinstance(self.loss_function, abc.Hashable):
             def loss_function(control_params):
@@ -463,7 +480,11 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
 
     def create_gradient(self):
         r"""Computes the gradient function of the loss evaluated at the expected value with respect to 
-        all controlled parameters.
+        all control parameters.
+
+        .. math::
+
+            \xi \mapsto \nabla_{\xi} L\big(E_{\theta, \xi}[X_t]\big) = \frac{dL(x)}{dx} \nabla_{\xi} E_{\theta, \xi}[X_t]
         """
         if isinstance(self.grad_loss_function, abc.Hashable):
             def gradient_loss(control_params):
@@ -475,7 +496,6 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
                                                                 parameters=params,
                                                                 ind_species=self.ind_species,
                                                                 with_probs=True)
-                gradient = gradient[:,self.n_fixed_params:]
                 res = np.zeros((self.n_time_windows, self.n_control_params*self.n_time_windows))
                 for i in range(self.n_time_windows):
                     for j in range(self.n_control_params*self.n_time_windows):
@@ -490,7 +510,7 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
                                                                 time_windows=self.time_windows,
                                                                 parameters=params,
                                                                 ind_species=self.ind_species,
-                                                                with_probs=True)[:,self.n_fixed_params:]
+                                                                with_probs=True)
                 res = np.zeros((self.n_time_windows, self.n_control_params*self.n_time_windows))
                 for i, f in enumerate(self.grad_loss_function):
                     for j in range(self.n_control_params*self.n_time_windows):
@@ -498,59 +518,61 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
                 return np.dot(self.weights, res)
         self.grad_loss = gradient_loss
 
-def control_method(optimizer: ProjectedGradientDescent_CRN, 
+def control_method(optimiser: ProjectedGradientDescent_CRN, 
                     gamma: float, 
                     n_iter: int,
                     eps: float, 
                     ind_species: int, 
                     targets: np.ndarray,
-                    save: Tuple[bool, list] =(True, ['control_values', 
-                                                    'experimental_losses', 
-                                                    'parameters', 
-                                                    'gradients_losses', 
-                                                    'real_losses', 
-                                                    'exp_results'])) -> Tuple[float, np.ndarray, float]:
+                    plot_performance: bool =True,
+                    save: Tuple[bool, list] =(True, ["control_values", 
+                                                    "experimental_losses", 
+                                                    "parameters", 
+                                                    "gradients_losses", 
+                                                    "real_losses", 
+                                                    "exp_results"])) -> Tuple[float, np.ndarray, float]:
     r"""Computes the PGD, plots the results and saves the algorithm and results data.
 
     Args:
-        - **optimizer** (ProjectedGradientDescent_CRN): Either of type ProjectedGradientDescent_MDn or
-          ProjectedGradientDescent_FSP.
-        - **gamma** (float): Step size.
-        - :math:`n_{\text{iter}}** (int): Maximal number of iterations allowed for the gradient descent.
-        - **eps** (float): Tolerance rate. The algorithm halts when the gradient of the loss value is smaller than **eps**.
+        - **optimiser** (ProjectedGradientDescent_CRN): Either of type ``ProjectedGradientDescent_MDN`` or
+          ``ProjectedGradientDescent_FSP``.
+        - **gamma** (float): Step size :math:`\gamma`.
+        - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.
+        - **eps** (float): Threshold level :math:`\varepsilon`. The algorithm halts when the gradient of the loss value is smaller than :math:`\varepsilon`.
         - **ind_species** (int): Index of the species of interest.
-        - **targets** (np.ndarray): Target values at each time point.
-          If None, no target is plotted.
+        - **targets** (np.ndarray): Target values at each time point. If None, no target is plotted.
+        - **plot_performance** (bool, optional): If True, calls the function ``optimiser.plot_performance_index``. Defaults to True.
         - **save** (Tuple[bool, list], optional): If the first argument is True, saves the plots. The second argument 
           is a list of the names of the files under which to save the plots. 
-          Defaults to (True, ['control_values', 'experimental_losses', 'parameters', 'gradients_losses', 'real_losses', 'exp_results']).
+          Defaults to (True, ["control_values", "experimental_losses", "parameters", "gradients_losses", "real_losses", "exp_results"]).
 
     Returns:
         - Running time of the algorithm.
-        - Final values for the controlled parameters.
+        - Final values for the control parameters.
         - Final loss value.
     """    
     start = time.time()
-    control_params, loss_value, i = optimizer.optimisation(gamma=gamma, 
-                                                        n_iter=n_iter,
-                                                        eps=eps)
+    control_params, loss_value, i = optimiser.optimisation(gamma=gamma, 
+                                                            n_iter=n_iter,
+                                                            eps=eps)
     end = time.time()
     print('Time: ', end-start)
     print('Number of iterations: ', i)
     print('Control parameters: ', control_params)
     print('Final loss: ', loss_value)
-    optimizer.plot_control_values(save=(save[0], save[1][0]))
-    optimizer.plot_losses_trajectory(save=(save[0], save[1][1]))
-    optimizer.plot_control_params_trajectory(save=(save[0], save[1][2]))
-    optimizer.plot_gradients_trajectory(save=(save[0], save[1][3]))
-    optimizer.plot_performance_index(ind_species=ind_species, rate=i//10, save=(save[0], save[1][4]))
-    sim = generate_data.CRN_Simulations(optimizer.crn, 
-                                        optimizer.time_windows, 
+    optimiser.plot_control_values(save=(save[0], save[1][0]))
+    optimiser.plot_losses_trajectory(save=(save[0], save[1][1]))
+    optimiser.plot_control_params_trajectory(save=(save[0], save[1][2]))
+    optimiser.plot_gradients_trajectory(save=(save[0], save[1][3]))
+    if plot_performance:
+        optimiser.plot_performance_index(ind_species=ind_species, rate=i//10, save=(save[0], save[1][4]))
+    sim = generate_data.CRN_Simulations(optimiser.crn, 
+                                        optimiser.time_windows, 
                                         10_000,
                                         ind_species=ind_species, 
                                         complete_trajectory=False, 
-                                        sampling_times = np.arange(optimizer.time_windows[-1]+1))
-    sim.plot_simulations(np.concatenate((optimizer.fixed_parameters, control_params)), targets=targets, save=(save[0], save[1][5]))
+                                        sampling_times = np.arange(optimiser.time_windows[-1]+1))
+    sim.plot_simulations(np.concatenate((optimiser.fixed_parameters, control_params)), targets=targets, save=(save[0], save[1][5]))
     return end-start, control_params, loss_value
 
     
