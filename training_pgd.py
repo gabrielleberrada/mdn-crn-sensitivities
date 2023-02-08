@@ -39,7 +39,7 @@ def pgdFSP(crn: simulation.CRN,
         - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
-        - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
+        - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.
         - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
@@ -53,7 +53,7 @@ def pgdFSP(crn: simulation.CRN,
         - **gamma** (float): Step size :math:`\gamma`.
         - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.
         - **eps** (float): Tolerance rate :math:`\varepsilon`. The algorithm halts when the squared norm of the gradient of the loss value is smaller than :math:`\varepsilon`.
-        - **targets** (np.ndarray): Target values at each time point.
+        - **targets** (np.ndarray): Target values at each time point :math:`h`.
         - **crn_name** (str): Name of the CRN to use for the files.
         - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets
           have the same weight. Defaults to None.
@@ -125,10 +125,10 @@ def pgdMDN(crn: simulation.CRN,
           mass-action kinetics.
         - **model** (neuralnetwork.NeuralNetwork): MDN model to use for the PGD.
         - **ind_species** (int): Index of the species of interest.
-        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
-        - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
+        - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.
         - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
@@ -136,10 +136,10 @@ def pgdMDN(crn: simulation.CRN,
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element
           is the loss function for the corresponding time window.
         - **gamma** (float): Step size :math:`\gamma`.
-        - :math:`n_iter` (int): Maximal number of iterations allowed for the gradient descent.
+        - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.
         - **eps** (float): Tolerance rate :math:`\varepsilon`. The algorithm halts 
           when the squared norm of the gradient of the loss value is smaller than :math:`\varepsilon`.
-        - **targets** (np.ndarray): Target values at each time point.
+        - **targets** (np.ndarray): Target values at each time point :math:`h`.
         - **crn_name** (str): Name of the CRN to use for the files.
         - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets
           have the same weight. Defaults to None.

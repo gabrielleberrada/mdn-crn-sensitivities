@@ -24,7 +24,7 @@ def generate_csv_datasets(crn_name: str,
         - **crn_name** (str): Name of the CRN to use for the files names.
         - **datasets** (dict): Dictionary whose keys are the names of the datasets and whose values are the corresponding lengths.
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions :math:`q_1+q_2`.
+        - **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
           Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterised propensity functions.
@@ -33,7 +33,7 @@ def generate_csv_datasets(crn_name: str,
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
         - **ind_species** (int): Index of the species of interest.
-        - :math:`n_{trajectories}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
+        - :math:`n_{\text{trajectories}}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
         - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
         - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
         - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
@@ -86,7 +86,7 @@ def generate_csv_simulations(crn_name: str,
     Args:
         - **crn_name** (str): Name of the CRN to use for the file name.
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-        - **n_control_params** (int): Number of varying parameters required to define the propensity functions :math:`q_1+q_2`.
+        - **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
           Their values vary from a time window to another.
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterised propensity functions.

@@ -55,7 +55,7 @@ class NeuralNetwork(nn.Module):
 
         Args:
             - **input** (torch.tensor): The input parameters to predict: 
-              :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2},\xi_2^1, ..., \xi^{q_1+q_2}_L]`.
+              :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}},\xi_2^1, ..., \xi^{M_{\xi}}_L]`.
 
         Returns:
             - A tuple of three tensors.
@@ -142,7 +142,7 @@ def mix_pdf(model: NeuralNetwork,
     Args:
         - **model** (NeuralNetwork): Mixture Density Network model.
         - **x** (torch.tensor): Input points, 
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, ..., \xi_L^{M_{\xi}}]`.
         - **yy** (torch.tensor): Points at which to evaluate the pdf.
 
     Returns:
@@ -362,7 +362,7 @@ def train_round(trainer: NNTrainer, loss: Callable =loss_kldivergence):
 
     Args:
         - **trainer** (NNTrainer): Training structure.
-        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to loss_kldivergence.
+        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to `loss_kldivergence`.
     """
     model = trainer.model
     optimiser = trainer.opt
@@ -402,7 +402,7 @@ def train_NN(model: NeuralNetwork,
 
                         - **X_valid**: Tensor of input data.
                         - **y_valid**: Tensor of expected outputs.
-        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to loss_kldivergence.
+        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to `loss_kldivergence`.
         - **print_results** (bool, optional): If True, prints the final results
           (learning rate, train and valid losses at the end of the training). Defaults to True.
         - **print_info** (bool, optional): If True, prints a progress bar. Defaults to True.

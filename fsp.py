@@ -89,12 +89,12 @@ class SensitivitiesDerivation:
           single integer value or a list of integer values. If it is a control parameter, considers the corresponding 
           parameters for each time window, ie for a given index :math:`i` of a control parameter :math:`\xi^i`, 
           the list `index` will include :math:`[\xi_1^i, ..., \xi_L^i]`. When None, computes the sensitivity of the likelihood for each parameter. 
-          The values of `index` thus are in :math:`[\![1, M_{\theta}+q_1+q_2]\!]`. Defaults to None.
+          The values of `index` thus are in :math:`[\![1, M_{\theta}+M_{\xi}]\!]`. Defaults to None.
         - :math:`C_r` (int, optional): Value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. 
           Defaults to :math:`50`.
 
     To simplify the notations in the following, we will omit the writing of parameters :math:`\xi`. This amounts to
-    considering :math:`[\theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, ..., \xi_L^{q_1+q_2}] = [\theta_1, ..., \theta_{M'}]`.
+    considering :math:`[\theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, ..., \xi_L^{M_{\xi}}] = [\theta_1, ..., \theta_{M'}]`.
     """
     def __init__(self, crn: simulation.CRN, n_time_windows: int, index: Tuple[list, int], cr: int =50):     
         self.cr = cr
@@ -272,12 +272,12 @@ class SensitivitiesDerivation:
         with respect to several parameters is given by: 
 
         .. math::
-            \hat{C}^\theta = \begin{pmatrix} \hat{A}^\theta & 0& ... &&& 0 \\ \frac{\partial \hat{A}^\theta}{\partial \theta_{i_1}} & \hat{A}^\theta & 0& ... && 0
-            \\ \vdots &&& \ddots && \vdots \\ 
-            \frac{\partial \hat{A}^\theta}{\partial \theta_{i_\alpha}} & 0 & ... & 0 & \hat{A}^\theta & 0 \end{pmatrix}
+            \hat{C}^\theta = \begin{pmatrix} \hat{A}^\theta & 0 & 0 & ... & 0 \\ \frac{\partial \hat{A}^\theta}{\partial \theta_{i_1}} & \hat{A}^\theta & 0 & ... & 0
+            \\ \vdots & \vdots & \vdots & \ddots & \vdots \\ 
+            \frac{\partial \hat{A}^\theta}{\partial \theta_{i_\alpha}} & 0 & 0 & ... & \hat{A}^\theta \end{pmatrix}
 
         Args:
-            - **params** (np.ndarray): Current parameters of the propensity functions. Has shape :math:`(M_{\theta} + q_1 + q_2,)`.
+            - **params** (np.ndarray): Current parameters of the propensity functions. Has shape :math:`(M_{\theta} + M_{\xi},)`.
         """
         n = len(self.index)
         A = self.create_generator(params)
@@ -311,15 +311,15 @@ class SensitivitiesDerivation:
             = \hat{C}^{\theta,\xi}
             \begin{pmatrix} \hat{p}^{\theta,\xi} \\ \hat{S}^{\theta,\xi}_{i_1} \\ \vdots \\ \hat{S}^{\theta,\xi}_{i_\alpha} \end{pmatrix}
 
-        where :math:`I=\{i_1, i_2, ..., i_{\alpha}\} \subset [\![1, M_{\theta}+q_1+q_2]\!]` is the set of parameters indices defined in `index`
+        where :math:`I=\{i_1, i_2, ..., i_{\alpha}\} \subset [\![1, M_{\theta}+M_{\xi}]\!]` is the set of parameters indices defined in `index`
         and :math:`\hat{C}^{\theta,\xi}` is as defined in the function ``constant_matrix``.
 
         Args:
             - **init_state** (np.ndarray): Initial state for probabilities and sensitivity of the likelihood.
-              Has shape :math:`(n_{\text{states}}\times(M_{\text{tot}}+1),)`.
+              Has shape :math:`(N_{\max}\times(M_{\text{tot}}+1),)`.
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
-            - **params** (np.ndarray): Parameters of the propensity functions. Has shape :math:`(M_{\theta}+q_1+q_2,)`.
+            - **params** (np.ndarray): Parameters of the propensity functions. Has shape :math:`(M_{\theta}+M_{\xi},)`.
             - :math:`t_{eval}` (list): Sampling times.
             - **with_stv** (bool): If True, computes the corresponding sensitivities. If False, only solves the first part 
               of the ODE to compute the probability mass function. Defaults to True.
@@ -327,7 +327,7 @@ class SensitivitiesDerivation:
         Returns:
             - Bunch object as the output of the ``solve_ivp`` function applied to the set of linear ODEs.
               To access the probability and sensitivities distributions, use the key 'y'. The result has shape 
-              :math:`(n_{\text{states}}, L)` if **with_stv** is False, :math:`(2 \times n_{\text{states}}, L)` otherwise, 
+              :math:`(N_{\max}, L)` if **with_stv** is False, :math:`(2 \times N_{\max}, L)` otherwise, 
               :math:`L` being the number of sampling times.
         """
         # init_state is a 1D vector
@@ -352,8 +352,8 @@ class SensitivitiesDerivation:
         This means that, in case there is a control reaction:
 
         .. math::
-            \forall i \in [\![1, q_1+q_2]\!], \forall j \in [\![0, L-1]\!], \frac{\partial}{\partial t}\frac{\partial \hat{p}^{\theta, \xi}}{\partial \xi_j^i}(t)
-            = 0 \text{ if } t \notin [t_j, t_{j+1}]
+            \forall i \in [\![1, M_{\xi}]\!], \forall j \in [\![1, L]\!], \frac{\partial}{\partial t}\frac{\partial \hat{p}^{\theta, \xi}}{\partial \xi_j^i}(t)
+            = 0 \text{ if } t < t_{j-1}
 
         Args:
             - **sampling_times** (np.ndarray): Sampling times.
@@ -362,14 +362,14 @@ class SensitivitiesDerivation:
               :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
               :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
             - **parameters** (np.ndarray): Parameters of the propensity functions for each time window.
-              Has shape :math:`(L, M_{\theta}+q_1+q_2)`.
+              Has shape :math:`(L, M_{\theta}+M_{\xi})`.
             - **with_stv** (bool, optional): If True, computes the sensitivities of the likelihood 
               with respect to the indices in `self.index`. If False, computes only the probability distribution. 
               Defaults to True.
 
         Returns:
             - The probability and, if **with_stv** is True, the sensitivity distributions for each sampling time.
-              Has shape (n_states, L, len(index)+1) if **with_stv** is True and (n_states, L, 1)
+              Has shape :math:`(N_{\max}, L, \text{len}(\text{index})+1)` if **with_stv** is True and :math:`(N_{\max}, L, 1)`
               if **with_stv** is False.
         """        
         distributions = []
@@ -431,7 +431,7 @@ class SensitivitiesDerivation:
 
         Returns:
             - The marginal probability and, if **with_stv** is True, the marginal sensitivities of the likelihood for each sampling time.
-              Has shape (n_states, L, len(index)+1) if **with_stv** is True and (n_states, L, 1) otherwise.
+              Has shape :math:`(N_{\max}, L, \text{len}(\text{index})+1)` if **with_stv** is True and :math:`(N_{\max}, L, 1)` otherwise.
         """
         if with_stv:
             marginal_distributions = np.zeros((self.cr+1, len(sampling_times), len(self.index)+1))

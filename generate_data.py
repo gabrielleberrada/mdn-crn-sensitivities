@@ -55,12 +55,12 @@ class CRN_Dataset:
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
-              :math:`(L, M_{\theta}+q_1+q_2)`.
+              :math:`(L, M_{\theta}+M_{\xi})`.
         Returns:
             - **samples**: List of the distributions for the corresponding species at sampling times. This list begins with time and 
-              parameters: :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, ..., \xi^{q_1+q_2}_L, p_0(t,\theta,\xi), ...]`.
-            - **max_value**: Maximum value reached during simulations + number of total parameters + 1 (for time). 
-              Used to standardize each data length to turn the data list into an array.
+              parameters: :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, ..., \xi^{M_{\xi}}_L, p_0(t,\theta,\xi), ...]`.
+            - **max_value**: Maximum value reached during simulations :math:`+ M_{\text{tot}} + 1` (for time). 
+              Used to standardise the length to turn the list of data vectors into an array.
         """
         res = []
         for i in range(self.n_trajectories):
@@ -123,7 +123,7 @@ class CRN_Dataset:
             - **(X, y)**:
 
                 - Each entry of **X** is an input to the neural network of the form 
-                  :math:`[t, \theta_1,..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi^{q_1+q_2}_L]`.
+                  :math:`[t, \theta_1,..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi^{M_{\xi}}_L]`.
                 - The corresponding entry of **y** is the estimated probability distribution for these parameters.
         """
         if sobol_start is None:
@@ -184,7 +184,7 @@ class CRN_Simulations:
         - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.
         - **complete_trajectory** (bool, optional): If True, computes the complete Jump Process. If False,
           computes the abundance of the species to study at the specified sampling times. Defaults to True.
-        - **sampling_times** (np.ndarray, optional): Times to sample. Should not be specified when **complete_trajectory** is True.
+        - **sampling_times** (np.ndarray, optional): Sampling times. Should not be specified when **complete_trajectory** is True.
           Defaults to `np.empty(0)`.
     """     
     def __init__(self, 
@@ -218,7 +218,7 @@ class CRN_Simulations:
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
-              :math:`(L, M_{\theta}+q_1+q_2)`.
+              :math:`(L, M_{\theta}+M_{\xi})`.
 
         Returns:
             When **complete_trajectory** is True:
@@ -265,7 +265,7 @@ class CRN_Simulations:
 
         Args:
             - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape 
-              :math:`(L, M_{\theta}+q_1+q_2,)`.
+              :math:`(L, M_{\theta}+M_{\xi})`.
             - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.
             - **save** (Tuple[bool, str], optional): If the first argument is True, saves the plot. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).

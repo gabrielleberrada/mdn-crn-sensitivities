@@ -43,8 +43,7 @@ class ProjectedGradientDescent():
             \xi_{n+1} \leftarrow \xi_n - \gamma \nabla_{\xi} C_{\xi_n}^J
 
         Args:
-            - **init** (np.ndarray): Initial values of the control parameters. 
-              Has shape :math:`(q_1+q_2)\times L`.
+            - **init** (np.ndarray): Initial values of the control parameters. Has shape :math:`(M_{\xi}\times L,)`.
             - **gamma** (float): Step size :math:`\gamma`.
             - :math:`n_{\text{iter}}` (int, optional): Maximal number of iterations allowed for the gradient descent. 
               Defaults to :math:`20 000`.
@@ -55,10 +54,10 @@ class ProjectedGradientDescent():
             - **progress_bar** (bool, optional): If True, plots a progress bar during the optimisation process. Defaults to True.
 
         Returns:
-            - Array of the control parameters values estimated at each iteration. Has shape (n, dim).
-            - Array of the loss values estimated at each iteration. Has shape (n,).
-            - Array of the gradient values estimated at each iteration. Has shape (n, dim).
-            - Number of iterations :math:`n` performed by the algorithm.
+            - Array of the control parameters values estimated at each iteration. Has shape :math:`(n, \text{dim})`.
+            - Array of the loss values estimated at each iteration. Has shape :math:`(n,)`.
+            - Array of the gradient values estimated at each iteration. Has shape :math:`(n, \text{dim})`.
+            - Actual number of iterations :math:`n` performed by the algorithm.
         """   
         xt = [init]
         losses = []
@@ -93,7 +92,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
     Args:
         - **crn** (simulation.CRN): CRN to compute the PGD on.
-        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
@@ -140,7 +139,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
 
         Args:
             - **gamma** (float): Step size :math:`\gamma`.
-            - **n_iter** (int, optional): Number of iterations for the gradient descent. Defaults to :math:`1000`.
+            - :math:`n_{\text{iter}}` (int, optional): Number of iterations for the gradient descent. Defaults to :math:`1000`.
             - **eps** (int, optional): Tolerance rate :math:`\varepsilon`. Defaults to :math:`10^{-3}`.
         """
         self.buffer_params, self.buffer_losses, self.buffer_grads, i = self.projected_gradient_descent(self.init_control_params, 
@@ -306,11 +305,11 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
 
     Args:
         - **crn** (simulation.CRN): CRN to compute the PGD on.
-        - **model** (neuralnetwork.NeuralNetwork): MDN used for the gradient descent.
-        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(dim, 2)`.
+        - **model** (neuralnetwork.NeuralNetwork): MDN model used for the gradient descent.
+        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.
           **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the 
           upper boundaries for each dimension.
-        - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
+        - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. 
           Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
@@ -322,7 +321,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
         - **length_output** (int, optional): Length of the output of the MDN prediction. Defaults to :math:`200`.
         - **with_correction** (bool, optional): If True, sensitivities are set to zero when control parameters
           have no influence on that time window. If False, works with the computed sensitivities untouched. Defaults to True.
-          (:math:`\forall i \in [\![1, L]\!], \forall j \in [\![i+1, L]\!], \forall k \in [\![1, q_1+q_2]\!], [\hat{S}_{t_i}^{\theta, \xi}]_{.M+(q_1+q_2)j+k} = 0`).
+          (:math:`\forall i \in [\![1, L]\!], \forall j \in [\![i=1, L]\!], \forall k \in [\![1, M_{\xi}]\!], [\hat{S}_{t_i}^{\theta, \xi}]_{.M+M_{\xi}\times j+k} = 0`).
 
     """ 
     def __init__(self, 
@@ -352,7 +351,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
         where :math:`h \in \mathbb{R}^L` is the target vector. 
 
         Args:
-            - **length_output** (int): Upper bound of the truncated expectation.
+            - **length_output** (int): Upper bound of the truncated expectation :math:`N_{\max}`.
             - **with_correction** (bool): If True, sensitivities are set to zero when control parameters have no influence 
               on that time window. If False, works with the computed sensitivities untouched. Defaults to True.
         """
@@ -386,7 +385,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
         r"""Computes the loss function evaluated at the expected value.
 
         Args:
-            - **length_output** (int): Upper bound of the truncated expected value.
+            - **length_output** (int): Upper bound of the truncated expected value :math:`N_{\max}`.
         """ 
         def loss(control_params):
             params = np.concatenate((self.fixed_parameters, control_params))

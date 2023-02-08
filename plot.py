@@ -28,7 +28,7 @@ def plot_model(to_pred: torch.tensor,
 
     Args:
         - **to_pred** (torch.tensor): Time and parameters in the form requested by the Mixture Density Networks: 
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **models** (list): Mixture Density Network models to use.
         - **up_bound** (int): Upper boundary of the predicted distribution.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
@@ -47,12 +47,12 @@ def plot_model(to_pred: torch.tensor,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
                    Their values vary from one time window to another.
                 
         - **plot** (Tuple[str, int], optional): The first argument is either "probabilities" to plot a probability distribution, or "sensitivities"
@@ -154,7 +154,7 @@ def multiple_plots(to_pred: list,
 
     Args:
         - **to_pred** (list): Time and parameters in the form requested by the Mixture Density Networks:
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **models** (list): Mixture Density Network models to use.
         - **up_bound** (int): Upper boundary of the predicted distributions.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
@@ -173,12 +173,12 @@ def multiple_plots(to_pred: list,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
                    Their values vary from one time window to another.
 
         - **plot** (Tuple[str, int], optional): The first argument is either "probabilities" to plot a probability distribution, or "sensitivities" 
@@ -292,7 +292,7 @@ def fi_table(time_samples: np.ndarray,
     Args:
         - **time_samples** (list): Sampling time.
         - **params** (list): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
@@ -317,12 +317,12 @@ def fi_table(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
                    Their values vary from one time window to another.
 
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
@@ -435,7 +435,7 @@ def fi_barplots(time_samples: np.ndarray,
     Args:
         - **time_samples** (np.ndarray): Sampling times.
         - **params** (np.ndarray): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **ind_param** (int): Index of the estimated Fisher Information diagonal value.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
@@ -460,12 +460,12 @@ def fi_barplots(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
                    Their values vary from one time window to another.
 
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
@@ -571,7 +571,7 @@ def expect_val_table(time_samples: np.ndarray,
     Args:
         - **time_samples** (np.ndarray): Sampling times.
         - **params** (np.ndarray): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
@@ -594,12 +594,12 @@ def expect_val_table(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
                    Their values vary from a time window to another.
 
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
@@ -709,7 +709,7 @@ def expect_val_barplots(time_samples: np.ndarray,
     Args:
         - **time_samples** (np.ndarray): Sampling times.
         - **params** (np.ndarray): Parameters of the propensity functions in the form requested by the Mixture Density Networks:
-          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{q_1+q_2}, \xi_2^1, ..., \xi_L^{q_1+q_2}]`.
+          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. Its form is :math:`[t_1, ..., t_L]`,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
@@ -732,12 +732,12 @@ def expect_val_barplots(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+q_1+q_2)`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
                 8. **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
-                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`q_1+q_2`.
+                9. **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`.
                    Their values vary from a time window to another.
 
         - **up_bound** (int, optional): Upper boundary of the predicted distribution. Defaults to :math:`200`.
