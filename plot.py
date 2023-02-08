@@ -12,8 +12,7 @@ import simulation
 import time
 from typing import Callable, Tuple
 
-# Plot probability distributions or sensitivities of probabilities distributions
-
+# Plots the probability mass function or the sensitivity of the likelihood
 def plot_model(to_pred: torch.tensor,
             models: list, 
             up_bound: int,
@@ -276,7 +275,7 @@ def multiple_plots(to_pred: list,
 
 
 
-# Plot Fisher information table
+# Plots the Fisher information
 
 def fi_table(time_samples: np.ndarray, 
             params: np.ndarray, 
@@ -554,7 +553,7 @@ def fi_barplots(time_samples: np.ndarray,
 
 
 
-# Plot tables and barplots
+# Plot the expectation or the gradient of the expectation
 def expect_val_table(time_samples: np.ndarray, 
                     params: np.ndarray,
                     time_windows: np.ndarray,
@@ -823,38 +822,4 @@ def expect_val_barplots(time_samples: np.ndarray,
     plt.show()
            
 
-if __name__ == '__main__':
-
-    from CRN6_toggle_switch import propensities_toggle as propensities
-    # from CRN2_control import propensities_production_degradation as propensities
-    # from CRN4_control import propensities_bursting_gene as propensities
-
-    import convert_csv
-
-    # X_test=convert_csv.csv_to_tensor('CRN4_control/data/X_controlled_bg_test.csv')
-    X_test=convert_csv.csv_to_tensor('CRN6_toggle_switch/data/X_toggle_test.csv')
-
-    # params=np.array([0.7455, 0.3351, 0.0078, 0.4656, 0.0193, 0.2696, 2.5266, 0.4108,
-    #                                 0.6880, 0.6880, 0.6880, 0.6880, 0.9276, 0.2132, 0.8062, 0.3897])
-
-    params=np.array([0.7455, 0.3351, 0.0078, 0.4656, 0.0193, 0.2696, 2.5266, 0.4108,
-                                    0.6880, 0.9276, 0.6880, 0.2132, 0.6880, 0.8062, 0.6880, 0.3897])
-
-
-    fi_table(time_samples=np.array([5, 10, 15, 20]), 
-            params=X_test[1_000,1:].numpy(),
-            # params=params,
-            ind_param=0,
-            up_bound=200,
-            time_windows=np.array([5, 10, 15, 20]),
-            models=(False, [], 4), 
-            plot_fsp_result=(True, 
-                            propensities.stoich_mat, 
-                            propensities.propensities, 
-                            None, 
-                            50, 
-                            propensities.init_state, 
-                            propensities.ind_species, 
-                            9, 
-                            1))
 

@@ -1,12 +1,12 @@
 import convert_csv
 import neuralnetwork
 import simulation
-from CRN2_production_degradation import propensities_production_degradation as propensities
+from CRN_production_degradation import propensities_production_degradation as propensities
 
-FILE_NAME = 'CRN2_production_degradation/data'
+FILE_NAME = 'CRN_production_degradation/data'
 NAME = 'production_degradation'
 
-N_PARAMS = 13
+N_PARAMS = 2
 
 X_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{NAME}_train2.csv')
 y_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{NAME}_train2.csv')
@@ -26,7 +26,12 @@ N_HIDDEN = 256
 MIXTURE = 'NB'
 N_COMPS = 4
 
-crn = simulation.CRN(propensities.stoich_mat, propensities.propensities, init_state=propensities.init_state, n_fixed_params=N_PARAMS, n_control_params=0)
+crn = simulation.CRN(stoichiometry_mat=propensities.stoich_mat, 
+                    propensities=propensities.propensities, 
+                    propensities_drv=None, 
+                    init_state=propensities.init_state,
+                    n_fixed_params=N_PARAMS, 
+                    n_control_params=0)
 model = neuralnetwork.NeuralNetwork(n_comps=N_COMPS, n_params=N_PARAMS, n_hidden=N_HIDDEN, mixture=MIXTURE)
 trainer_test = neuralnetwork.train_NN(model, data_train, data_valid, loss=neuralnetwork.loss_kldivergence, max_rounds=N_ITER, lr=LR, batchsize=BATCHSIZE)
 

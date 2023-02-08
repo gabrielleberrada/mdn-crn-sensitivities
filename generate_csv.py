@@ -2,11 +2,6 @@ import simulation
 import generate_data
 import convert_csv
 import numpy as np
-# from CRN1_control import propensities_pure_production as propensities
-# from CRN3_control import propensities_explosive_production as propensities
-# from CRN2_control import propensities_production_degradation as propensities
-# from CRN2_control import propensities_multiple_params as propensities
-from CRN6_toggle_switch import propensities_toggle as propensities
 from typing import Tuple
 
 def generate_csv_datasets(crn_name: str,
@@ -126,15 +121,15 @@ def generate_csv_simulations(crn_name: str,
 # because we use multiprocessing
 if __name__ == '__main__':
 
+    from CRN_controlled_toggle_switch import propensities_toggle_switch as propensities
+
     CRN_NAME = 'toggle'
     datasets = {'test': 16}
-    # datasets = {'train1': 2464, 'train2': 2464, 'train3': 2464, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
-    # datasets = {'train1': 10656, 'train2': 10656, 'train3': 10656, 'valid1': 100, 'valid2': 100, 'valid3': 100, 'test': 500}
     N_PARAMS = 10
     generate_csv_datasets(crn_name=CRN_NAME,
                           datasets=datasets,
-                          n_fixed_params=N_PARAMS-2,
-                          n_control_params=2,
+                          n_fixed_params=N_PARAMS-1,
+                          n_control_params=1,
                           stoich_mat=propensities.stoich_mat, # shape (n_species, n_reactions)
                           propensities=propensities.propensities,
                           time_windows=np.array([5, 10, 15, 20]),
