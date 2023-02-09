@@ -58,7 +58,7 @@ def expected_val(inputs: torch.tensor,
           :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
         - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
         - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to the `identity` function.
-        - **length_output** (int, optional): Upper bound of the truncated expectation :math:`N_{\max}`. Defaults to :math:`200`.
+        - **length_output** (int, optional): Upper bound of the truncated sum :math:`N_{\max}`. Defaults to :math:`200`.
         - **array** (bool, optional): If True, the output type is a NumPy array. If False, it is a PyTorch tensor. Defaults to True.
     """
     expec = probabilities(inputs, model, length_output)[:,0] * torch.arange(length_output)
@@ -82,8 +82,8 @@ def gradient_expected_val(inputs: torch.tensor,
     Args:
         - **inputs** (torch.tensor): Input data.
         - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.
-        - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to `identity`.
-        - **length_output** (int, optional): Upper bound of the truncated expectation :math:`N_{\max}`. Defaults to :math:`200`.
+        - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to the `identity` function.
+        - **length_output** (int, optional): Upper bound of the truncated sum :math:`N_{\max}`. Defaults to :math:`200`.
     """
     def expec(inputs):
         return expected_val(inputs, model, loss, length_output, array=False)

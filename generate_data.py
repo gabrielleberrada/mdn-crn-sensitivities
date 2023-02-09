@@ -18,7 +18,7 @@ class CRN_Dataset:
         - **crn** (simulation.CRN): CRN to work on.
         - **sampling_times** (np.ndarray): Sampling times.
         - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. 
           Can also be defined when calling the ``generate_data`` function. Defaults to :math:`10^4`.
@@ -177,7 +177,7 @@ class CRN_Simulations:
     Args:
         - **crn** (simulation.CRN): CRN to work on.
         - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_T]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`10^4`.
         - **ind_species** (int, optional): Index of the species of study. Defaults to :math:`0`.

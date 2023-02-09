@@ -11,7 +11,7 @@ class CRN:
         - **init_state** (np.ndarray): Initial state of the system.
         - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.
         - **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`. 
-          Their values vary from a time window to another.
+          Their values vary from one time window to another.
         - **propensities_drv** (np.ndarray, optional): Gradient functions of the propensities with respect to the parameters.
           Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
           Defaults to None.
@@ -56,7 +56,7 @@ class CRN:
         """Computes a simulation for a time window during which all parameters are constant.
 
         Args:
-            - **init_state** (np.ndarray): Initial state of the CRN when starting the simulation.
+            - **init_state** (np.ndarray): Initial state of the CRN when the simulation starts.
             - **params** (np.ndarray): Parameters associated to the propensity functions.
             - **sampling_times** (np.ndarray): Sampling times.
             - :math:`t_0` (float): Time at which the simulation starts.
@@ -95,10 +95,11 @@ class CRN:
         Args:
             - **sampling_times** (np.ndarray): Sampling times.
             - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
-              such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+              such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
               with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
             - **parameters** (np.ndarray): Parameters of the simulation, including fixed parameters for the whole simulation and control
               parameters for each time window. Its form is :math:`[\theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi^{M_{\xi}}_1, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.
+              Has shape :math:`(M_{\tot},)`.
             - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.
             - **complete_trajectory** (bool, optional): If True, saves the complete trajectory of the simulation, ie the time of each jump and the
               corresponding abundance. Defaults to False.

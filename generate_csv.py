@@ -29,14 +29,14 @@ def generate_csv_datasets(crn_name: str,
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterised propensity functions.
         - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
         - **ind_species** (int): Index of the species of interest.
         - :math:`n_{\text{trajectories}}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
         - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
         - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.
-        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
+        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None), which
           sets the initial state to :math:`0` for all species.
         - **method** (str): Stochastic Simulation to compute. Defaults to `SSA`.
     """                         
@@ -91,13 +91,13 @@ def generate_csv_simulations(crn_name: str,
         - **stoich_mat** (np.ndarray): Stoichiometry matrix.
         - **propensities** (np.ndarray): Non-parameterised propensity functions.
         - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,
-          such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
+          such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.
         - **sampling_times** (np.ndarray): Sampling times.
         - **ind_species** (int): Index of the species of interest.
         - :math:`n_{\text{trajectories}}` (int): Number of trajectories to compute to estimate the distribution for each set of parameters.
-        - **params** (np.ndarray): Parameters used to run simulations.
-        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None). In this case,
+        - **params** (np.ndarray): Parameters to use for the simulations.
+        - **initial_state** (Tuple[bool, np.ndarray], optional): Initial state of the species. Defaults to (False, None), which
           sets the initial state to :math:`0` for all species.
         - **method** (str): Stochastic Simulation to compute. Defaults to `SSA`.
     """

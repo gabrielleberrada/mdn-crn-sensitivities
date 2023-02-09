@@ -33,6 +33,7 @@ class ProjectedGradientDescent():
                                 gamma: float,
                                 n_iter: int =20_000,
                                 eps: float =1e-5,
+                                min_loss: float =-0.1,
                                 clipping_value: float =50.,
                                 progress_bar: bool =True
                                 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
@@ -49,6 +50,8 @@ class ProjectedGradientDescent():
               Defaults to :math:`20 000`.
             - **eps** (float, optional): Threshold level :math:`\varepsilon`. The algorithm halts when the squared norm of the gradient of 
               the loss value is smaller than :math:`\varepsilon`. Defaults to :math:`10^{-5}`.
+            - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.
+              Defaults to :math:`-0.1`, which implies that this condition is never reached.
             - **clipping_value** (float, optional): Maximal gradient norm value. Used to avoid explosing gradients.
               Defaults to :math:`50`.
             - **progress_bar** (bool, optional): If True, plots a progress bar during the optimisation process. Defaults to True.
@@ -60,14 +63,14 @@ class ProjectedGradientDescent():
             - Actual number of iterations :math:`n` performed by the algorithm.
         """   
         xt = [init]
-        losses = []
-        grads = []
+        losses = [self.loss(init)]
+        grads = [self.grad_loss(init)]
         if progress_bar:
             pbar = tqdm(total=n_iter, desc = 'Optimising ...', position=0)
         else: 
             print('Optimising...')
         i = 0
-        while i < n_iter and np.linalg.norm(self.grad_loss(xt[-1]))**2 > eps:
+        while i < n_iter and np.linalg.norm(grads[-1])**2 > eps and losses[-1] > min_loss:
             if progress_bar:
                 pbar.update(1)
             grad = self.grad_loss(xt[-1])
@@ -97,7 +100,7 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.
-          Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
+          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, np.ndarray]): Loss function(s) used for the gradient descent. Either a single
@@ -134,18 +137,22 @@ class ProjectedGradientDescent_CRN(ProjectedGradientDescent):
     def optimisation(self, 
                     gamma: float, 
                     n_iter: int =1_000, 
-                    eps: float =1e-3) -> Tuple[np.ndarray, float]:       
+                    eps: float =1e-3,
+                    min_loss: float= -0.1) -> Tuple[np.ndarray, float]:       
         r"""Computes the Projected Gradient Descent algorithm.
 
         Args:
             - **gamma** (float): Step size :math:`\gamma`.
             - :math:`n_{\text{iter}}` (int, optional): Number of iterations for the gradient descent. Defaults to :math:`1000`.
             - **eps** (int, optional): Tolerance rate :math:`\varepsilon`. Defaults to :math:`10^{-3}`.
+            - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.
+              Defaults to :math:`-0.1`, which implies that this condition is never reached.
         """
         self.buffer_params, self.buffer_losses, self.buffer_grads, i = self.projected_gradient_descent(self.init_control_params, 
                                                                                                         gamma, 
                                                                                                         n_iter, 
-                                                                                                        eps)
+                                                                                                        eps,
+                                                                                                        min_loss)
         return self.buffer_params[-1], self.buffer_losses[-1], i
     
     def plot_control_values(self, 
@@ -311,7 +318,7 @@ class ProjectedGradientDescent_MDN(ProjectedGradientDescent_CRN):
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. 
-          Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
+          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element
@@ -411,7 +418,7 @@ class ProjectedGradientDescent_FSP(ProjectedGradientDescent_CRN):
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters.
         - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.
-          Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
+          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element
@@ -523,6 +530,7 @@ def control_method(optimiser: ProjectedGradientDescent_CRN,
                     eps: float, 
                     ind_species: int, 
                     targets: np.ndarray,
+                    min_loss: float =-0.1,
                     plot_performance: bool =True,
                     save: Tuple[bool, list] =(True, ["control_values", 
                                                     "experimental_losses", 
@@ -540,6 +548,8 @@ def control_method(optimiser: ProjectedGradientDescent_CRN,
         - **eps** (float): Threshold level :math:`\varepsilon`. The algorithm halts when the gradient of the loss value is smaller than :math:`\varepsilon`.
         - **ind_species** (int): Index of the species of interest.
         - **targets** (np.ndarray): Target values at each time point. If None, no target is plotted.
+        - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.
+          Defaults to :math:`-0.1`, which implies that this condition is never reached.
         - **plot_performance** (bool, optional): If True, calls the function ``optimiser.plot_performance_index``. Defaults to True.
         - **save** (Tuple[bool, list], optional): If the first argument is True, saves the plots. The second argument 
           is a list of the names of the files under which to save the plots. 
@@ -553,7 +563,8 @@ def control_method(optimiser: ProjectedGradientDescent_CRN,
     start = time.time()
     control_params, loss_value, i = optimiser.optimisation(gamma=gamma, 
                                                             n_iter=n_iter,
-                                                            eps=eps)
+                                                            eps=eps,
+                                                            min_loss=min_loss)
     end = time.time()
     print('Time: ', end-start)
     print('Number of iterations: ', i)

@@ -35,8 +35,8 @@ def fisher_information(n_sampling_times: int, probs: np.ndarray, sensitivities:n
 
     Args:
         - **n_sampling_times** (int): Number of sampling times.
-        - **probs** (np.ndarray): The probability vector. Has shape (n_sampling_times, :math:`N_{\max}`).
-        - **sensitivities** (np.ndarray): The sensitivity of the likelihood matrix. Has shape (n_sampling_times, :math:`N_{\max}`, :math:`M_{\text{tot}}`).
+        - **probs** (np.ndarray): The probability vector. Has shape (**n_sampling_times**, :math:`N_{\max}`).
+        - **sensitivities** (np.ndarray): The sensitivity of the likelihood matrix. Has shape (**n_sampling_times**, :math:`N_{\max}`, :math:`M_{\text{tot}}`).
 
     Returns:
         - The Fisher Information estimated by the model. Has shape :math:`(M_{\text{tot}}, M_{\text{tot}})`.

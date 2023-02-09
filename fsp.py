@@ -320,15 +320,14 @@ class SensitivitiesDerivation:
             - :math:`t_0` (float): Starting time.
             - :math:`t_f` (float): Final time.
             - **params** (np.ndarray): Parameters of the propensity functions. Has shape :math:`(M_{\theta}+M_{\xi},)`.
-            - :math:`t_{eval}` (list): Sampling times.
+            - **t_eval** (list): Sampling times.
             - **with_stv** (bool): If True, computes the corresponding sensitivities. If False, only solves the first part 
               of the ODE to compute the probability mass function. Defaults to True.
 
         Returns:
             - Bunch object as the output of the ``solve_ivp`` function applied to the set of linear ODEs.
               To access the probability and sensitivities distributions, use the key 'y'. The result has shape 
-              :math:`(N_{\max}, L)` if **with_stv** is False, :math:`(2 \times N_{\max}, L)` otherwise, 
-              :math:`L` being the number of sampling times.
+              :math:`(N_{\max}, \text{n_sampling_times})` if **with_stv** is False, :math:`(2 \times N_{\max}, \text{n_sampling_times})` otherwise.
         """
         # init_state is a 1D vector
         if with_stv:
@@ -532,5 +531,4 @@ class SensitivitiesDerivation:
         if with_probs:
             return grad_expect, expect
         return grad_expect
-
 

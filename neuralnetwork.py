@@ -89,7 +89,7 @@ def distr_pdf(params: Tuple[torch.tensor],
         mixture: str,
         eps: float =1e-5,
         ) -> torch.tensor:
-    """Computes the pdf of the components of the mixture.
+    """Computes the probability density function (pdf) of the components of the mixture.
 
     Args:
         - **params** (Tuple[torch.tensor]): Parameters needed to define the probability distribution.
@@ -404,7 +404,7 @@ def train_NN(model: NeuralNetwork,
                         - **y_valid**: Tensor of expected outputs.
         - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to `loss_kldivergence`.
         - **print_results** (bool, optional): If True, prints the final results
-          (learning rate, train and valid losses at the end of the training). Defaults to True.
+          (final learning rate, train and valid losses). Defaults to True.
         - **print_info** (bool, optional): If True, prints a progress bar. Defaults to True.
 
     Returns:

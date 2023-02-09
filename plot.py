@@ -47,7 +47,7 @@ def plot_model(to_pred: torch.tensor,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, it is assumed that the Chemical Reaction Network follows mass-action kinetics.
                 5. :math:`C_r`: Integer such that the projection of :math:`(0, .., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`. 
                 7. **ind_species** (int): Index of the species of interest.
@@ -173,7 +173,7 @@ def multiple_plots(to_pred: list,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, it is assumed that the Chemical Reaction Network follows mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
@@ -317,7 +317,7 @@ def fi_table(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, it is assumed that the Chemical Reaction Network follows mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (np.ndarray): Initial state.
                 7. **ind_species** (int): Index of the species of interest.
@@ -460,7 +460,7 @@ def fi_barplots(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, it is assumed that the Chemical Reaction Network follows mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
@@ -594,7 +594,7 @@ def expect_val_table(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, it is assumed that the Chemical Reaction Network follows mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
@@ -732,7 +732,7 @@ def expect_val_barplots(time_samples: np.ndarray,
                 2. **stoich_mat** (np.ndarray): Stoichiometry matrix.
                 3. **propensities** (np.ndarray[Callable]): Non-parameterised propensity functions.
                 4. **propensities_drv** (np.ndarray): Gradient functions of the propensities with respect to the parameters.
-                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.
+                   Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, it is assumed that the Chemical Reaction Network follows mass-action kinetics.
                 5. :math:`C_r`: Value such that the projection of :math:`(0, ..., 0, C_r)` is the last element of the projected truncated space.
                 6. **init_state** (Tuple[int], optional): Initial state. If None, the initial state is set to :math:`(0,..,0)`.
                 7. **ind_species** (int): Index of the species of interest.
