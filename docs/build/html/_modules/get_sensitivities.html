@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>get_sensitivities &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>get_sensitivities</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for get_sensitivities</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">neuralnetwork</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span>
+
+<div class="viewcode-block" id="probabilities"><a class="viewcode-back" href="../usage.html#get_sensitivities.probabilities">[docs]</a><span class="k">def</span> <span class="nf">probabilities</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span>
+                <span class="n">model</span><span class="p">:</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">,</span>
+                <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">200</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Computes the probability mass functions for the :math:`N_{\max}` first elements.</span>
+<span class="sd">    Output has shape :math:`(N_{\max},)`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **inputs** (torch.tensor): Input data.</span>
+<span class="sd">        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **length_output** (int, optional): Length of the output :math:`N_{\max}`. Defaults to :math:`200`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="n">mat_k</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">length_output</span><span class="p">)</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">n_comps</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">mix_pdf</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">mat_k</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="sensitivities"><a class="viewcode-back" href="../usage.html#get_sensitivities.sensitivities">[docs]</a><span class="k">def</span> <span class="nf">sensitivities</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+                <span class="n">model</span><span class="p">:</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">,</span> 
+                <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">200</span><span class="p">,</span> 
+                <span class="n">with_probs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">]]:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the gradient of the probability mass functions with respect to the time and to the input parameters.</span>
+<span class="sd">    Output has shape :math:`(N_{\max}, 1 + M_{\text{tot}})`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **inputs** (torch.tensor): Input data.</span>
+<span class="sd">        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **length_output** (int, optional): Length of the output :math:`N_{\max}`. Defaults to :math:`200`.</span>
+<span class="sd">        - **with_probs** (bool, optional): If True, also returns the corresponding probability distribution. Defaults to False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">inputs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">probabilities</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">length_output</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">with_probs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)),</span> <span class="n">f</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">inputs</span><span class="p">))</span></div>
+
+<span class="k">def</span> <span class="nf">identity</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span>
+
+<div class="viewcode-block" id="expected_val"><a class="viewcode-back" href="../usage.html#get_sensitivities.expected_val">[docs]</a><span class="k">def</span> <span class="nf">expected_val</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span>
+                <span class="n">model</span><span class="p">:</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">,</span> 
+                <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span><span class="n">identity</span><span class="p">,</span> 
+                <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">200</span><span class="p">,</span> 
+                <span class="n">array</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the expectation of the probability mass function estimated by the MDN:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        E_{\theta,\xi}[X_t] = \sum_{k=1}^{N_{\max}} k \ p(k;t,\theta,\xi)</span>
+
+<span class="sd">    It can also compute :math:`\mathcal{L}\big(E_{\theta,\xi}[X_t]\big)` where :math:`\mathcal{L}`</span>
+<span class="sd">    is a given function.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **inputs** (torch.tensor): Input data in the form requested by the MDN model: </span>
+<span class="sd">          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.</span>
+<span class="sd">        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to the `identity` function.</span>
+<span class="sd">        - **length_output** (int, optional): Upper bound of the truncated sum :math:`N_{\max}`. Defaults to :math:`200`.</span>
+<span class="sd">        - **array** (bool, optional): If True, the output type is a NumPy array. If False, it is a PyTorch tensor. Defaults to True.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">expec</span> <span class="o">=</span> <span class="n">probabilities</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">length_output</span><span class="p">)[:,</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">length_output</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">array</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">loss</span><span class="p">(</span><span class="n">expec</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="c1"># shape 1, output in numpy</span>
+    <span class="k">return</span> <span class="n">loss</span><span class="p">(</span><span class="n">expec</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="c1"># shape 1, output in pytorch</span></div>
+
+<div class="viewcode-block" id="gradient_expected_val"><a class="viewcode-back" href="../usage.html#get_sensitivities.gradient_expected_val">[docs]</a><span class="k">def</span> <span class="nf">gradient_expected_val</span><span class="p">(</span><span class="n">inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+                        <span class="n">model</span><span class="p">:</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">,</span> 
+                        <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span><span class="n">identity</span><span class="p">,</span> 
+                        <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">200</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the gradient of the expectation estimated by the MDN:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \nabla_{t, \theta, \xi} E_{\theta, \xi}[X_t] = \sum_{k=1}^{N_{\max}} k \ \nabla_{t, \theta, \xi}p(k;t,\theta,\xi)</span>
+
+<span class="sd">    It can also compute :math:`\nabla_{t, \theta, \xi} \mathcal{L}\big(E_{\theta,\xi}[X_t]\big)` where :math:`\mathcal{L}` is a given function.</span>
+<span class="sd">    Output has shape :math:`(1 + M_{\text{tot}})`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **inputs** (torch.tensor): Input data.</span>
+<span class="sd">        - **model** (neuralnetwork.NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **loss** (Callable, optional): Loss function. Must be compatible with PyTorch. Defaults to the `identity` function.</span>
+<span class="sd">        - **length_output** (int, optional): Upper bound of the truncated sum :math:`N_{\max}`. Defaults to :math:`200`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">expec</span><span class="p">(</span><span class="n">inputs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">expected_val</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">length_output</span><span class="p">,</span> <span class="n">array</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">gradient</span> <span class="o">=</span>  <span class="n">torch</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">jacobian</span><span class="p">(</span><span class="n">expec</span><span class="p">,</span> <span class="n">inputs</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">gradient</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

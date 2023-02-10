@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>training_pgd &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>training_pgd</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for training_pgd</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">simulation</span>
+<span class="kn">import</span> <span class="nn">projected_gradient_descent</span> <span class="k">as</span> <span class="nn">pgd</span>
+<span class="kn">import</span> <span class="nn">neuralnetwork</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span>
+
+
+<span class="c1"># FSP gradient descent</span>
+
+<div class="viewcode-block" id="pgdFSP"><a class="viewcode-back" href="../usage.html#training_pgd.pgdFSP">[docs]</a><span class="k">def</span> <span class="nf">pgdFSP</span><span class="p">(</span><span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span> 
+          <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+          <span class="n">domain</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+          <span class="n">fixed_params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+          <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+          <span class="n">loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span> 
+          <span class="n">grad_loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span> 
+          <span class="n">cr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+          <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+          <span class="n">n_iter</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+          <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+          <span class="n">min_loss</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+          <span class="n">targets</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+          <span class="n">crn_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+          <span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+          <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+          <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">list</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;control_values&#39;</span><span class="p">,</span> 
+                                          <span class="s1">&#39;experimental_losses&#39;</span><span class="p">,</span> 
+                                          <span class="s1">&#39;parameters&#39;</span><span class="p">,</span> 
+                                          <span class="s1">&#39;gradients_losses&#39;</span><span class="p">,</span> 
+                                          <span class="s1">&#39;real_losses&#39;</span><span class="p">,</span> 
+                                          <span class="s1">&#39;exp_results&#39;</span><span class="p">])):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Performs the PGD with the FSP method, saves the selected parameters for the algorithm and the results in a ``.txt`` file,</span>
+<span class="sd">    plots the results and saves them in CSV files.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to work on. Make sure to specify the derivatives of the propensities if the CRN does not follow</span>
+<span class="sd">          mass-action kinetics.</span>
+<span class="sd">        - **ind_species** (int): Index of the species of interest.</span>
+<span class="sd">        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.</span>
+<span class="sd">          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the </span>
+<span class="sd">          upper boundaries for each dimension.</span>
+<span class="sd">        - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. </span>
+<span class="sd">          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are </span>
+<span class="sd">          :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time </span>
+<span class="sd">          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element</span>
+<span class="sd">          is the loss function for the corresponding time window.</span>
+<span class="sd">        - **grad_loss** (Union[Callable, list]): Gradient of the loss function. If it is a list, each element is the gradient</span>
+<span class="sd">          of the loss function for the corresponding time window.</span>
+<span class="sd">        - :math:`C_r` (int): Value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. </span>
+<span class="sd">          Defaults to :math:`50`.</span>
+<span class="sd">        - **gamma** (float): Step size :math:`\gamma`.</span>
+<span class="sd">        - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.</span>
+<span class="sd">        - **eps** (float): Tolerance rate :math:`\varepsilon`. The algorithm halts when the squared norm of the gradient of the loss value is smaller than :math:`\varepsilon`.</span>
+<span class="sd">        - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.</span>
+<span class="sd">        - **targets** (np.ndarray): Target values at each time point :math:`h`.</span>
+<span class="sd">        - **crn_name** (str): Name of the CRN to use for the files.</span>
+<span class="sd">        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets</span>
+<span class="sd">          have the same weight. Defaults to None.</span>
+<span class="sd">        - **directory** (str, optional): Name of the directory under which to save the files. Must end with &quot;/&quot;. Defaults to &quot;&quot;, which means no directory.</span>
+<span class="sd">        - **save** (Tuple[bool, list], optional): If the first argument is True, saves the file. The second argument is the name of the file under </span>
+<span class="sd">          which to save the plot. Defaults to (True, [&quot;control_values&quot;, &quot;experimental_losses&quot;, &quot;parameters&quot;, &quot;gradients_losses&quot;, &quot;real_losses&quot;, &quot;exp_results&quot;]).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">optimiserFSP</span> <span class="o">=</span> <span class="n">pgd</span><span class="o">.</span><span class="n">ProjectedGradientDescent_FSP</span><span class="p">(</span><span class="n">crn</span><span class="o">=</span><span class="n">crn</span><span class="p">,</span>
+                                                    <span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span>
+                                                    <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+                                                    <span class="n">fixed_params</span><span class="o">=</span><span class="n">fixed_params</span><span class="p">,</span>
+                                                    <span class="n">time_windows</span><span class="o">=</span><span class="n">time_windows</span><span class="p">,</span>
+                                                    <span class="n">loss</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span>
+                                                    <span class="n">grad_loss</span><span class="o">=</span><span class="n">grad_loss</span><span class="p">,</span>
+                                                    <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+                                                    <span class="n">cr</span><span class="o">=</span><span class="n">cr</span><span class="p">)</span>
+    <span class="n">final_time</span><span class="p">,</span> <span class="n">control_params</span><span class="p">,</span> <span class="n">loss_value</span> <span class="o">=</span> <span class="n">pgd</span><span class="o">.</span><span class="n">control_method</span><span class="p">(</span><span class="n">optimiser</span><span class="o">=</span><span class="n">optimiserFSP</span><span class="p">,</span>
+                                                                <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span>
+                                                                <span class="n">n_iter</span><span class="o">=</span><span class="n">n_iter</span><span class="p">,</span>
+                                                                <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span>
+                                                                <span class="n">min_loss</span><span class="o">=</span><span class="n">min_loss</span><span class="p">,</span>
+                                                                <span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span>
+                                                                <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span>
+                                                                <span class="n">plot_performance</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                                                <span class="n">save</span><span class="o">=</span><span class="n">save</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s1">data_pgdMDN_</span><span class="si">{</span><span class="n">crn_name</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">.%m.%Y_%H.%M.%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.txt&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;domain: </span><span class="si">{</span><span class="n">domain</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;fixed parameters: </span><span class="si">{</span><span class="n">fixed_params</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;time_windows: </span><span class="si">{</span><span class="n">time_windows</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loss</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;loss n°</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">l</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">l</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">l</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;loss: </span><span class="si">{</span><span class="n">loss</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">loss</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">loss</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;c_r: </span><span class="si">{</span><span class="n">cr</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;gamma: </span><span class="si">{</span><span class="n">gamma</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;n_iter: </span><span class="si">{</span><span class="n">n_iter</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;targets: </span><span class="si">{</span><span class="n">targets</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;PGD time: </span><span class="si">{</span><span class="n">final_time</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Final parameters: </span><span class="si">{</span><span class="n">control_params</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Final loss: </span><span class="si">{</span><span class="n">loss_value</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+<span class="c1"># MDN gradient descent</span>
+
+<div class="viewcode-block" id="pgdMDN"><a class="viewcode-back" href="../usage.html#training_pgd.pgdMDN">[docs]</a><span class="k">def</span> <span class="nf">pgdMDN</span><span class="p">(</span><span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span> 
+            <span class="n">model</span><span class="p">:</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">,</span>
+            <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">domain</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">fixed_params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span>
+            <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+            <span class="n">n_iter</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">targets</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">crn_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> 
+            <span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">list</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;control_values&#39;</span><span class="p">,</span> 
+                                            <span class="s1">&#39;experimental_losses&#39;</span><span class="p">,</span> 
+                                            <span class="s1">&#39;parameters&#39;</span><span class="p">,</span> 
+                                            <span class="s1">&#39;gradients_losses&#39;</span><span class="p">,</span> 
+                                            <span class="s1">&#39;real_losses&#39;</span><span class="p">,</span> 
+                                            <span class="s1">&#39;exp_results&#39;</span><span class="p">])):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Performs the PGD using a MDN, saves the selected parameters for the algorithm and the results in a `.txt` file,</span>
+<span class="sd">    plots the results and saves them in CSV files. </span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to work on. Make sure to specify the derivatives of the propensities if it does not follow</span>
+<span class="sd">          mass-action kinetics.</span>
+<span class="sd">        - **model** (neuralnetwork.NeuralNetwork): MDN model to use for the PGD.</span>
+<span class="sd">        - **ind_species** (int): Index of the species of interest.</span>
+<span class="sd">        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.</span>
+<span class="sd">          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the </span>
+<span class="sd">          upper boundaries for each dimension.</span>
+<span class="sd">        - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. </span>
+<span class="sd">          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are </span>
+<span class="sd">          :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time </span>
+<span class="sd">          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element</span>
+<span class="sd">          is the loss function for the corresponding time window.</span>
+<span class="sd">        - **gamma** (float): Step size :math:`\gamma`.</span>
+<span class="sd">        - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.</span>
+<span class="sd">        - **eps** (float): Tolerance rate :math:`\varepsilon`. The algorithm halts </span>
+<span class="sd">          when the squared norm of the gradient of the loss value is smaller than :math:`\varepsilon`.</span>
+<span class="sd">        - **targets** (np.ndarray): Target values at each time point :math:`h`.</span>
+<span class="sd">        - **crn_name** (str): Name of the CRN to use for the files.</span>
+<span class="sd">        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets</span>
+<span class="sd">          have the same weight. Defaults to None.</span>
+<span class="sd">        - **directory** (str, optional): Name of the directory under which to save the files. Must end with &quot;/&quot;.</span>
+<span class="sd">          If not &quot;&quot;, must end with &quot;/&quot;. Defaults to &quot;&quot;, which means no directory.</span>
+<span class="sd">        - **save** (Tuple[bool, list], optional): If the first argument is True, saves the file. The second argument is the name of the file under </span>
+<span class="sd">          which to save the plot. Defaults to (True, [&quot;control_values&quot;, &quot;experimental_losses&quot;, &quot;parameters&quot;, &quot;gradients_losses&quot;, &quot;real_losses&quot;, &quot;exp_results&quot;]).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">optimiserMDN</span> <span class="o">=</span> <span class="n">pgd</span><span class="o">.</span><span class="n">ProjectedGradientDescent_MDN</span><span class="p">(</span><span class="n">crn</span><span class="o">=</span><span class="n">crn</span><span class="p">,</span>
+                                                    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+                                                    <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+                                                    <span class="n">fixed_params</span><span class="o">=</span><span class="n">fixed_params</span><span class="p">,</span>
+                                                    <span class="n">time_windows</span><span class="o">=</span><span class="n">time_windows</span><span class="p">,</span>
+                                                    <span class="n">loss</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span>
+                                                    <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">final_time</span><span class="p">,</span> <span class="n">control_params</span><span class="p">,</span> <span class="n">loss_value</span> <span class="o">=</span> <span class="n">pgd</span><span class="o">.</span><span class="n">control_method</span><span class="p">(</span><span class="n">optimiser</span><span class="o">=</span><span class="n">optimiserMDN</span><span class="p">,</span>
+                                                                <span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span>
+                                                                <span class="n">n_iter</span><span class="o">=</span><span class="n">n_iter</span><span class="p">,</span>
+                                                                <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span>
+                                                                <span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span>
+                                                                <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span>
+                                                                <span class="n">save</span><span class="o">=</span><span class="n">save</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s1">data_pgdMDN_</span><span class="si">{</span><span class="n">crn_name</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">.%m.%Y_%H.%M.%S&quot;</span><span class="p">)</span><span class="si">}</span><span class="s1">.txt&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;domain: </span><span class="si">{</span><span class="n">domain</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;fixed parameters: </span><span class="si">{</span><span class="n">fixed_params</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;time_windows: </span><span class="si">{</span><span class="n">time_windows</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loss</span><span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;loss n°</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">: </span><span class="si">{</span><span class="n">l</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">l</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">l</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;loss: </span><span class="si">{</span><span class="n">loss</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">loss</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">loss</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;gamma: </span><span class="si">{</span><span class="n">gamma</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;epsilon: </span><span class="si">{</span><span class="n">eps</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;n_iter: </span><span class="si">{</span><span class="n">n_iter</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;targets: </span><span class="si">{</span><span class="n">targets</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;PGD time: </span><span class="si">{</span><span class="n">final_time</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Final parameters: </span><span class="si">{</span><span class="n">control_params</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Final loss: </span><span class="si">{</span><span class="n">loss_value</span><span class="si">}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

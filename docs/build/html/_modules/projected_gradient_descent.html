@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>projected_gradient_descent &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>projected_gradient_descent</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for projected_gradient_descent</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">convert_csv</span>
+<span class="kn">import</span> <span class="nn">get_sensitivities</span>
+<span class="kn">import</span> <span class="nn">neuralnetwork</span>
+<span class="kn">import</span> <span class="nn">simulation</span>
+<span class="kn">import</span> <span class="nn">generate_data</span>
+<span class="kn">import</span> <span class="nn">fsp</span>
+<span class="kn">import</span> <span class="nn">collections.abc</span> <span class="k">as</span> <span class="nn">abc</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<div class="viewcode-block" id="ProjectedGradientDescent"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent">[docs]</a><span class="k">class</span> <span class="nc">ProjectedGradientDescent</span><span class="p">():</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to compute the Projected Gradient Descent Algorithm.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **grad_loss** (Callable): Gradient function of the loss.</span>
+<span class="sd">        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.</span>
+<span class="sd">          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the </span>
+<span class="sd">          upper boundaries for each dimension.</span>
+<span class="sd">        - **dim** (int): Dimension of the projection space.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grad_loss</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_loss</span> <span class="o">=</span> <span class="n">grad_loss</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain</span> <span class="o">=</span> <span class="n">domain</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
+
+
+<div class="viewcode-block" id="ProjectedGradientDescent.projected_gradient_descent"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent.projected_gradient_descent">[docs]</a>    <span class="k">def</span> <span class="nf">projected_gradient_descent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                                <span class="n">init</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                                <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                                <span class="n">n_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">20_000</span><span class="p">,</span>
+                                <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+                                <span class="n">min_loss</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=-</span><span class="mf">0.1</span><span class="p">,</span>
+                                <span class="n">clipping_value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span><span class="mf">50.</span><span class="p">,</span>
+                                <span class="n">progress_bar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span>
+                                <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the Projected Gradient Descent.</span>
+
+<span class="sd">        .. math::</span>
+<span class="sd">        </span>
+<span class="sd">            \xi_{n+1} \leftarrow \xi_n - \gamma \nabla_{\xi} C_{\xi_n}^J</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **init** (np.ndarray): Initial values of the control parameters. Has shape :math:`(M_{\xi}\times L,)`.</span>
+<span class="sd">            - **gamma** (float): Step size :math:`\gamma`.</span>
+<span class="sd">            - :math:`n_{\text{iter}}` (int, optional): Maximal number of iterations allowed for the gradient descent. </span>
+<span class="sd">              Defaults to :math:`20 000`.</span>
+<span class="sd">            - **eps** (float, optional): Threshold level :math:`\varepsilon`. The algorithm halts when the squared norm of the gradient of </span>
+<span class="sd">              the loss value is smaller than :math:`\varepsilon`. Defaults to :math:`10^{-5}`.</span>
+<span class="sd">            - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.</span>
+<span class="sd">              Defaults to :math:`-0.1`, which implies that this condition is never reached.</span>
+<span class="sd">            - **clipping_value** (float, optional): Maximal gradient norm value. Used to avoid explosing gradients.</span>
+<span class="sd">              Defaults to :math:`50`.</span>
+<span class="sd">            - **progress_bar** (bool, optional): If True, plots a progress bar during the optimisation process. Defaults to True.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            - Array of the control parameters values estimated at each iteration. Has shape :math:`(n, \text{dim})`.</span>
+<span class="sd">            - Array of the loss values estimated at each iteration. Has shape :math:`(n,)`.</span>
+<span class="sd">            - Array of the gradient values estimated at each iteration. Has shape :math:`(n, \text{dim})`.</span>
+<span class="sd">            - Actual number of iterations :math:`n` performed by the algorithm.</span>
+<span class="sd">        &quot;&quot;&quot;</span>   
+        <span class="n">xt</span> <span class="o">=</span> <span class="p">[</span><span class="n">init</span><span class="p">]</span>
+        <span class="n">losses</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">init</span><span class="p">)]</span>
+        <span class="n">grads</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">grad_loss</span><span class="p">(</span><span class="n">init</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">progress_bar</span><span class="p">:</span>
+            <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">n_iter</span><span class="p">,</span> <span class="n">desc</span> <span class="o">=</span> <span class="s1">&#39;Optimising ...&#39;</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Optimising...&#39;</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">n_iter</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grads</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">&gt;</span> <span class="n">eps</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">losses</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">min_loss</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">progress_bar</span><span class="p">:</span>
+                <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">grad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_loss</span><span class="p">(</span><span class="n">xt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">grads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span>
+            <span class="c1"># gradient clipping</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">clipping_value</span><span class="p">:</span>
+                <span class="n">grad</span> <span class="o">=</span> <span class="n">clipping_value</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span> <span class="o">*</span> <span class="n">grad</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">xt</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">gamma</span><span class="o">*</span><span class="n">grad</span>
+            <span class="c1"># projection</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+                <span class="n">x</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="n">x</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+            <span class="n">xt</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">progress_bar</span><span class="p">:</span>
+            <span class="n">pbar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">xt</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">losses</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grads</span><span class="p">),</span> <span class="n">i</span></div></div>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN">[docs]</a><span class="k">class</span> <span class="nc">ProjectedGradientDescent_CRN</span><span class="p">(</span><span class="n">ProjectedGradientDescent</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to compute a Projected Gradient Descent for a CRN.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to compute the PGD on.</span>
+<span class="sd">        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.</span>
+<span class="sd">          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the </span>
+<span class="sd">          upper boundaries for each dimension.</span>
+<span class="sd">        - **fixed_params** (np.ndarray): Selected values for the fixed parameters.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.</span>
+<span class="sd">          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are </span>
+<span class="sd">          :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time </span>
+<span class="sd">          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - **loss** (Union[Callable, np.ndarray]): Loss function(s) used for the gradient descent. Either a single</span>
+<span class="sd">          function for all time windows, or an array of functions of shape :math:`(L,)`, each function corresponding to one time window.</span>
+<span class="sd">        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets</span>
+<span class="sd">          have the same weight. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>   
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span>
+                <span class="n">domain</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">fixed_params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+                <span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">):</span>     
+        <span class="bp">self</span><span class="o">.</span><span class="n">domain</span> <span class="o">=</span> <span class="n">domain</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span> <span class="o">=</span> <span class="n">fixed_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">fixed_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_control_params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_control_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span> <span class="o">=</span> <span class="n">time_windows</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_windows</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span>
+        <span class="k">if</span> <span class="n">weights</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># All control parameters have the same weight.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">Hashable</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span> <span class="o">=</span> <span class="p">[</span><span class="n">loss</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span> <span class="o">=</span> <span class="n">loss</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">crn</span> <span class="o">=</span> <span class="n">crn</span>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.optimisation"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.optimisation">[docs]</a>    <span class="k">def</span> <span class="nf">optimisation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                    <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+                    <span class="n">n_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">1_000</span><span class="p">,</span> 
+                    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+                    <span class="n">min_loss</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>       
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the Projected Gradient Descent algorithm.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **gamma** (float): Step size :math:`\gamma`.</span>
+<span class="sd">            - :math:`n_{\text{iter}}` (int, optional): Number of iterations for the gradient descent. Defaults to :math:`1000`.</span>
+<span class="sd">            - **eps** (int, optional): Tolerance rate :math:`\varepsilon`. Defaults to :math:`10^{-3}`.</span>
+<span class="sd">            - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.</span>
+<span class="sd">              Defaults to :math:`-0.1`, which implies that this condition is never reached.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_losses</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_grads</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projected_gradient_descent</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_control_params</span><span class="p">,</span> 
+                                                                                                        <span class="n">gamma</span><span class="p">,</span> 
+                                                                                                        <span class="n">n_iter</span><span class="p">,</span> 
+                                                                                                        <span class="n">eps</span><span class="p">,</span>
+                                                                                                        <span class="n">min_loss</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_losses</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">i</span></div>
+    
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.plot_control_values"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_control_values">[docs]</a>    <span class="k">def</span> <span class="nf">plot_control_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                            <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots the final values of the parameters :math:`\xi` over time.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument </span>
+<span class="sd">              then is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>      
+        <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">))</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">stairs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,:],</span> <span class="n">edges</span><span class="p">,</span> <span class="n">baseline</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Parameter value&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Time&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Control parameters&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">convert_csv</span><span class="o">.</span><span class="n">array_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.plot_losses_trajectory"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_losses_trajectory">[docs]</a>    <span class="k">def</span> <span class="nf">plot_losses_trajectory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                                <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots the loss values over the iterations as estimated by the chosen model.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument </span>
+<span class="sd">              then is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_losses</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Iterations&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Loss value&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Losses&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">convert_csv</span><span class="o">.</span><span class="n">array_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_losses</span><span class="p">,</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.plot_control_params_trajectory"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_control_params_trajectory">[docs]</a>    <span class="k">def</span> <span class="nf">plot_control_params_trajectory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                                        <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots the values of the parameters :math:`\xi` at each iteration.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument </span>
+<span class="sd">              is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>  
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">[:,</span><span class="n">i</span><span class="o">+</span><span class="n">j</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">&#39;$\xi_</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">^</span><span class="si">{</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">$&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mf">0.1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">convert_csv</span><span class="o">.</span><span class="n">array_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">,</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.plot_gradients_trajectory"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_gradients_trajectory">[docs]</a>    <span class="k">def</span> <span class="nf">plot_gradients_trajectory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                                    <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots the values of the gradients at each iteration.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument </span>
+<span class="sd">              is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_grads</span><span class="p">[:,</span> <span class="n">i</span><span class="o">+</span><span class="n">j</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sa">fr</span><span class="s1">&#39;Gradient wrt $\xi_</span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">^</span><span class="si">{</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">$&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mf">0.1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">convert_csv</span><span class="o">.</span><span class="n">array_to_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer_grads</span><span class="p">,</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+    
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.plot_abundances"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_abundances">[docs]</a>    <span class="k">def</span> <span class="nf">plot_abundances</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                        <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                        <span class="n">targets</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                        <span class="n">rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">1_000</span><span class="p">,</span> 
+                        <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots the mean evolution of the abundance over time based on the SSA method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **ind_species** (int): Index of the species of interest.</span>
+<span class="sd">            - **targets** (np.ndarray, optional): Target values at each time point.</span>
+<span class="sd">              If None, no target is plotted. Defaults to None.</span>
+<span class="sd">            - **rate** (int, optional): Plotting rate. Defaults to :math:`1000`.</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument </span>
+<span class="sd">              is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">generate_data</span><span class="o">.</span><span class="n">CRN_Simulations</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="p">,</span> 
+                                            <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span> 
+                                            <span class="n">n_trajectories</span><span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span> 
+                                            <span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span> 
+                                            <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+                                            <span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">n_iter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">n_iter</span><span class="o">//</span><span class="n">rate</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="n">rate</span><span class="p">,:]))</span>
+            <span class="n">samples</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">run_simulations</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">):</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_iter</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">res</span><span class="p">[:,</span><span class="n">i</span><span class="p">],</span> <span class="n">marker</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;$t=</span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s1">$&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span> <span class="o">=</span> <span class="n">target</span><span class="p">,</span> <span class="n">linestyle</span> <span class="o">=</span> <span class="s1">&#39;dashed&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Abundance evolution&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">convert_csv</span><span class="o">.</span><span class="n">array_to_csv</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ProjectedGradientDescent_CRN.plot_performance_index"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_performance_index">[docs]</a>    <span class="k">def</span> <span class="nf">plot_performance_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                            <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                            <span class="n">rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">200</span><span class="p">,</span> 
+                            <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots the values of the losses over the iterations estimated by the SSA method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **ind_species** (int): Index of the species of interest.</span>
+<span class="sd">            - **rate** (int, optional): Plotting rate. Defaults to :math:`200`.</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. The second argument </span>
+<span class="sd">              is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">generate_data</span><span class="o">.</span><span class="n">CRN_Simulations</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="p">,</span>
+                                            <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                            <span class="n">n_trajectories</span><span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span>
+                                            <span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span>
+                                            <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                                            <span class="n">sampling_times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">)</span>
+        <span class="n">n_iter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">performance_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_iter</span><span class="o">//</span><span class="n">rate</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_iter</span><span class="o">//</span><span class="n">rate</span><span class="p">):</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_params</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="n">rate</span><span class="p">,:]))</span>
+            <span class="n">samples</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">run_simulations</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="n">expect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">[</span><span class="n">j</span><span class="p">](</span><span class="n">expect</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">performance_index</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Final exact loss: &#39;</span><span class="p">,</span> <span class="n">performance_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_iter</span><span class="p">,</span> <span class="n">n_iter</span><span class="o">//</span><span class="n">rate</span><span class="p">),</span> <span class="n">performance_index</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Performance index&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">convert_csv</span><span class="o">.</span><span class="n">array_to_csv</span><span class="p">(</span><span class="n">performance_index</span><span class="p">,</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="ProjectedGradientDescent_MDN"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_MDN">[docs]</a><span class="k">class</span> <span class="nc">ProjectedGradientDescent_MDN</span><span class="p">(</span><span class="n">ProjectedGradientDescent_CRN</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to compute the Projected Gradient Descent (PGD) based on a Mixture Density Network model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to compute the PGD on.</span>
+<span class="sd">        - **model** (neuralnetwork.NeuralNetwork): MDN model used for the gradient descent.</span>
+<span class="sd">        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.</span>
+<span class="sd">          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the </span>
+<span class="sd">          upper boundaries for each dimension.</span>
+<span class="sd">        - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary. </span>
+<span class="sd">          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are </span>
+<span class="sd">          :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time </span>
+<span class="sd">          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element</span>
+<span class="sd">          is the loss function for the corresponding time window.</span>
+<span class="sd">        - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets</span>
+<span class="sd">          have the same weight. Defaults to None.</span>
+<span class="sd">        - **length_output** (int, optional): Length of the output of the MDN prediction. Defaults to :math:`200`.</span>
+<span class="sd">        - **with_correction** (bool, optional): If True, sensitivities are set to zero when control parameters</span>
+<span class="sd">          have no influence on that time window. If False, works with the computed sensitivities untouched. Defaults to True.</span>
+<span class="sd">          (:math:`\forall i \in [\![1, L]\!], \forall j \in [\![i=1, L]\!], \forall k \in [\![1, M_{\xi}]\!], [\hat{S}_{t_i}^{\theta, \xi}]_{.M+M_{\xi}\times j+k} = 0`).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span> 
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                <span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span>
+                <span class="n">model</span><span class="p">:</span><span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">,</span> 
+                <span class="n">domain</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">fixed_params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span>
+                <span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">200</span><span class="p">,</span> 
+                <span class="n">with_correction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">):</span>  
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">crn</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="n">fixed_params</span><span class="p">,</span> <span class="n">time_windows</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span>     
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_gradient</span><span class="p">(</span><span class="n">length_output</span><span class="p">,</span> <span class="n">with_correction</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_loss</span><span class="p">(</span><span class="n">length_output</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_MDN.create_gradient"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_MDN.create_gradient">[docs]</a>    <span class="k">def</span> <span class="nf">create_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">with_correction</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the gradient function of the loss evaluated at the expected value with respect to </span>
+<span class="sd">        all control parameters.</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \xi \mapsto \sum_{i=1}^L w_i \nabla_{\xi} \mathcal{L}_i(E[X_t^{\theta, \xi}])</span>
+
+<span class="sd">        Usually, we set :math:`\mathcal{L}_i` of the form :math:`\mathcal{L}_i : x \mapsto (x-h_i)^2` </span>
+<span class="sd">        where :math:`h \in \mathbb{R}^L` is the target vector. </span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **length_output** (int): Upper bound of the truncated expectation :math:`N_{\max}`.</span>
+<span class="sd">            - **with_correction** (bool): If True, sensitivities are set to zero when control parameters have no influence </span>
+<span class="sd">              on that time window. If False, works with the computed sensitivities untouched. Defaults to True.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">with_correction</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">grad_loss</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_params</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">):</span>
+                    <span class="n">inputs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="n">t</span><span class="p">],</span> <span class="n">params</span><span class="p">))</span>
+                    <span class="n">grad_exp</span> <span class="o">=</span> <span class="n">get_sensitivities</span><span class="o">.</span><span class="n">gradient_expected_val</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> 
+                                                                        <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> 
+                                                                        <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> 
+                                                                        <span class="n">length_output</span><span class="o">=</span><span class="n">length_output</span><span class="p">)[</span><span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:]</span>
+                    <span class="n">grad_exp</span><span class="p">[(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># these parameters have no influence on this time window</span>
+                    <span class="n">res</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">grad_exp</span>
+                <span class="k">return</span> <span class="n">res</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">grad_loss</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_params</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">):</span>
+                    <span class="n">inputs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="n">t</span><span class="p">],</span> <span class="n">params</span><span class="p">))</span>
+                    <span class="n">res</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">get_sensitivities</span><span class="o">.</span><span class="n">gradient_expected_val</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> 
+                                                                                    <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> 
+                                                                                    <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> 
+                                                                                    <span class="n">length_output</span><span class="o">=</span><span class="n">length_output</span><span class="p">)[</span><span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:]</span>
+                <span class="k">return</span> <span class="n">res</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_loss</span> <span class="o">=</span> <span class="n">grad_loss</span></div>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_MDN.create_loss"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_MDN.create_loss">[docs]</a>    <span class="k">def</span> <span class="nf">create_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length_output</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the loss function evaluated at the expected value.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **length_output** (int): Upper bound of the truncated expected value :math:`N_{\max}`.</span>
+<span class="sd">        &quot;&quot;&quot;</span> 
+        <span class="k">def</span> <span class="nf">loss</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_params</span><span class="p">))</span>
+            <span class="n">loss_value</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">):</span>
+                <span class="n">inputs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="n">t</span><span class="p">],</span> <span class="n">params</span><span class="p">))</span>
+                <span class="n">loss_value</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">get_sensitivities</span><span class="o">.</span><span class="n">expected_val</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> 
+                                                                            <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> 
+                                                                            <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> 
+                                                                            <span class="n">length_output</span><span class="o">=</span><span class="n">length_output</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">loss_value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span></div></div>
+
+
+<div class="viewcode-block" id="ProjectedGradientDescent_FSP"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_FSP">[docs]</a><span class="k">class</span> <span class="nc">ProjectedGradientDescent_FSP</span><span class="p">(</span><span class="n">ProjectedGradientDescent_CRN</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to compute the Projected Gradient Descent based on the Finite State Projection method.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to work on.</span>
+<span class="sd">        - **ind_species** (int): Index of the species to study.</span>
+<span class="sd">        - **domain** (np.ndarray): Boundaries of the domain in which to project. Has shape :math:`(\text{dim}, 2)`.</span>
+<span class="sd">          **domain[:,0]** defines the lower boundaries for each dimension, **domain[:,1]** defines the </span>
+<span class="sd">          upper boundaries for each dimension.</span>
+<span class="sd">        - **fixed_params** (np.ndarray): Selected values for the fixed parameters.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which the parameters do not vary.</span>
+<span class="sd">          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are </span>
+<span class="sd">          :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time </span>
+<span class="sd">          :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element</span>
+<span class="sd">          is the loss function for the corresponding time window.</span>
+<span class="sd">        - **grad_loss** (Union[Callable, list]): Gradient of the loss function. If it is a list, each element is the gradient</span>
+<span class="sd">          of the loss function for the corresponding time window.</span>
+<span class="sd">        - **weights** (np.ndarray, optional):  If True, sensitivities are set to zero when control parameters</span>
+<span class="sd">          have no influence on that time window. If False, works with the computed sensitivities. Defaults to True.</span>
+<span class="sd">        - :math:`C_r` (int, optional): Value such that :math:`(0, .., 0, C_r)` is the last value in the truncated space. </span>
+<span class="sd">          Defaults to :math:`50`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>       
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span>
+                <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                <span class="n">domain</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">fixed_params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span>
+                <span class="n">grad_loss</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Callable</span><span class="p">,</span> <span class="nb">list</span><span class="p">],</span>
+                <span class="n">weights</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">cr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">50</span><span class="p">):</span> 
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">crn</span><span class="o">=</span><span class="n">crn</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span> <span class="n">fixed_params</span><span class="o">=</span><span class="n">fixed_params</span><span class="p">,</span> <span class="n">time_windows</span><span class="o">=</span><span class="n">time_windows</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span> <span class="o">=</span> <span class="n">ind_species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stv_calculator</span> <span class="o">=</span> <span class="n">fsp</span><span class="o">.</span><span class="n">SensitivitiesDerivation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="p">,</span> 
+                                                        <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> 
+                                                        <span class="c1"># only the control parameters</span>
+                                                        <span class="n">index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">crn</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">,</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="o">+</span><span class="n">crn</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">),</span> 
+                                                        <span class="n">cr</span><span class="o">=</span><span class="n">cr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_loss_function</span> <span class="o">=</span> <span class="n">grad_loss</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_gradient</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_loss</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="ProjectedGradientDescent_FSP.create_loss"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_FSP.create_loss">[docs]</a>    <span class="k">def</span> <span class="nf">create_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the loss function evaluated at the expectation.</span>
+
+<span class="sd">        .. math::</span>
+<span class="sd">            \xi \mapsto \mathcal{L}\big( E_{\theta, \xi}[X_t]\big)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">Hashable</span><span class="p">):</span>
+            <span class="k">def</span> <span class="nf">loss_function</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+                <span class="n">fixed_parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+                <span class="n">control_parameters</span> <span class="o">=</span> <span class="n">control_params</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_parameters</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stv_calculator</span><span class="o">.</span><span class="n">expected_val</span><span class="p">(</span><span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span> 
+                                                        <span class="n">time_windows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span> 
+                                                        <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> 
+                                                        <span class="n">ind_species</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                    <span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span> <span class="c1"># res.sum()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">def</span> <span class="nf">loss_function</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+                <span class="n">fixed_parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+                <span class="n">control_parameters</span> <span class="o">=</span> <span class="n">control_params</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_parameters</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stv_calculator</span><span class="o">.</span><span class="n">expected_val</span><span class="p">(</span><span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span> 
+                                                        <span class="n">time_windows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span> 
+                                                        <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> 
+                                                        <span class="n">ind_species</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">loss_function</span><span class="p">):</span>
+                    <span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span> <span class="c1"># res.sum()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loss</span> <span class="o">=</span> <span class="n">loss_function</span></div>
+
+<div class="viewcode-block" id="ProjectedGradientDescent_FSP.create_gradient"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.ProjectedGradientDescent_FSP.create_gradient">[docs]</a>    <span class="k">def</span> <span class="nf">create_gradient</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the gradient function of the loss evaluated at the expected value with respect to </span>
+<span class="sd">        all control parameters.</span>
+
+<span class="sd">        .. math::</span>
+
+<span class="sd">            \xi \mapsto \nabla_{\xi} L\big(E_{\theta, \xi}[X_t]\big) = \frac{dL(x)}{dx} \nabla_{\xi} E_{\theta, \xi}[X_t]</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grad_loss_function</span><span class="p">,</span> <span class="n">abc</span><span class="o">.</span><span class="n">Hashable</span><span class="p">):</span>
+            <span class="k">def</span> <span class="nf">gradient_loss</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+                <span class="n">fixed_parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+                <span class="n">control_parameters</span> <span class="o">=</span> <span class="n">control_params</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_parameters</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">gradient</span><span class="p">,</span> <span class="n">expect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stv_calculator</span><span class="o">.</span><span class="n">gradient_expected_val</span><span class="p">(</span><span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                                                <span class="n">time_windows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                                                <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+                                                                <span class="n">ind_species</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">,</span>
+                                                                <span class="n">with_probs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                        <span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_loss_function</span><span class="p">(</span><span class="n">expect</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gradient</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="k">def</span> <span class="nf">gradient_loss</span><span class="p">(</span><span class="n">control_params</span><span class="p">):</span>
+                <span class="n">fixed_parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+                <span class="n">control_parameters</span> <span class="o">=</span> <span class="n">control_params</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">)</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_parameters</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">gradient</span><span class="p">,</span> <span class="n">expect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stv_calculator</span><span class="o">.</span><span class="n">gradient_expected_val</span><span class="p">(</span><span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                                                <span class="n">time_windows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                                                <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span>
+                                                                <span class="n">ind_species</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">,</span>
+                                                                <span class="n">with_probs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grad_loss_function</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+                        <span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">expect</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">gradient</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad_loss</span> <span class="o">=</span> <span class="n">gradient_loss</span></div></div>
+
+<div class="viewcode-block" id="control_method"><a class="viewcode-back" href="../usage.html#projected_gradient_descent.control_method">[docs]</a><span class="k">def</span> <span class="nf">control_method</span><span class="p">(</span><span class="n">optimiser</span><span class="p">:</span> <span class="n">ProjectedGradientDescent_CRN</span><span class="p">,</span> 
+                    <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+                    <span class="n">n_iter</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                    <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+                    <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                    <span class="n">targets</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                    <span class="n">min_loss</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=-</span><span class="mf">0.1</span><span class="p">,</span>
+                    <span class="n">plot_performance</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">list</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;control_values&quot;</span><span class="p">,</span> 
+                                                    <span class="s2">&quot;experimental_losses&quot;</span><span class="p">,</span> 
+                                                    <span class="s2">&quot;parameters&quot;</span><span class="p">,</span> 
+                                                    <span class="s2">&quot;gradients_losses&quot;</span><span class="p">,</span> 
+                                                    <span class="s2">&quot;real_losses&quot;</span><span class="p">,</span> 
+                                                    <span class="s2">&quot;exp_results&quot;</span><span class="p">]))</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the PGD, plots the results and saves the algorithm and results data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **optimiser** (ProjectedGradientDescent_CRN): Either of type ``ProjectedGradientDescent_MDN`` or</span>
+<span class="sd">          ``ProjectedGradientDescent_FSP``.</span>
+<span class="sd">        - **gamma** (float): Step size :math:`\gamma`.</span>
+<span class="sd">        - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.</span>
+<span class="sd">        - **eps** (float): Threshold level :math:`\varepsilon`. The algorithm halts when the gradient of the loss value is smaller than :math:`\varepsilon`.</span>
+<span class="sd">        - **ind_species** (int): Index of the species of interest.</span>
+<span class="sd">        - **targets** (np.ndarray): Target values at each time point. If None, no target is plotted.</span>
+<span class="sd">        - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.</span>
+<span class="sd">          Defaults to :math:`-0.1`, which implies that this condition is never reached.</span>
+<span class="sd">        - **plot_performance** (bool, optional): If True, calls the function ``optimiser.plot_performance_index``. Defaults to True.</span>
+<span class="sd">        - **save** (Tuple[bool, list], optional): If the first argument is True, saves the plots. The second argument </span>
+<span class="sd">          is a list of the names of the files under which to save the plots. </span>
+<span class="sd">          Defaults to (True, [&quot;control_values&quot;, &quot;experimental_losses&quot;, &quot;parameters&quot;, &quot;gradients_losses&quot;, &quot;real_losses&quot;, &quot;exp_results&quot;]).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - Running time of the algorithm.</span>
+<span class="sd">        - Final values for the control parameters.</span>
+<span class="sd">        - Final loss value.</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="n">control_params</span><span class="p">,</span> <span class="n">loss_value</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="n">optimiser</span><span class="o">.</span><span class="n">optimisation</span><span class="p">(</span><span class="n">gamma</span><span class="o">=</span><span class="n">gamma</span><span class="p">,</span> 
+                                                            <span class="n">n_iter</span><span class="o">=</span><span class="n">n_iter</span><span class="p">,</span>
+                                                            <span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span>
+                                                            <span class="n">min_loss</span><span class="o">=</span><span class="n">min_loss</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Time: &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of iterations: &#39;</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Control parameters: &#39;</span><span class="p">,</span> <span class="n">control_params</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Final loss: &#39;</span><span class="p">,</span> <span class="n">loss_value</span><span class="p">)</span>
+    <span class="n">optimiser</span><span class="o">.</span><span class="n">plot_control_values</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="p">(</span><span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="n">optimiser</span><span class="o">.</span><span class="n">plot_losses_trajectory</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="p">(</span><span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">optimiser</span><span class="o">.</span><span class="n">plot_control_params_trajectory</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="p">(</span><span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]))</span>
+    <span class="n">optimiser</span><span class="o">.</span><span class="n">plot_gradients_trajectory</span><span class="p">(</span><span class="n">save</span><span class="o">=</span><span class="p">(</span><span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">3</span><span class="p">]))</span>
+    <span class="k">if</span> <span class="n">plot_performance</span><span class="p">:</span>
+        <span class="n">optimiser</span><span class="o">.</span><span class="n">plot_performance_index</span><span class="p">(</span><span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span> <span class="n">rate</span><span class="o">=</span><span class="n">i</span><span class="o">//</span><span class="mi">10</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="p">(</span><span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">4</span><span class="p">]))</span>
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">generate_data</span><span class="o">.</span><span class="n">CRN_Simulations</span><span class="p">(</span><span class="n">optimiser</span><span class="o">.</span><span class="n">crn</span><span class="p">,</span> 
+                                        <span class="n">optimiser</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span> 
+                                        <span class="mi">10_000</span><span class="p">,</span>
+                                        <span class="n">ind_species</span><span class="o">=</span><span class="n">ind_species</span><span class="p">,</span> 
+                                        <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+                                        <span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">optimiser</span><span class="o">.</span><span class="n">time_windows</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">plot_simulations</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">optimiser</span><span class="o">.</span><span class="n">fixed_parameters</span><span class="p">,</span> <span class="n">control_params</span><span class="p">)),</span> <span class="n">targets</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="p">(</span><span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">5</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="p">,</span> <span class="n">control_params</span><span class="p">,</span> <span class="n">loss_value</span></div>
+
+    
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

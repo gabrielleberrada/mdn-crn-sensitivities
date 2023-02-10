@@ -70,7 +70,7 @@ class ProjectedGradientDescent():
         else: 
             print('Optimising...')
         i = 0
-        while i < n_iter and np.linalg.norm(grads[-1])**2 > eps and losses[-1] > min_loss:
+        while (i < n_iter) and (np.linalg.norm(grads[-1])**2 > eps) and (losses[-1] > min_loss):
             if progress_bar:
                 pbar.update(1)
             grad = self.grad_loss(xt[-1])

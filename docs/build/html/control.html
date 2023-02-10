@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Background on the Stochastic control of Chemical Reaction Networks &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Background on the Fisher Information" href="math.html" />
+    <link rel="prev" title="Background on the Architecture of the Mixture Density Network" href="neuralnetwork.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advice.html">Some advice on the implementation of this approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">API Documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Background on the Stochastic control of Chemical Reaction Networks</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/control.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="background-on-the-stochastic-control-of-chemical-reaction-networks">
+<h1>Background on the Stochastic control of Chemical Reaction Networks<a class="headerlink" href="#background-on-the-stochastic-control-of-chemical-reaction-networks" title="Permalink to this heading"></a></h1>
+<p>Our goal is to find control parameters such that the abundance of the species of interst reaches target values at specified time points.</p>
+<p>Using the notations from <span id="id1">[<a class="reference internal" href="sources.html#id9" title="CTSB. Controlling stochastic chemical reaction networks using policy search. arXiv preprint, 2023.">CTS23a</a>]</span>, let us introduce a number <span class="math notranslate nohighlight">\(L\)</span> of time windows and a piecewise-constant control input <span class="math notranslate nohighlight">\(\xi\)</span>, taking the value <span class="math notranslate nohighlight">\(\xi_l\)</span>
+over the time window <span class="math notranslate nohighlight">\(l\)</span>.</p>
+<p>Let us now introduce the Optimal Control performance index <span class="math notranslate nohighlight">\(C_{\xi}^J\)</span> defined as follows:</p>
+<div class="math notranslate nohighlight">
+\[C_{\xi}^J = \sum_{l=1}^L w_l \big(E_{\theta, \xi}[X_{t_l}^J]-h_l\big)^2\]</div>
+<p>where <span class="math notranslate nohighlight">\(J\)</span> is a set of cardinality <span class="math notranslate nohighlight">\(1\)</span>, <span class="math notranslate nohighlight">\(w \in \mathbb{R}_+^L\)</span> is the weight vector and <span class="math notranslate nohighlight">\(h \in \mathbb{R}_+^L\)</span> is the target vector.</p>
+<p>Our aim then is to find <span class="math notranslate nohighlight">\(\xi^*\)</span>, such that:</p>
+<div class="math notranslate nohighlight">
+\[\xi^* = \text{argmin}_{\xi \in \mathcal{H}} C_{\xi}^J\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathcal{H} = \prod\limits_{k=1}^{M_{\xi}\times L} [a_k, b_k]\)</span> with <span class="math notranslate nohighlight">\(a, b \in \mathbb{R}^{M_{\xi} \times L}\)</span> is a contraint set.</p>
+<p>This constrained optimisation program is solved using Projected Gradient Descent, which projects optimisation parameters obtained by Gradient Descent onto
+the constraint hypercube <span class="math notranslate nohighlight">\(\mathcal{H}\)</span>.</p>
+<figure class="align-center">
+<a class="border reference internal image-reference" href="_images/PGD_algo.jpeg"><img alt="_images/PGD_algo.jpeg" class="border" src="_images/PGD_algo.jpeg" style="width: 700px;" /></a>
+</figure>
+<p>Note that the optimisation algorithm is carried out using <span class="math notranslate nohighlight">\(3\)</span> hyperparameters: the maximal number of iterations <span class="math notranslate nohighlight">\(n_{\text{iter}}\)</span>, the step size <span class="math notranslate nohighlight">\(\gamma\)</span> and the threshold level <span class="math notranslate nohighlight">\(\xi\)</span>.</p>
+<p>Specific details can be found in the article <span id="id2">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="neuralnetwork.html" class="btn btn-neutral float-left" title="Background on the Architecture of the Mixture Density Network" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="math.html" class="btn btn-neutral float-right" title="Background on the Fisher Information" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

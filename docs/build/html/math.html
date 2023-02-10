@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Background on the Fisher Information &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Sources" href="sources.html" />
+    <link rel="prev" title="Background on the Stochastic control of Chemical Reaction Networks" href="control.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">API Documentation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Background on the Fisher Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#chemical-reaction-networks">Chemical Reaction Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood">Approximation of the mass function and the sensitivity of the likelihood</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fisher-information-of-sampled-chemical-reaction-networks">Fisher Information of sampled Chemical Reaction Networks</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Background on the Fisher Information</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/math.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="background-on-the-fisher-information">
+<h1>Background on the Fisher Information<a class="headerlink" href="#background-on-the-fisher-information" title="Permalink to this heading"></a></h1>
+<section id="chemical-reaction-networks">
+<h2>Chemical Reaction Networks<a class="headerlink" href="#chemical-reaction-networks" title="Permalink to this heading"></a></h2>
+<p>We consider Chemical Reaction Networks as Markov pure jump processes (see <span id="id1">[<a class="reference internal" href="sources.html#id5" title="David F Anderson and Thomas G Kurtz. Stochastic analysis of biochemical systems. Volume 674. Springer International Publishing, 2015.">AK15</a>]</span>).</p>
+<p>We introduce <span class="math notranslate nohighlight">\((X_t)_{t \in \mathbb{R}_+}\)</span> the distribution of the jump process.</p>
+<p>In the same setting as introduced in <span id="id2">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>, <span class="math notranslate nohighlight">\(X_t\)</span> has a probability mass function <span class="math notranslate nohighlight">\(p_t^\theta\)</span>, whose evaluation at the point <span class="math notranslate nohighlight">\(x \in \mathbb{N}^N\)</span>
+we write <span class="math notranslate nohighlight">\(p(x; t, \theta)\)</span>. We also introduce the likelihood <span class="math notranslate nohighlight">\(p : \mathbb{N}^N \times \mathbb{R}_+ \times \mathbb{R}_+^M \rightarrow \mathbb{R}_+\)</span>.</p>
+</section>
+<section id="approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood">
+<h2>Approximation of the mass function and the sensitivity of the likelihood<a class="headerlink" href="#approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood" title="Permalink to this heading"></a></h2>
+<p>If the state-space of <span class="math notranslate nohighlight">\(X_t\)</span> is finite, it can be projected into a finite subset of <span class="math notranslate nohighlight">\(\mathbb{N}\)</span> whose cardinality will be written <span class="math notranslate nohighlight">\(N_{\max} \in \mathbb{N}^*\)</span>.
+We will write the ordered elements of the projected state-space as <span class="math notranslate nohighlight">\(\big\{x^1_t, x^2_t, ..., x^{N_{\max}}_t \big\}\)</span>.</p>
+<p>For ease of notation, we introduce :</p>
+<div class="math notranslate nohighlight">
+\[p_i(t,\theta)=p(x^i;t,\theta) \quad \forall i \in [\![1, N_{\max}]\!]\]</div>
+<p>We then define the sensitivity <span class="math notranslate nohighlight">\(S^\theta_t \in \mathcal{M}_{N_{\max},M}(\mathbb{R})\)</span> of the likelihood of <span class="math notranslate nohighlight">\(X_t\)</span> as:</p>
+<div class="math notranslate nohighlight">
+\[\big[S_t^\theta\big]_{ij} = \frac{\partial p_i}{\partial \theta_j}(t, \theta)\]</div>
+</section>
+<section id="fisher-information-of-sampled-chemical-reaction-networks">
+<h2>Fisher Information of sampled Chemical Reaction Networks<a class="headerlink" href="#fisher-information-of-sampled-chemical-reaction-networks" title="Permalink to this heading"></a></h2>
+<p>Let us define the Fisher Information <span class="math notranslate nohighlight">\(\mathcal{I}_t^\theta \in \mathcal{M}_{M, M}(\mathbb{R})\)</span> of <span class="math notranslate nohighlight">\(X_t\)</span> as <span id="id3">[<a class="reference internal" href="sources.html#id2" title="Zachary R Fox and Brian Munsky. The finite state projection based fisher information matrix approach to estimate information and optimize single-cell experiments. PLoS Computational Biology., 15:e1006365, 2019.">FM19</a>]</span>:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{I}_t^\theta
+= E_{\theta}\Big[ \big(\nabla_{\theta} \log p(X_t; t,\theta)\big)^\top\big(\nabla_{\theta} \log p(X_t; t,\theta)\big)\Big]\]</div>
+<p>If the state-space of <span class="math notranslate nohighlight">\(X_t\)</span> is finite`, <span class="math notranslate nohighlight">\(\mathcal{I}_t^\theta\)</span> can be rewritten as:</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{I}_t^\theta = \big[ S_t^\theta \big]^\top \text{Diag}\Big(\frac{1}{p_t^\theta}\Big)S_t^\theta\]</div>
+<p>Specific details can be found in the article <span id="id4">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>.</p>
+<p>Both the Deep Learning and Finite State Projection methods use this formula to estimate the Fisher Information for sampled Chemical Reaction Networks.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="control.html" class="btn btn-neutral float-left" title="Background on the Stochastic control of Chemical Reaction Networks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sources.html" class="btn btn-neutral float-right" title="Sources" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

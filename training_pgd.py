@@ -19,6 +19,7 @@ def pgdFSP(crn: simulation.CRN,
           gamma: float, 
           n_iter: int, 
           eps: float, 
+          min_loss: float,
           targets: np.ndarray,
           crn_name: str, 
           weights: np.ndarray =None,
@@ -41,7 +42,7 @@ def pgdFSP(crn: simulation.CRN,
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.
         - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
-          Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
+          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element
@@ -53,6 +54,7 @@ def pgdFSP(crn: simulation.CRN,
         - **gamma** (float): Step size :math:`\gamma`.
         - :math:`n_{\text{iter}}` (int): Maximal number of iterations allowed for the gradient descent.
         - **eps** (float): Tolerance rate :math:`\varepsilon`. The algorithm halts when the squared norm of the gradient of the loss value is smaller than :math:`\varepsilon`.
+        - **min_loss** (float, optional): Minimal loss value. The algorithm halts when the loss value is smaller than **min_loss**.
         - **targets** (np.ndarray): Target values at each time point :math:`h`.
         - **crn_name** (str): Name of the CRN to use for the files.
         - **weights** (np.ndarray, optional): Weights of each target. Has shape :math:`(L,)`. If None, all targets
@@ -74,6 +76,7 @@ def pgdFSP(crn: simulation.CRN,
                                                                 gamma=gamma,
                                                                 n_iter=n_iter,
                                                                 eps=eps,
+                                                                min_loss=min_loss,
                                                                 ind_species=ind_species,
                                                                 targets=targets,
                                                                 plot_performance=False,
@@ -130,7 +133,7 @@ def pgdMDN(crn: simulation.CRN,
           upper boundaries for each dimension.
         - **fixed_params** (np.ndarray): Selected values for the fixed parameters :math:`\theta`.
         - **time_windows** (np.ndarray): Time windows during which all parameters are fixed. 
-          Its form is :math:`[t_1, ..., t_L]`, such that the considered time windows are 
+          Its form is :math:`[t_1, ..., t_L]`, such that the time windows are 
           :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match with the final time 
           :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **loss** (Union[Callable, list]): Loss function used for the gradient descent. If it is a list, each element

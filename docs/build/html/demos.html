@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Examples of Chemical Reaction Networks &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Some advice on the implementation of the approach" href="advice.html" />
+    <link rel="prev" title="Workflow" href="workflow.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Workflow</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Examples of Chemical Reaction Networks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#production-and-degradation-chemical-reaction-network">Production and Degradation Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#controlled-production-and-degradation-chemical-reaction-network">Controlled Production and Degradation Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#bursting-gene-chemical-reaction-network">Bursting Gene Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#controlled-bursting-gene-chemical-reaction-network">Controlled Bursting gene Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#controlled-toggle-switch-chemical-reaction-network">Controlled Toggle switch Chemical Reaction Network</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Examples of Chemical Reaction Networks</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/demos.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="examples-of-chemical-reaction-networks">
+<h1>Examples of Chemical Reaction Networks<a class="headerlink" href="#examples-of-chemical-reaction-networks" title="Permalink to this heading"></a></h1>
+<p>Selected Chemical Reaction Networks are used below to demonstrate how the Fisher Information of Chemical Reaction Networks
+can be computed using Mixture Density Networks.</p>
+<p>The Chemical Reaction Networks selected in this study are those presented in the article <span id="id1">[<a class="reference internal" href="sources.html#id2" title="Zachary R Fox and Brian Munsky. The finite state projection based fisher information matrix approach to estimate information and optimize single-cell experiments. PLoS Computational Biology., 15:e1006365, 2019.">FM19</a>]</span>.</p>
+<section id="production-and-degradation-chemical-reaction-network">
+<h2>Production and Degradation Chemical Reaction Network<a class="headerlink" href="#production-and-degradation-chemical-reaction-network" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Reactions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\emptyset \xrightarrow{\theta_1} S\]</div>
+<div class="math notranslate nohighlight">
+\[S \xrightarrow{\theta_2} \emptyset\]</div>
+<ul class="simple">
+<li><p>Propensity functions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\lambda_1(x;\theta) = \theta_1 \quad \lambda_2(x;\theta) = \theta_2 x\]</div>
+<ul class="simple">
+<li><p>Stoichiometry matrix:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{pmatrix} 1 \\ -1 \end{pmatrix}\end{split}\]</div>
+<p>Find code and figures in the notebook <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs/blob/main/CRN_production_degradation/CRN_production_degradation.ipynb">CRN_production_degradation.ipynb</a>.</p>
+<figure class="align-center" id="id5">
+<a class="border reference internal image-reference" href="_images/CRN2_fig1.jpeg"><img alt="_images/CRN2_fig1.jpeg" class="border" src="_images/CRN2_fig1.jpeg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Sensitivities of the likelihood with respect to parameter <span class="math notranslate nohighlight">\(\theta_1\)</span> for the Production and Degradation Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 1.5665, \theta_2 = 0.1997\)</span>. From left to right, top to bootom, plots correspond to times <span class="math notranslate nohighlight">\(t \in [5, 10, 15, 20]\)</span>.</span><a class="headerlink" href="#id5" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id6">
+<a class="border reference internal image-reference" href="_images/CRN2_bars_fig3.jpg"><img alt="_images/CRN2_bars_fig3.jpg" class="border" src="_images/CRN2_bars_fig3.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Element <span class="math notranslate nohighlight">\([I_t^\theta]_{11}\)</span> of the Fisher Information as a function of time for the Production and Degradation Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 1.5665, \theta_2 = 0.1997\)</span>. Time <span class="math notranslate nohighlight">\(t=30\)</span> is outside of the training range.</span><a class="headerlink" href="#id6" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="controlled-production-and-degradation-chemical-reaction-network">
+<h2>Controlled Production and Degradation Chemical Reaction Network<a class="headerlink" href="#controlled-production-and-degradation-chemical-reaction-network" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Reactions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\emptyset \xrightarrow{\theta} S\]</div>
+<div class="math notranslate nohighlight">
+\[S \xrightarrow{\xi} \emptyset\]</div>
+<ul class="simple">
+<li><p>Propensity functions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\lambda_1(x;\theta,\xi) = \theta \quad \lambda_2(x;\theta,\xi) = \xi x\]</div>
+<ul class="simple">
+<li><p>Stoichiometry matrix:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{pmatrix} 1 \\ -1 \end{pmatrix}\end{split}\]</div>
+<p>Find code and figures in the notebook <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs/blob/main/CRN_controlled_production_degradation/CRN_controlled_production_degradation.ipynb">CRN_controlled_production_degradation.ipynb</a>.</p>
+<figure class="align-center" id="id7">
+<a class="border reference internal image-reference" href="_images/CRN2_expgrad1_bars.jpg"><img alt="_images/CRN2_expgrad1_bars.jpg" class="border" src="_images/CRN2_expgrad1_bars.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Derivative of the expectation with respect to <span class="math notranslate nohighlight">\(\xi_1\)</span> for the Production and Degradation Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta = 1.6869, \xi_1 = 1.8234, \xi_2 = 0.3082, \xi_3 = 0.1011, \xi_4 = 1.7771\)</span>. Times <span class="math notranslate nohighlight">\(t \in [5, 10, 15, 20]\)</span>.</span><a class="headerlink" href="#id7" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id8">
+<a class="border reference internal image-reference" href="_images/CRN2_exp_results.jpeg"><img alt="_images/CRN2_exp_results.jpeg" class="border" src="_images/CRN2_exp_results.jpeg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Evolution of the abundance of <span class="math notranslate nohighlight">\(S\)</span> for the Production and Degradation Chemical Reaction Network using the parameters <span class="math notranslate nohighlight">\(\xi^*\)</span> obtained by policy search.
+Find details of the experiment in the article <span id="id2">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>.</span><a class="headerlink" href="#id8" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="bursting-gene-chemical-reaction-network">
+<h2>Bursting Gene Chemical Reaction Network<a class="headerlink" href="#bursting-gene-chemical-reaction-network" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Reactions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\emptyset \xrightarrow{\theta_1} S_1\]</div>
+<div class="math notranslate nohighlight">
+\[S_1 \xrightarrow{\theta_2} \emptyset\]</div>
+<div class="math notranslate nohighlight">
+\[S_1 \xrightarrow{\theta_3} S_1 + S_2\]</div>
+<div class="math notranslate nohighlight">
+\[S_2 \xrightarrow{\theta_4} \emptyset\]</div>
+<ul class="simple">
+<li><p>Propensity functions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{array}{lr}
+\lambda_1(x;\theta) = \theta_1(1-x_1) &amp; \lambda_2(x;\theta) = \theta_2x_1 \\
+\lambda_3(x;\theta) = \theta_3 x_1 &amp; \lambda_4(x;\theta) = \theta_4 x_2
+\end{array}\end{split}\]</div>
+<ul class="simple">
+<li><p>Stoichiometry matrix:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{pmatrix} 1 &amp; 0 \\ -1 &amp; 0 \\ 0 &amp; 1 \\ 0 &amp; -1 \end{pmatrix}\end{split}\]</div>
+<p>Find code and figures in the notebook <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs/blob/main/CRN_bursting_gene/CRN_bursting_gene.ipynb">CRN_bursting_gene.ipynb</a>.</p>
+<figure class="align-center" id="id9">
+<a class="border reference internal image-reference" href="_images/CRN4_SI_fig9.jpg"><img alt="_images/CRN4_SI_fig9.jpg" class="border" src="_images/CRN4_SI_fig9.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Sensitivites of the likelihood with respect to parameter <span class="math notranslate nohighlight">\(\theta_3\)</span> for the Bursting gene Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 0.6409, \theta_2 = 2.0359, \theta_3 = 0.2688, \theta_4 = 0.0368\)</span>.
+From left to right, top to bootom, plots correspond to times <span class="math notranslate nohighlight">\(t \in [5, 10, 15, 20]\)</span>.</span><a class="headerlink" href="#id9" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id10">
+<a class="border reference internal image-reference" href="_images/CRN4_bars_fig7.jpg"><img alt="_images/CRN4_bars_fig7.jpg" class="border" src="_images/CRN4_bars_fig7.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Element <span class="math notranslate nohighlight">\([I_t^\theta]_{22}\)</span> of the Fisher Information as a function of time for the Bursting gene Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 0.6409, \theta_2 = 2.0359, \theta_3 = 0.2688, \theta_4 = 0.0368\)</span>.</span><a class="headerlink" href="#id10" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="controlled-bursting-gene-chemical-reaction-network">
+<h2>Controlled Bursting gene Chemical Reaction Network<a class="headerlink" href="#controlled-bursting-gene-chemical-reaction-network" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Reactions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\emptyset \xrightarrow{\theta_1} S_1\]</div>
+<div class="math notranslate nohighlight">
+\[S_1 \xrightarrow{\xi} \emptyset\]</div>
+<div class="math notranslate nohighlight">
+\[S_1 \xrightarrow{\theta_2} S_1 + S_2\]</div>
+<div class="math notranslate nohighlight">
+\[S_2 \xrightarrow{\theta_3} \emptyset\]</div>
+<ul class="simple">
+<li><p>Propensity functions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\lambda_1(x;\theta) = \theta_1 (1-x_1)\]</div>
+<div class="math notranslate nohighlight">
+\[\lambda_2(x;\theta) = \xi x_1\]</div>
+<div class="math notranslate nohighlight">
+\[\lambda_3(x;\theta) = \theta_2 x_1\]</div>
+<div class="math notranslate nohighlight">
+\[\lambda_4(x;\theta) = \theta_3 x_2\]</div>
+<ul class="simple">
+<li><p>Stoichiometry matrix:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{pmatrix} 1 &amp; 0 \\ -1 &amp; 0 \\ 0 &amp; 1 \\ 0 &amp; -1 \end{pmatrix}\end{split}\]</div>
+<p>Find code and figures in the notebook <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs/blob/main/CRN_controlled_bursting_gene/CRN_controlled_bursting_gene.ipynb">CRN_controlled_bursting_gene.ipynb</a>.</p>
+<figure class="align-center" id="id11">
+<a class="border reference internal image-reference" href="_images/CRN4_expgrad1_bars.jpg"><img alt="_images/CRN4_expgrad1_bars.jpg" class="border" src="_images/CRN4_expgrad1_bars.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Gradient of the expectation with respect to <span class="math notranslate nohighlight">\(\xi_1\)</span> for the controlled Bursting gene Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 0.4622, \theta_2 = 4.9699, \theta_3 = 0.7501, \xi_1 = 0.4677, \xi_2 = 1.3301, \xi_3 = 2.2814, \xi_4 = 0.0594\)</span>.</span><a class="headerlink" href="#id11" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id12">
+<a class="border reference internal image-reference" href="_images/CRN4_exp_results.jpg"><img alt="_images/CRN4_exp_results.jpg" class="border" src="_images/CRN4_exp_results.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Evolution of the abundance of <span class="math notranslate nohighlight">\(S_2\)</span> for the controlled Bursting gene Chemical Reaction Network using the parameters <span class="math notranslate nohighlight">\(\xi^*\)</span> obtained by policy search.
+Find details of the experiment in the article <span id="id3">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>.</span><a class="headerlink" href="#id12" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+<section id="controlled-toggle-switch-chemical-reaction-network">
+<h2>Controlled Toggle switch Chemical Reaction Network<a class="headerlink" href="#controlled-toggle-switch-chemical-reaction-network" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Reactions:</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\emptyset \xrightarrow{\lambda_1} S_1 \quad \emptyset \xrightarrow{\lambda_2} S_2\]</div>
+<div class="math notranslate nohighlight">
+\[S_1 \xrightarrow{\lambda_3} \emptyset \quad S_2 \xrightarrow{\lambda_4} \emptyset\]</div>
+<ul class="simple">
+<li><p>Propensities</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{array}{ll}
+\lambda_1(x;t,\theta,\xi) = \theta_1 + \frac{\theta_3}{1+\theta_6(x_t^2)^{\theta_8}} &amp; \lambda_2(x;t,\theta,\xi) = \theta_2 + \frac{\theta_4}{1+\theta_5(x_t^1)^{\theta_7}} \\
+\lambda_3(x;t,\theta,\xi) = \theta_9 x_t^1 &amp; \lambda_4(x;t,\theta,\xi) = \xi x_t^2
+\end{array}\end{split}\]</div>
+<ul class="simple">
+<li><p>Stoichiometry matrix</p></li>
+</ul>
+<div class="math notranslate nohighlight">
+\[\begin{split}\begin{pmatrix} 1 &amp; 0 \\ -1 &amp; 0 \\ 0 &amp; 1 \\ 0 &amp; -1 \end{pmatrix}\end{split}\]</div>
+<p>Find code and figures in the notebook <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs/blob/main/CRN_controlled_toggle_switch/CRN_controlled_toggle_switch.ipynb">CRN_controlled_toggle_switch.ipynb</a>.</p>
+<figure class="align-center" id="id13">
+<a class="border reference internal image-reference" href="_images/CRN6_FI_4.jpg"><img alt="_images/CRN6_FI_4.jpg" class="border" src="_images/CRN6_FI_4.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Element <span class="math notranslate nohighlight">\([I_t^\theta]_{22}\)</span> of the Fisher Information as a function of time for the Toggle switch Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 0.7455, \theta_2 = 0.3351, \theta_3 = 0.0078, \theta_4 = 0.4656, \theta_5 = 0.0193, \theta_6 = 0.2696\)</span>,
+<span class="math notranslate nohighlight">\(\theta_7 = 2.5266, \theta_8 = 0.4108, \theta_9 = 0.68880, \xi_1 = 0.9276, \xi_2 = 0.2132, \xi_3 = 0.8062, \xi_4 = 0.3897\)</span>.</span><a class="headerlink" href="#id13" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id14">
+<a class="border reference internal image-reference" href="_images/CRN6_gradient2.jpg"><img alt="_images/CRN6_gradient2.jpg" class="border" src="_images/CRN6_gradient2.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Gradient of the expectation with respect to <span class="math notranslate nohighlight">\(\xi_1\)</span> for the controlled Toggle switch Chemical Reaction Network.
+Parameters <span class="math notranslate nohighlight">\(\theta_1 = 0.7455, \theta_2 = 0.3351, \theta_3 = 0.0078, \theta_4 = 0.4656, \theta_5 = 0.0193, \theta_6 = 0.2696\)</span>,
+<span class="math notranslate nohighlight">\(\theta_7 = 2.5266, \theta_8 = 0.4108, \theta_9 = 0.68880, \xi_1 = 0.9276, \xi_2 = 0.2132, \xi_3 = 0.8062, \xi_4 = 0.3897\)</span>.</span><a class="headerlink" href="#id14" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+<figure class="align-center" id="id15">
+<a class="border reference internal image-reference" href="_images/CRN6_exp_results.jpg"><img alt="_images/CRN6_exp_results.jpg" class="border" src="_images/CRN6_exp_results.jpg" style="width: 400px;" /></a>
+<figcaption>
+<p><span class="caption-text">Evolution of the abundance of <span class="math notranslate nohighlight">\(S_2\)</span> for the controlled Toggle switch Chemical Reaction Network using the parameters <span class="math notranslate nohighlight">\(\xi^*\)</span> obtained by policy search.
+Find details of the experiment in the article <span id="id4">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>.</span><a class="headerlink" href="#id15" title="Permalink to this image"></a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="workflow.html" class="btn btn-neutral float-left" title="Workflow" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="advice.html" class="btn btn-neutral float-right" title="Some advice on the implementation of the approach" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

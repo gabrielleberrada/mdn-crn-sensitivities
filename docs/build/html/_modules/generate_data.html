@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>generate_data &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>generate_data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for generate_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">scipy.stats.qmc</span> <span class="k">as</span> <span class="nn">qmc</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">concurrent.futures</span>
+<span class="kn">import</span> <span class="nn">simulation</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">seaborn</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+
+<div class="viewcode-block" id="CRN_Dataset"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Dataset">[docs]</a><span class="k">class</span> <span class="nc">CRN_Dataset</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to build a dataset of probability distributions for a specified CRN.</span>
+
+<span class="sd">    Args: </span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to work on.</span>
+<span class="sd">        - **sampling_times** (np.ndarray): Sampling times.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,</span>
+<span class="sd">          such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match</span>
+<span class="sd">          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. </span>
+<span class="sd">          Can also be defined when calling the ``generate_data`` function. Defaults to :math:`10^4`.</span>
+<span class="sd">        - **ind_species** (int, optional): Index of the species of interest. </span>
+<span class="sd">          The distribution generated will be the one of that species. Defaults to :math:`0`.</span>
+<span class="sd">        - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+            <span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span> 
+            <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">n_trajectories</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span> 
+            <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;SSA&#39;</span><span class="p">):</span>     
+        <span class="bp">self</span><span class="o">.</span><span class="n">crn</span> <span class="o">=</span> <span class="n">crn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_fixed_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_windows</span><span class="p">)</span>
+        <span class="c1"># number of total parameters required to fully define the process</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_n_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">sampling_times</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span> <span class="o">=</span> <span class="n">n_trajectories</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span> <span class="o">=</span> <span class="n">ind_species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">init_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span> <span class="o">=</span> <span class="n">time_windows</span>
+
+
+<div class="viewcode-block" id="CRN_Dataset.samples_probs"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Dataset.samples_probs">[docs]</a>    <span class="k">def</span> <span class="nf">samples_probs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and estimates the </span>
+<span class="sd">        corresponding distribution for the species indexed by **ind_species**.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape </span>
+<span class="sd">              :math:`(L, M_{\theta}+M_{\xi})`.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            - **samples**: List of the distributions for the corresponding species at sampling times. This list begins with time and </span>
+<span class="sd">              parameters: :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, ..., \xi^{M_{\xi}}_L, p_0(t,\theta,\xi), ...]`.</span>
+<span class="sd">            - **max_value**: Maximum value reached during simulations :math:`+ M_{\text{tot}} + 1` (for time). </span>
+<span class="sd">              Used to standardise the length to turn the list of data vectors into an array.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> 
+                                <span class="n">time_windows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                <span class="n">parameters</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> 
+                                <span class="n">method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span>
+                                <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">sampling_states</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">res</span><span class="p">))</span>
+        <span class="c1"># Counts of events for each species</span>
+        <span class="n">distr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">n_species</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+            <span class="n">distr</span><span class="p">[</span><span class="n">i</span><span class="p">,:,:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">((</span><span class="n">res</span> <span class="o">==</span> <span class="n">i</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># final output</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">control_parameters</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">):</span>
+            <span class="n">control_parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:])</span>
+        <span class="n">control_parameters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">control_parameters</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">):</span>
+            <span class="n">sample</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">])</span> <span class="o">+</span> <span class="n">control_parameters</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">distr</span><span class="p">[:,</span> <span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">])</span>
+            <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+        <span class="c1"># + 1 to count the time</span>
+        <span class="k">return</span> <span class="n">samples</span><span class="p">,</span> <span class="n">max_value</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_n_params</span> <span class="o">+</span> <span class="mi">1</span></div>
+
+<div class="viewcode-block" id="CRN_Dataset.set_length"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Dataset.set_length">[docs]</a>    <span class="k">def</span> <span class="nf">set_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">onedim_tab</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Adds enough zeros at the end of an array to adjust its length.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **onedim_tab** (np.ndarray): Array to extend. In this case, 1D array.</span>
+<span class="sd">            - **length** (int): Expected length of array.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            - The array in input with zeros at the end so that its length equals `length`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>   
+        <span class="k">return</span> <span class="n">onedim_tab</span> <span class="o">+</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">length</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">onedim_tab</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CRN_Dataset.generate_data"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Dataset.generate_data">[docs]</a>    <span class="k">def</span> <span class="nf">generate_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                    <span class="n">data_length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                    <span class="n">sobol_start</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">sobol_end</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">n_trajectories</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Generates a dataset which can be used for training, validation or testing.</span>
+<span class="sd">        Uses multiprocessing to run multiple simulations in parallel.</span>
+<span class="sd">        Parameters are generated from the Sobol Sequence (Low Discrepancy Sequence).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **data_length** (int): Length of the expected output data.</span>
+<span class="sd">            - **sobol_start** (np.ndarray): Lower boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.</span>
+<span class="sd">              If None, an array of zeros. Defaults to None.</span>
+<span class="sd">            - **sobol_end** (np.ndarray): Upper boundaries of the parameters samples. Has shape :math:`(M_{\text{tot}},)`.</span>
+<span class="sd">              If None, an array of ones. Defaults to None.</span>
+<span class="sd">            - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute to estimate the distribution. </span>
+<span class="sd">              Defaults to :math:`10^4`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            - **(X, y)**:</span>
+
+<span class="sd">                - Each entry of **X** is an input to the neural network of the form </span>
+<span class="sd">                  :math:`[t, \theta_1,..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi_1^{M_{\xi}}, \xi_2^1, ..., \xi^{M_{\xi}}_L]`.</span>
+<span class="sd">                - The corresponding entry of **y** is the estimated probability distribution for these parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sobol_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sobol_start</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sobol_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sobol_end</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span> <span class="o">=</span> <span class="n">n_trajectories</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="c1"># generating parameters theta_i</span>
+        <span class="n">sobol_theta</span> <span class="o">=</span> <span class="n">qmc</span><span class="o">.</span><span class="n">Sobol</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">)</span>
+        <span class="c1"># sobol sequence requires a power of 2</span>
+        <span class="n">n_elts</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">data_length</span><span class="p">))</span>
+        <span class="n">thetas</span> <span class="o">=</span> <span class="n">sobol_theta</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n_elts</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">sobol_end</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">]</span><span class="o">-</span><span class="n">sobol_start</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">])</span><span class="o">+</span><span class="n">sobol_start</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">]</span> 
+        <span class="c1"># to avoid all zeros</span>
+        <span class="n">thetas</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">thetas</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">sobol_theta</span><span class="o">.</span><span class="n">random</span><span class="p">()</span><span class="o">*</span><span class="p">(</span><span class="n">sobol_end</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">]</span><span class="o">-</span><span class="n">sobol_start</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">])</span><span class="o">+</span><span class="n">sobol_start</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">]</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">thetas</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># shape (n_elts, L, q_1+q_2)</span>
+        <span class="c1"># generating parameters xi_i</span>
+        <span class="n">sobol_xi</span> <span class="o">=</span> <span class="n">qmc</span><span class="o">.</span><span class="n">Sobol</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">sobol_xi</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n_elts</span><span class="p">)</span>
+        <span class="c1"># to avoid all zeros</span>
+        <span class="n">xi</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">==</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">sobol_xi</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="p">(</span><span class="n">n_elts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">))</span> <span class="c1"># shape (n_elts, L, q_1+q_2)</span>
+        <span class="c1"># rescaling</span>
+        <span class="n">xi</span> <span class="o">=</span> <span class="n">xi</span><span class="o">*</span><span class="p">(</span><span class="n">sobol_end</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:]</span> <span class="o">-</span> <span class="n">sobol_start</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:])</span> <span class="o">+</span> <span class="n">sobol_start</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:]</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">theta</span><span class="p">,</span> <span class="n">xi</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># shape (n_elts, L, M_theta + q_1+q_2)</span>
+        <span class="c1"># using multithreading to process faster</span>
+        <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ProcessPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">tqdm</span><span class="p">(</span><span class="n">executor</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples_probs</span><span class="p">,</span> <span class="n">params</span><span class="p">),</span> <span class="n">total</span><span class="o">=</span><span class="n">n_elts</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;Generating data ...&#39;</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Simulations done.&#39;</span><span class="p">)</span>
+        <span class="n">distributions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">max_value</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">distrs</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">distr</span> <span class="ow">in</span> <span class="n">distrs</span><span class="p">:</span>
+                <span class="n">distributions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">distr</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="n">max_value</span><span class="p">:</span>
+                <span class="n">max_value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="c1"># shaping distributions to turn it into an array</span>
+        <span class="n">distributions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_length</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">max_value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">distributions</span><span class="p">))</span>
+        <span class="n">distributions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">distributions</span><span class="p">)</span>
+        <span class="c1"># split &#39;distributions&#39; into input data and output data</span>
+        <span class="c1"># input data contains all the parameters used for the simulation, including the sets of parameters for each time window</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">distributions</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">total_n_params</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">distributions</span><span class="p">[:,</span> <span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">total_n_params</span><span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">/</span><span class="n">n_trajectories</span>
+        <span class="n">end</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Total time: &#39;</span><span class="p">,</span> <span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span></div></div>
+
+<div class="viewcode-block" id="CRN_Simulations"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Simulations">[docs]</a><span class="k">class</span> <span class="nc">CRN_Simulations</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to run simulations over time and to estimate the abundance evolution of a species.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **crn** (simulation.CRN): CRN to work on.</span>
+<span class="sd">        - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_T]`,</span>
+<span class="sd">          such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match</span>
+<span class="sd">          with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.</span>
+<span class="sd">        - :math:`n_{\text{trajectories}}` (int, optional): Number of trajectories to compute. Defaults to :math:`10^4`.</span>
+<span class="sd">        - **ind_species** (int, optional): Index of the species of study. Defaults to :math:`0`.</span>
+<span class="sd">        - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.</span>
+<span class="sd">        - **complete_trajectory** (bool, optional): If True, computes the complete Jump Process. If False,</span>
+<span class="sd">          computes the abundance of the species to study at the specified sampling times. Defaults to True.</span>
+<span class="sd">        - **sampling_times** (np.ndarray, optional): Sampling times. Should not be specified when **complete_trajectory** is True.</span>
+<span class="sd">          Defaults to `np.empty(0)`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>     
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+            <span class="n">crn</span><span class="p">:</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">,</span>
+            <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+            <span class="n">n_trajectories</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">,</span> 
+            <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;SSA&#39;</span><span class="p">,</span>
+            <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">crn</span> <span class="o">=</span> <span class="n">crn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_fixed_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_windows</span><span class="p">)</span>
+        <span class="c1"># number of total parameters required to fully define the process</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_n_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">n_species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span> <span class="o">=</span> <span class="n">n_trajectories</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span> <span class="o">=</span> <span class="n">ind_species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span> <span class="o">=</span> <span class="n">crn</span><span class="o">.</span><span class="n">init_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">complete_trajectory</span> <span class="o">=</span> <span class="n">complete_trajectory</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span> <span class="o">=</span> <span class="n">time_windows</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">sampling_times</span>
+
+
+<div class="viewcode-block" id="CRN_Simulations.run_simulations"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Simulations.run_simulations">[docs]</a>    <span class="k">def</span> <span class="nf">run_simulations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Runs :math:`n_{\text{trajectories}}` of Stochastic Simulations for the parameters in input and deducts the </span>
+<span class="sd">        corresponding distribution for the species indexed by **ind_species**.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape </span>
+<span class="sd">              :math:`(L, M_{\theta}+M_{\xi})`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            When **complete_trajectory** is True:</span>
+<span class="sd">                - **samples** (dict): Each key is the index of the corresponding computed trajectory. Its value is an array with the abundance </span>
+<span class="sd">                  values after each jump.</span>
+<span class="sd">                - **times** (dict): Each key is the index of the corresponding computed trajectory. Its value is an array with the times at which</span>
+<span class="sd">                  each jump occured.</span>
+<span class="sd">            When **complete_trajectory** is False:</span>
+<span class="sd">                - **samples** (np.ndarray): Measured abundance for each trajectory at the sampling times. Shape (n_trajectories, n_sampling_times).</span>
+<span class="sd">                - **times** (np.ndarray): Sampling times.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">complete_trajectory</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">times</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">)))</span>
+            <span class="n">times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span>
+        <span class="n">fixed_params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">params</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">]]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">)</span>
+        <span class="n">control_params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span><span class="p">:],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_time_windows</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span><span class="p">))</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">fixed_params</span><span class="p">,</span> <span class="n">control_params</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">sampling_times</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> 
+                                <span class="n">time_windows</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">,</span>
+                                <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span><span class="p">,</span> 
+                                <span class="n">method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span>
+                                <span class="n">complete_trajectory</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">complete_trajectory</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">complete_trajectory</span><span class="p">:</span>
+                <span class="n">times</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">))</span>
+                <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">]]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">sampling_states</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_state</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">]]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">sampling_states</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">]))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">sampling_states</span><span class="p">[:,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind_species</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crn</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">samples</span><span class="p">,</span> <span class="n">times</span></div>
+
+<div class="viewcode-block" id="CRN_Simulations.plot_simulations"><a class="viewcode-back" href="../usage.html#generate_data.CRN_Simulations.plot_simulations">[docs]</a>    <span class="k">def</span> <span class="nf">plot_simulations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                        <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                        <span class="n">targets</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                        <span class="n">save</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Plots either all the simulated trajectories if **complete_trajectory** is False or </span>
+<span class="sd">        the mean evolution of the abundance if **complete_trajectory** is True.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **params** (np.ndarray): Parameters associated to the propensity functions for each time window. Array of shape </span>
+<span class="sd">              :math:`(L, M_{\theta}+M_{\xi})`.</span>
+<span class="sd">            - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.</span>
+<span class="sd">            - **save** (Tuple[bool, str], optional): If the first argument is True, saves the plot. The second argument </span>
+<span class="sd">              is the name of the file under which to save the plot. Defaults to (False, None).</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">samples</span><span class="p">,</span> <span class="n">times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_simulations</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">complete_trajectory</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span><span class="p">):</span>
+                <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">times</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_windows</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:]))</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">stairs</span><span class="p">(</span><span class="n">values</span><span class="o">=</span><span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">edges</span><span class="o">=</span><span class="n">edges</span><span class="p">,</span> <span class="n">baseline</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">orientation</span><span class="o">=</span><span class="s1">&#39;vertical&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">transpose</span><span class="p">(),</span> <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;Abundance</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_trajectories</span><span class="p">)])</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">index</span>
+            <span class="n">data</span><span class="p">[</span><span class="s1">&#39;time&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">times</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">wide_to_long</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;Abundance&#39;</span><span class="p">],</span> <span class="n">i</span><span class="o">=</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">j</span><span class="o">=</span><span class="s1">&#39;id&#39;</span><span class="p">)</span>
+            <span class="n">seaborn</span><span class="o">.</span><span class="n">lineplot</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s1">&#39;Abundance&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># shape (n_targets,2)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">targets</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="o">=</span><span class="n">targets</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;target values&#39;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">(</span><span class="o">-</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">save</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">save</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1">.pdf&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div></div>
+
+        
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+
+    <span class="kn">from</span> <span class="nn">CRN2_control</span> <span class="kn">import</span> <span class="n">propensities_production_degradation</span> <span class="k">as</span> <span class="n">propensities</span>
+    <span class="c1"># from CRN4_control import propensities_bursting_gene as propensities</span>
+
+    <span class="n">crn</span> <span class="o">=</span> <span class="n">simulation</span><span class="o">.</span><span class="n">CRN</span><span class="p">(</span><span class="n">propensities</span><span class="o">.</span><span class="n">stoich_mat</span><span class="p">,</span> <span class="n">propensities</span><span class="o">.</span><span class="n">propensities</span><span class="p">,</span> <span class="n">init_state</span><span class="o">=</span><span class="n">propensities</span><span class="o">.</span><span class="n">init_state</span><span class="p">,</span> <span class="n">n_fixed_params</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_control_params</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">CRN_Simulations</span><span class="p">(</span><span class="n">crn</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">]),</span> <span class="mi">10_000</span><span class="p">,</span> <span class="n">propensities</span><span class="o">.</span><span class="n">ind_species</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">sampling_times</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">21</span><span class="p">))</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">plot_simulations</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">2.00432852</span><span class="p">,</span> <span class="mf">0.99680416</span><span class="p">,</span> <span class="mf">0.99743332</span><span class="p">,</span> <span class="mf">0.6582418</span><span class="p">]),</span> <span class="n">targets</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">5.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">10.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">],</span> <span class="p">[</span><span class="mf">15.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">],</span> <span class="p">[</span><span class="mf">20.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">]]))</span>
+    <span class="c1"># sim.plot_simulations(np.array([1., 2., 1., 0.9727892751672087, 1.000185943874426, 0.9999474975579944, 1.0006398944905717]), targets=np.array([[5., 1.], [10., 1.], [15., 1.], [20., 1.]]))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

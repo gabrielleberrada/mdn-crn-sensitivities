@@ -20,7 +20,6 @@ donnees.md
 optimisation_nn.ipynb
 **/*.jpeg
 **/*.pt
-docs/
 losses/
 CRN2_control/gradient_descent
 CRN4_control/gradient_descent

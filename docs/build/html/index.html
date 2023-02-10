@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Workflow" href="workflow.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="efficient-fisher-information-computation-and-policy-search-in-sampled-stochastic-chemical-reaction-networks-through-deep-learning">
+<h1>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning<a class="headerlink" href="#efficient-fisher-information-computation-and-policy-search-in-sampled-stochastic-chemical-reaction-networks-through-deep-learning" title="Permalink to this heading"></a></h1>
+<p>This project introduces a Deep-Learning based method to compute the probability mass function and the sensitivity of the likelihood of Chemical Reaction Networks in an accurate and fast manner.
+It first demonstrates the performance of the method by computing the Fisher Information, then uses the Neural Network model to perform fast Optimal Control experiments.</p>
+<section id="state-of-the-art">
+<h2>State of the art<a class="headerlink" href="#state-of-the-art" title="Permalink to this heading"></a></h2>
+<section id="the-fisher-information">
+<h3>The Fisher Information<a class="headerlink" href="#the-fisher-information" title="Permalink to this heading"></a></h3>
+<p>Computing the Fisher Information currently relies on approximating an expectation by a finite sum, which involves the probability mass
+function and the sensitivity of the likelihood.</p>
+<p>Details on the formulas and notations can be found in the section <a class="reference internal" href="math.html#background-on-the-fisher-information"><span class="std std-ref">Background on the Fisher Information</span></a>.</p>
+<section id="current-methods">
+<h4>Current methods<a class="headerlink" href="#current-methods" title="Permalink to this heading"></a></h4>
+<p>The current state-of-the-art is based on two main methods:</p>
+<ul class="simple">
+<li><p>Monte Carlo estimations associated to finite differences.</p></li>
+<li><p>The Finite State Projection (FSP) process and its Chemical Master Equation <span id="id1">[<a class="reference internal" href="sources.html#id2" title="Zachary R Fox and Brian Munsky. The finite state projection based fisher information matrix approach to estimate information and optimize single-cell experiments. PLoS Computational Biology., 15:e1006365, 2019.">FM19</a>]</span>.</p></li>
+</ul>
+</section>
+<section id="limitations">
+<h4>Limitations<a class="headerlink" href="#limitations" title="Permalink to this heading"></a></h4>
+<p>Both these methods show major limitations:</p>
+<ol class="arabic simple">
+<li><p>Both methods are affected by the curse of dimensionality when the number of species and the cardinality of their state-space increase.</p></li>
+<li><p>Monte-Carlo method estimates is both highly inefficient and biased.</p></li>
+<li><p>The accuracy of the estimated mass functions is not guaranteed to transfer to the sensitivity of the likelihood, and no error bound has currently been provided in this case.</p></li>
+<li><p>The Finite State Projection method suffers from the degradation of the estimates with time.</p></li>
+<li><p>The evaluation of the Fisher Information for different parameter configurations implies repeatedly solving a usually high-dimensional Ordinary
+Differential Equation.</p></li>
+</ol>
+</section>
+</section>
+</section>
+<section id="new-approach">
+<h2>New approach<a class="headerlink" href="#new-approach" title="Permalink to this heading"></a></h2>
+<p>To overcome these problems, we propose to use a Mixture Density Network model (as presented in <span id="id2">[<a class="reference internal" href="sources.html#id4" title="Augustinas Sukys, Kaan Ocal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. iScience., 25:105010, 2022.">SOG22</a>]</span>) to predict the probability mass function and the sensitivity of the likelihood.
+The Fisher Information will follow easily.</p>
+<p>Details on the architecture of the Mixture Density Network can be found in the section <a class="reference internal" href="neuralnetwork.html#background-on-the-architecture-of-the-mixture-density-network"><span class="std std-ref">Background on the Architecture of the Mixture Density Network</span></a>.</p>
+<section id="benefits-over-existing-methods">
+<h3>Benefits over existing methods<a class="headerlink" href="#benefits-over-existing-methods" title="Permalink to this heading"></a></h3>
+<p>Neural Networks offer an alternative way of computing the probability mass functions of Chemical Reaction Networks. Their introduction has been
+motivated by their universal approximation property, their generalisation ability and their compositional structure.</p>
+<p>The computation of composite functions gradient has been made straightforward to implement and efficient to perform thanks to the development
+of dedicated software and hardware. Taking advantages of these strengths, Mixture Density Networks showed accurate estimations of the marginal distributions
+for a range of Chemical Reaction Networks <span id="id3">[<a class="reference internal" href="sources.html#id4" title="Augustinas Sukys, Kaan Ocal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. iScience., 25:105010, 2022.">SOG22</a>]</span>.</p>
+<p>Evaluating the Fisher Information for even a large set of parameters comes at only a marginal cost and is almost instantaneous.
+Their generalisation property allows Mixture Density Networks to accurately predict distributions even for times and parameters out of the training range.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+<section id="policy-search">
+<h2>Policy search<a class="headerlink" href="#policy-search" title="Permalink to this heading"></a></h2>
+<p>Having demonstrated their efficiency and accuracy in estimating probability mass functions and sensitivities of the likelihood,
+the Mixture Density Networks can be used to accurately perform fast policy search.</p>
+<p>The aim is to control Chemical Reaction Networks at discrete time points. To do so, we perform a Projected Gradient Descent to optimise a performance index and find the optimal control parameters.</p>
+<p>Our experiments demonstrate the speed and accuracy of the Deep-Learning method to do Stochastic control of Chemical Reaction Networks. Using Deep-Learning proved to be
+<span class="math notranslate nohighlight">\(??\)</span> to <span class="math notranslate nohighlight">\(??\)</span> times faster than using the Finite State Projection method on the studied examples. Details on the experiments can be found in
+the article <span id="id4">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span> as well as the notebooks presented for each example in the <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs">Github repository</a>.</p>
+<p>Details on the formulas, the Projected Gradient Descent algorithm and the notations can be found in the section
+<a class="reference internal" href="control.html#background-on-the-stochastic-control-of-chemical-reaction-networks"><span class="std std-ref">Background on the Stochastic control of Chemical Reaction Networks</span></a>.</p>
+</section>
+<section id="user-guide">
+<h2>User guide<a class="headerlink" href="#user-guide" title="Permalink to this heading"></a></h2>
+<p>The Python implementation has been made available online on the <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs">GitHub repository DL_based_Control_of_CRNs repository</a>.
+The complete method is described and illustrated in the following sections.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Workflow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-1-specify-the-chemical-reaction-network-to-work-on">Step 1: Specify the Chemical Reaction Network to work on</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-2-generate-the-datasets">Step 2: Generate the Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-3-import-data">Step 3: Import data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-4-train-the-mixture-density-network">Step 4: Train the Mixture Density Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-5-estimate-the-probability-mass-functions-and-sensitivities-of-the-likelihood">Step 5: Estimate the probability mass functions and sensitivities of the likelihood</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#predict-probability-mass-function">Predict probability mass function</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#predict-the-sensitivity-of-the-likelihood">Predict the sensitivity of the likelihood</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-6a-estimate-the-fisher-information">Step 6A: Estimate the Fisher Information</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-6b-estimate-the-expectation-and-its-gradient">Step 6B: Estimate the expectation and its gradient</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#step-7-find-the-optimal-control-parameters">Step 7: Find the optimal control parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="workflow.html#optional-steps">Optional steps</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#compare-with-finite-state-projection-results">Compare with Finite State Projection results</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#use-regularisation-methods">Use regularisation methods</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#tune-hyperparameters">Tune hyperparameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#plot-probability-distributions-and-sensitivities-distributions">Plot probability distributions and sensitivities distributions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#plot-the-fisher-information-values-in-a-table-or-in-barplots">Plot the Fisher Information values in a table or in barplots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#plot-the-expectation-and-its-gradient-in-a-table-or-in-barplots">Plot the expectation and its gradient in a table or in barplots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#store-and-load-mixture-density-networks-weights">Store and load Mixture Density Networks weights</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflow.html#estimate-the-loss-of-the-projected-gradient-descent-based-on-stochastic-simulations">Estimate the loss of the Projected Gradient Descent based on Stochastic Simulations</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="demos.html">Examples of Chemical Reaction Networks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="demos.html#production-and-degradation-chemical-reaction-network">Production and Degradation Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="demos.html#controlled-production-and-degradation-chemical-reaction-network">Controlled Production and Degradation Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="demos.html#bursting-gene-chemical-reaction-network">Bursting Gene Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="demos.html#controlled-bursting-gene-chemical-reaction-network">Controlled Bursting gene Chemical Reaction Network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="demos.html#controlled-toggle-switch-chemical-reaction-network">Controlled Toggle switch Chemical Reaction Network</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="advice.html">Some advice on the implementation of the approach</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="advice.html#which-mixture-should-i-choose">Which mixture should I choose?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advice.html#do-i-need-to-use-regularisation-methods-while-training">Do I need to use regularisation methods while training?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advice.html#how-can-i-detect-overfitting">How can I detect overfitting?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advice.html#how-do-i-deal-with-overfitting">How do I deal with overfitting?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advice.html#how-many-simulations-should-i-run-to-create-a-dataset">How many simulations should I run to create a dataset?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advice.html#what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm">What hyperparameters should I choose for the Projected Gradient Descent Algorithm?</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<p>For information on a specific function, class or method:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#simulating-chemical-reaction-networks-using-stochastic-simulation-algorithms">Simulating Chemical Reaction Networks using Stochastic Simulation Algorithms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#simulation.CRN"><code class="docutils literal notranslate"><span class="pre">CRN</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#simulation.CRN.reset"><code class="docutils literal notranslate"><span class="pre">CRN.reset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#simulation.CRN.simulation"><code class="docutils literal notranslate"><span class="pre">CRN.simulation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#simulation.CRN.step"><code class="docutils literal notranslate"><span class="pre">CRN.step()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#simulation.StochasticSimulation"><code class="docutils literal notranslate"><span class="pre">StochasticSimulation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#simulation.StochasticSimulation.SSA"><code class="docutils literal notranslate"><span class="pre">StochasticSimulation.SSA()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#simulation.StochasticSimulation.mNRM"><code class="docutils literal notranslate"><span class="pre">StochasticSimulation.mNRM()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#multiple-simulations">Multiple simulations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#generate_data.CRN_Dataset"><code class="docutils literal notranslate"><span class="pre">CRN_Dataset</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="usage.html#generate_data.CRN_Dataset.generate_data"><code class="docutils literal notranslate"><span class="pre">CRN_Dataset.generate_data()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="usage.html#generate_data.CRN_Dataset.samples_probs"><code class="docutils literal notranslate"><span class="pre">CRN_Dataset.samples_probs()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="usage.html#generate_data.CRN_Dataset.set_length"><code class="docutils literal notranslate"><span class="pre">CRN_Dataset.set_length()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#generate_data.CRN_Simulations"><code class="docutils literal notranslate"><span class="pre">CRN_Simulations</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="usage.html#generate_data.CRN_Simulations.plot_simulations"><code class="docutils literal notranslate"><span class="pre">CRN_Simulations.plot_simulations()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="usage.html#generate_data.CRN_Simulations.run_simulations"><code class="docutils literal notranslate"><span class="pre">CRN_Simulations.run_simulations()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#saving-data">Saving data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#convert_csv.array_to_csv"><code class="docutils literal notranslate"><span class="pre">array_to_csv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#convert_csv.csv_to_array"><code class="docutils literal notranslate"><span class="pre">csv_to_array()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#convert_csv.csv_to_tensor"><code class="docutils literal notranslate"><span class="pre">csv_to_tensor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#generate_csv.generate_csv_datasets"><code class="docutils literal notranslate"><span class="pre">generate_csv_datasets()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#generate_csv.generate_csv_simulations"><code class="docutils literal notranslate"><span class="pre">generate_csv_simulations()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#building-and-training-a-mixture-density-network">Building and training a Mixture Density Network</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.NeuralNetwork"><code class="docutils literal notranslate"><span class="pre">NeuralNetwork</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#neuralnetwork.NeuralNetwork.forward"><code class="docutils literal notranslate"><span class="pre">NeuralNetwork.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.distr_pdf"><code class="docutils literal notranslate"><span class="pre">distr_pdf()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.mix_pdf"><code class="docutils literal notranslate"><span class="pre">mix_pdf()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.loss_kldivergence"><code class="docutils literal notranslate"><span class="pre">loss_kldivergence()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.loss_hellinger"><code class="docutils literal notranslate"><span class="pre">loss_hellinger()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.mean_loss"><code class="docutils literal notranslate"><span class="pre">mean_loss()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.NNTrainer"><code class="docutils literal notranslate"><span class="pre">NNTrainer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#neuralnetwork.NNTrainer.early_stopping"><code class="docutils literal notranslate"><span class="pre">NNTrainer.early_stopping()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#neuralnetwork.NNTrainer.update_losses"><code class="docutils literal notranslate"><span class="pre">NNTrainer.update_losses()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.train_round"><code class="docutils literal notranslate"><span class="pre">train_round()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#neuralnetwork.train_NN"><code class="docutils literal notranslate"><span class="pre">train_NN()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#computing-probability-mass-functions-and-the-sensitivity-of-the-likelihood">Computing probability mass functions and the sensitivity of the likelihood</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#get_sensitivities.probabilities"><code class="docutils literal notranslate"><span class="pre">probabilities()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#get_sensitivities.sensitivities"><code class="docutils literal notranslate"><span class="pre">sensitivities()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#computing-the-fisher-information">Computing the Fisher Information</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#get_fi.fisher_information_t"><code class="docutils literal notranslate"><span class="pre">fisher_information_t()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#get_fi.fisher_information"><code class="docutils literal notranslate"><span class="pre">fisher_information()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#computing-the-expectation-and-its-gradient">Computing the expectation and its gradient</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#get_sensitivities.expected_val"><code class="docutils literal notranslate"><span class="pre">expected_val()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#get_sensitivities.gradient_expected_val"><code class="docutils literal notranslate"><span class="pre">gradient_expected_val()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#performing-a-projected-gradient-descent">Performing a Projected Gradient Descent</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent.projected_gradient_descent"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent.projected_gradient_descent()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.optimisation"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.optimisation()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_abundances"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.plot_abundances()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_control_params_trajectory"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.plot_control_params_trajectory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_control_values"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.plot_control_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_gradients_trajectory"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.plot_gradients_trajectory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_losses_trajectory"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.plot_losses_trajectory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_CRN.plot_performance_index"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_CRN.plot_performance_index()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_MDN"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_MDN</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_MDN.create_gradient"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_MDN.create_gradient()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_MDN.create_loss"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_MDN.create_loss()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#projected_gradient_descent.control_method"><code class="docutils literal notranslate"><span class="pre">control_method()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#training_pgd.pgdMDN"><code class="docutils literal notranslate"><span class="pre">pgdMDN()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#tuning-hyperparameters">Tuning hyperparameters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#hyperparameters_test.test_comb"><code class="docutils literal notranslate"><span class="pre">test_comb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#hyperparameters_tuning.test_multiple_combs"><code class="docutils literal notranslate"><span class="pre">test_multiple_combs()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#comparing-with-the-finite-state-projection-method">Comparing with the Finite State Projection method</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#fsp.StateSpaceEnumeration"><code class="docutils literal notranslate"><span class="pre">StateSpaceEnumeration</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.StateSpaceEnumeration.create_bijection"><code class="docutils literal notranslate"><span class="pre">StateSpaceEnumeration.create_bijection()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.StateSpaceEnumeration.phi"><code class="docutils literal notranslate"><span class="pre">StateSpaceEnumeration.phi()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.StateSpaceEnumeration.phi_inverse"><code class="docutils literal notranslate"><span class="pre">StateSpaceEnumeration.phi_inverse()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.constant_matrix"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.constant_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.create_gdrv"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.create_gdrv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.create_gdrv_B"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.create_gdrv_B()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.create_generator"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.create_generator()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.create_generator_derivative"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.create_generator_derivative()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.expected_val"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.expected_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.gradient_expected_val"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.gradient_expected_val()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.marginal"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.marginal()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.marginals"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.marginals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.reset"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.reset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.solve_multiple_odes"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.solve_multiple_odes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#fsp.SensitivitiesDerivation.solve_ode"><code class="docutils literal notranslate"><span class="pre">SensitivitiesDerivation.solve_ode()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_FSP"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_FSP</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_FSP.create_gradient"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_FSP.create_gradient()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="usage.html#projected_gradient_descent.ProjectedGradientDescent_FSP.create_loss"><code class="docutils literal notranslate"><span class="pre">ProjectedGradientDescent_FSP.create_loss()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#training_pgd.pgdFSP"><code class="docutils literal notranslate"><span class="pre">pgdFSP()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#plotting-distributions-fisher-information-and-expectations">Plotting distributions, Fisher Information and expectations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#plot.plot_model"><code class="docutils literal notranslate"><span class="pre">plot_model()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#plot.multiple_plots"><code class="docutils literal notranslate"><span class="pre">multiple_plots()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#plotting-fisher-information-results">Plotting Fisher Information results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#plot.fi_table"><code class="docutils literal notranslate"><span class="pre">fi_table()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#plot.fi_barplots"><code class="docutils literal notranslate"><span class="pre">fi_barplots()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#plotting-expectation-results">Plotting expectation results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#plot.expect_val_table"><code class="docutils literal notranslate"><span class="pre">expect_val_table()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#plot.expect_val_barplots"><code class="docutils literal notranslate"><span class="pre">expect_val_barplots()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#saving-and-loading-a-mixture-density-network">Saving and loading a Mixture Density Network</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#save_load_MDN.save_MDN_model"><code class="docutils literal notranslate"><span class="pre">save_MDN_model()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#save_load_MDN.load_MDN_model"><code class="docutils literal notranslate"><span class="pre">load_MDN_model()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<p>For more information on the theoretical results:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="neuralnetwork.html#mixture-density-networks-for-uncontrolled-reaction-networks">Mixture Density Networks for uncontrolled Reaction Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neuralnetwork.html#mixture-density-networks-for-controlled-reaction-networks">Mixture Density Networks for controlled Reaction Networks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Background on the Fisher Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="math.html#chemical-reaction-networks">Chemical Reaction Networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="math.html#approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood">Approximation of the mass function and the sensitivity of the likelihood</a></li>
+<li class="toctree-l2"><a class="reference internal" href="math.html#fisher-information-of-sampled-chemical-reaction-networks">Fisher Information of sampled Chemical Reaction Networks</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources.html">Sources</a></li>
+</ul>
+</div>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="workflow.html" class="btn btn-neutral float-right" title="Workflow" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

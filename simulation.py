@@ -127,7 +127,7 @@ class CRN:
 
 class StochasticSimulation: 
     """
-    Class to run a simulation between two time points of the same time window using the Stochastic Simulation Algorithm.
+    Class to run a simulation between two time points of the same time window using the Stochastic Simulation Algorithm :cite:`gillespie1976general`.
     
     Args:
         - :math:`x_0` (np.ndarray): Initial state.

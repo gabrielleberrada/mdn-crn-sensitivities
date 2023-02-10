@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Some advice on the implementation of the approach &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Documentation" href="usage.html" />
+    <link rel="prev" title="Examples of Chemical Reaction Networks" href="demos.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Some advice on the implementation of the approach</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#which-mixture-should-i-choose">Which mixture should I choose?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#do-i-need-to-use-regularisation-methods-while-training">Do I need to use regularisation methods while training?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-can-i-detect-overfitting">How can I detect overfitting?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-do-i-deal-with-overfitting">How do I deal with overfitting?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-many-simulations-should-i-run-to-create-a-dataset">How many simulations should I run to create a dataset?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm">What hyperparameters should I choose for the Projected Gradient Descent Algorithm?</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Some advice on the implementation of the approach</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/advice.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="some-advice-on-the-implementation-of-the-approach">
+<h1>Some advice on the implementation of the approach<a class="headerlink" href="#some-advice-on-the-implementation-of-the-approach" title="Permalink to this heading"></a></h1>
+<p>Here are some general observations regarding Mixture Density Networks.</p>
+<section id="which-mixture-should-i-choose">
+<h2>Which mixture should I choose?<a class="headerlink" href="#which-mixture-should-i-choose" title="Permalink to this heading"></a></h2>
+<p>It is recommended to choose a Negative Binomial mixture as it has performed better in all studied examples.
+It tends to fit various distributions better and also avoids overfitting the data.</p>
+</section>
+<section id="do-i-need-to-use-regularisation-methods-while-training">
+<h2>Do I need to use regularisation methods while training?<a class="headerlink" href="#do-i-need-to-use-regularisation-methods-while-training" title="Permalink to this heading"></a></h2>
+<p>As long as the model does not overfit, no need need to use regularisation terms. In most of the studied examples,
+models showed a good generalization ability.</p>
+</section>
+<section id="how-can-i-detect-overfitting">
+<h2>How can I detect overfitting?<a class="headerlink" href="#how-can-i-detect-overfitting" title="Permalink to this heading"></a></h2>
+<p>Overfitting can be indicate by a higher final loss for the validation dataset compared to the training dataset.</p>
+<p>To confirm or refute overfitting, you can plot the training and validation losses produced by the training function.
+If the validation loss curve is increasing after a certain number of iterations, it suggests that the model is overfitting.</p>
+<p>You can plot the losses using the following code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">neuralnetwork</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">NeuralNetwork</span><span class="p">(</span><span class="n">n_comps</span><span class="o">=</span><span class="n">N_COMPS</span><span class="p">,</span> <span class="n">n_params</span><span class="o">=</span><span class="n">NUM_PARAMS</span><span class="p">,</span> <span class="n">n_hidden</span><span class="o">=</span><span class="n">N_HIDDEN</span><span class="p">,</span> <span class="n">mixture</span><span class="o">=</span><span class="n">mixture</span><span class="p">)</span>
+<span class="n">train_losses</span><span class="p">,</span> <span class="n">valid_losses</span> <span class="o">=</span> <span class="n">neuralnetwork</span><span class="o">.</span><span class="n">train_NN</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">valid_data</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">neuralnetwork</span><span class="o">.</span><span class="n">loss_kldivergence</span><span class="p">,</span> <span class="n">max_rounds</span><span class="o">=</span><span class="n">N_ITER</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">LR</span><span class="p">,</span> <span class="n">batchsize</span><span class="o">=</span><span class="n">BATCHSIZE</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">train_losses</span><span class="p">,</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Training loss&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">valid_losses</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Validation loss&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="how-do-i-deal-with-overfitting">
+<h2>How do I deal with overfitting?<a class="headerlink" href="#how-do-i-deal-with-overfitting" title="Permalink to this heading"></a></h2>
+<p>There are various methods to improve a Neural Network generalisation ability.</p>
+<p>The implemented code already allows to add a <span class="math notranslate nohighlight">\(\ell_2\)</span>-regularisation term or to use an early stopping method.</p>
+<p>Early stopping works as follows: At epoch <span class="math notranslate nohighlight">\(n\)</span>, it compares pairwise the loss of the <span class="math notranslate nohighlight">\((n-n_p)\)</span>-th epoch with that of the last <span class="math notranslate nohighlight">\(n_p\)</span> epochs.
+The Neural Network is considered to have improved if the decrease between the elements of one of those pairs is greater than <span class="math notranslate nohighlight">\(\delta\)</span>.
+If the Neural Network has not improved, the descent is stopped.</p>
+</section>
+<section id="how-many-simulations-should-i-run-to-create-a-dataset">
+<h2>How many simulations should I run to create a dataset?<a class="headerlink" href="#how-many-simulations-should-i-run-to-create-a-dataset" title="Permalink to this heading"></a></h2>
+<p>It is recommended to run multiple simulations for each data to deduce the appropriate probability mass function.
+At least <span class="math notranslate nohighlight">\(10^4\)</span> simulations should be run to ensure that the mass function is accurate enough.</p>
+<p>The size of the training dataset depends on the complexity of the mass function to predict. For simple systems,
+a dateset size of <span class="math notranslate nohighlight">\(10^3\)</span> has been used. For more complex systems, a larger dataset may be necessary. For instance,
+the dataset size used for the controlled Toggle switch Reaction Network was around <span class="math notranslate nohighlight">\(4 \cdot 10^4\)</span>.</p>
+</section>
+<section id="what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm">
+<h2>What hyperparameters should I choose for the Projected Gradient Descent Algorithm?<a class="headerlink" href="#what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm" title="Permalink to this heading"></a></h2>
+<p>Hyperparameters are crucial for the Projected Gradient Descent algorithm to perform well.</p>
+<p>The step size <span class="math notranslate nohighlight">\(\gamma\)</span> is usually taken between <span class="math notranslate nohighlight">\(10^{-3}\)</span> and <span class="math notranslate nohighlight">\(1\)</span>.
+The maximal number of iterations parameter guarantees the termination of the program. It should be set high enough to never be reached.</p>
+<p>The hyperparameters can be tuned by testing multiple combinations and choosing the most efficient one, just as for the Neural Network hyperparameters:.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="demos.html" class="btn btn-neutral float-left" title="Examples of Chemical Reaction Networks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="usage.html" class="btn btn-neutral float-right" title="API Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
