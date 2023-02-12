@@ -121,7 +121,7 @@ the Mixture Density Networks can be used to accurately perform fast policy searc
 The aim is to control Chemical Reaction Networks at discrete time points. To do so, we perform a Projected Gradient Descent to optimise a performance index and find the optimal control parameters.
 
 Our experiments demonstrate the speed and accuracy of the Deep-Learning method to do Stochastic control of Chemical Reaction Networks. Using Deep-Learning proved to be 
-:math:`??` to :math:`??` times faster than using the Finite State Projection method on the studied examples. Details on the experiments can be found in 
+:math:`31` to :math:`824` times faster than using the Finite State Projection method on the studied examples. Details on the experiments can be found in 
 the article :cite:`policysearch2023` as well as the notebooks presented for each example in the `Github repository <https://github.com/gabrielleberrada/DL_based_Control_of_CRNs>`_.
 
 Details on the formulas, the Projected Gradient Descent algorithm and the notations can be found in the section 
