@@ -89,14 +89,14 @@ Here is an example:
     NUM_PARAMS = num_params
 
     # loading data
-    X_train1 = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_train.csv')
-    y_train1 = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_train.csv')
+    X_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/data/X_{CRN_NAME}_train1.csv')
+    y_train = convert_csv.csv_to_tensor(f'{FILE_NAME}/data/y_{CRN_NAME}_train1.csv')
 
-    X_valid1 = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_valid.csv')
-    y_valid1 = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_valid.csv')
+    X_valid = convert_csv.csv_to_tensor(f'{FILE_NAME}/data/X_{CRN_NAME}_valid1.csv')
+    y_valid = convert_csv.csv_to_tensor(f'{FILE_NAME}/data/y_{CRN_NAME}_valid1.csv')
 
-    X_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/X_{CRN_NAME}_test.csv')
-    y_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/y_{CRN_NAME}_test.csv')
+    X_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/data/X_{CRN_NAME}_test.csv')
+    y_test = convert_csv.csv_to_tensor(f'{FILE_NAME}/data/y_{CRN_NAME}_test.csv')
 
     train_data = [X_train, y_train]
     valid_data = [X_valid, y_valid]
@@ -110,6 +110,13 @@ Once the hyperparameters are defined, a Mixture Density Network can be trained o
 
 .. code-block:: python
 
+    # hyperparameters
+    N_HIDDEN = 128
+    mixture = 'NB'
+    N_ITER = 700
+    LR = 0.005
+    BATCHSIZE = 64 
+    # training
     model = neuralnetwork.NeuralNetwork(n_comps=N_COMPS, n_params=NUM_PARAMS, n_hidden=N_HIDDEN, mixture=mixture)
     train_losses, valid_losses = neuralnetwork.train_NN(model, train_data, valid_data, loss=neuralnetwork.loss_kldivergence, max_rounds=N_ITER, lr=LR, batchsize=BATCHSIZE)
 

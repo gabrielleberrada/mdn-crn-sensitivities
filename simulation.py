@@ -26,7 +26,8 @@ class CRN:
                 n_fixed_params: int,
                 n_control_params: int =0,
                 propensities_drv: np.ndarray =None,
-                exact_distr: Tuple[bool, Tuple[Callable], Tuple[Callable]] =(False, None, None)):
+                exact_distr: Tuple[bool, Tuple[Callable], Tuple[Callable]] =(False, None, None),
+                seed: int =1):
         # stoichiometry_mat has shape (n_species, n_reactions)
         self.stoichiometry_mat = stoichiometry_mat
         # total number of reactions, including those whose parameters change
@@ -44,6 +45,9 @@ class CRN:
         if exact_distr[0]:
             self.exact_distr = exact_distr[1]
             self.exact_sensitivities_prob = exact_distr[2]
+        self.seed = seed
+        np.random.seed(self.seed)
+        random.seed(self.seed)
 
     def step(self, 
             init_state: np.ndarray, 
@@ -114,7 +118,7 @@ class CRN:
                         method=method,
                         complete_trajectory=complete_trajectory)
 
-    def reset(self):
+    def reset(self, seed=None):
         """Resets the CRN to the initial setting: sets the time to :math:`t=0`, the current state to the initial state and
         empties the sampling times and samples arrays.
         """
@@ -122,6 +126,10 @@ class CRN:
         self.current_state = self.init_state.copy()
         self.sampling_times = np.empty(0)                   
         self.sampling_states = np.empty((0, self.n_species))
+        if seed is None:
+            seed = self.seed
+        np.random.seed(seed)
+        random.seed(seed)
 
 
 

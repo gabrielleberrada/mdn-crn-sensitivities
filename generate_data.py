@@ -70,7 +70,7 @@ class CRN_Dataset:
                                 method=self.method,
                                 complete_trajectory=False)
             res.append(self.crn.sampling_states)
-            self.crn.reset()
+            self.crn.reset(i)
         res = np.array(res)
         max_value = int(np.max(res))
         # Counts of events for each species
@@ -253,7 +253,7 @@ class CRN_Simulations:
                     samples[i,:] = np.concatenate((np.array([self.initial_state[self.ind_species]]), self.crn.sampling_states[:, self.ind_species]))
                 else:
                     samples[i,:] = self.crn.sampling_states[:, self.ind_species]
-            self.crn.reset()
+            self.crn.reset(i)
         return samples, times
 
     def plot_simulations(self, 
