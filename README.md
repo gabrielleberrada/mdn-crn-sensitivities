@@ -1,5 +1,5 @@
-# Efficient Fisher Information Computation and Policy Search for Sampled Stochastic Chemical Reaction Networks using Deep Learning - Codes
+# Efficient Fisher Information computation and policy search in sampled stochastic chemical reaction networks through deep learning
 
-This repository contains the Python implementation of the article "Efficient Fisher Information Computation and Policy Search for Sampled Stochastic Chemical Reaction Networks using Deep Learning.
+This is the code accompanying the manuscript titled _Efficient Fisher Information computation and policy search in sampled stochastic chemical reaction networks through deep learning_ by Quentin Badolle, Gabrielle Berrada and Mustafa Khammash.
 
-All examples of Chemical Reaction Networks can be found in the corresponding folder _CRN\_[name]_.
+All examples of Chemical Reaction Networks (CRNs) can be found in the corresponding folder _CRN\_[name]_.
