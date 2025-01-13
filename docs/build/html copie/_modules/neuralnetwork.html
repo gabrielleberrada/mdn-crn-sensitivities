@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>neuralnetwork &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>neuralnetwork</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for neuralnetwork</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Tuple</span>
+
+
+<div class="viewcode-block" id="NeuralNetwork"><a class="viewcode-back" href="../usage.html#neuralnetwork.NeuralNetwork">[docs]</a><span class="k">class</span> <span class="nc">NeuralNetwork</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to build a Mixture Density Network.</span>
+<span class="sd">    Based on :cite:`sukys2022nessie`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **n_comps** (int): Number of components of the output mixture.</span>
+<span class="sd">        - **n_params** (int): Number of parameters in input :math:`M_{\text{tot}}`, excluding the time parameter.</span>
+<span class="sd">        - **n_hidden** (int, optional): Number of neurons in the hidden layer. Defaults to :math:`128`.</span>
+<span class="sd">        - **mixture** (str, optional): Type of mixture to compute. Defaults to `NB` for a Negative Binomial mixture.</span>
+<span class="sd">          Can also be `Poisson` for a Poisson mixture.</span>
+<span class="sd">        - **print_info** (bool, optional): If True, prints &#39;Mixture Density Network created&#39; once the Neural Network is built. </span>
+<span class="sd">          Defaults to True.</span>
+<span class="sd">    &quot;&quot;&quot;</span>                
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                <span class="n">n_comps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                <span class="n">n_params</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                <span class="n">n_hidden</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+                <span class="n">mixture</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;NB&#39;</span><span class="p">,</span>
+                <span class="n">print_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NeuralNetwork</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mixture</span> <span class="o">=</span> <span class="n">mixture</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_comps</span> <span class="o">=</span> <span class="n">n_comps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_params</span> <span class="o">=</span> <span class="n">n_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_hidden</span> <span class="o">=</span> <span class="n">n_hidden</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_layer</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">n_params</span><span class="p">,</span> <span class="n">n_hidden</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_actf</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span>
+        <span class="c1"># initializing with Glorot Uniform method</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_layer</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="c1"># weights layer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">n_hidden</span><span class="p">,</span> <span class="n">n_comps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_actf1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Softmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer1</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="c1"># parameters layer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">n_hidden</span><span class="p">,</span> <span class="n">n_comps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_actf2</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer2</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mixture</span> <span class="o">==</span> <span class="s1">&#39;NB&#39;</span><span class="p">:</span>
+            <span class="c1"># success probabilities layer</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">n_hidden</span><span class="p">,</span> <span class="n">n_comps</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_actf3</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer3</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">print_info</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Mixture Density Network created.&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NeuralNetwork.forward"><a class="viewcode-back" href="../usage.html#neuralnetwork.NeuralNetwork.forward">[docs]</a>    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">]:</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Runs the forward function of the Mixture Density Network.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **input** (torch.tensor): The input parameters to predict: </span>
+<span class="sd">              :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}},\xi_2^1, ..., \xi^{M_{\xi}}_L]`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            - A tuple of three tensors.</span>
+<span class="sd">                - **layer_ww**: Mixture weights.</span>
+
+<span class="sd">                For a Negative Binomial Mixture:</span>
+<span class="sd">                    - **layer_rr**: Count parameters.</span>
+<span class="sd">                    - **layer_pp**: Success probabilities.</span>
+
+<span class="sd">                For a Poisson Mixture:</span>
+<span class="sd">                    - **layer_rr**: Rate parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_layer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hidden_actf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">layer_ww</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">layer_ww</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_actf1</span><span class="p">(</span><span class="n">layer_ww</span><span class="p">)</span>
+        <span class="n">layer_rr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">layer_rr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_actf2</span><span class="p">(</span><span class="n">layer_rr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mixture</span> <span class="o">==</span> <span class="s1">&#39;NB&#39;</span><span class="p">:</span>
+            <span class="n">layer_pp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">MNBOutputLayer3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">layer_pp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_actf3</span><span class="p">(</span><span class="n">layer_pp</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">layer_ww</span><span class="p">,</span> <span class="n">layer_rr</span><span class="p">,</span> <span class="n">layer_pp</span>
+        <span class="k">return</span> <span class="n">layer_ww</span><span class="p">,</span> <span class="n">layer_rr</span></div></div>
+
+
+<span class="c1"># Negative Binomial mixtures</span>
+
+<div class="viewcode-block" id="distr_pdf"><a class="viewcode-back" href="../usage.html#neuralnetwork.distr_pdf">[docs]</a><span class="k">def</span> <span class="nf">distr_pdf</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">],</span>
+        <span class="n">k</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+        <span class="n">mixture</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Computes the probability density function (pdf) of the components of the mixture.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **params** (Tuple[torch.tensor]): Parameters needed to define the probability distribution.</span>
+<span class="sd">        - **k** (torch.tensor): Points at which to evaluate the pdf.</span>
+<span class="sd">        - **mixture** (str): Name of the chosen distribution for the mixture.</span>
+<span class="sd">        - **eps** (float, optional): Corrective term since a Negative Binomial cannot be evaluated at :math:`p=1.0`.</span>
+<span class="sd">          Defaults to :math:`10^{-5}`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - The pdf of the distribution evaluated at **k**.</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="c1"># NB distribution</span>
+    <span class="k">if</span> <span class="n">mixture</span> <span class="o">==</span> <span class="s1">&#39;NB&#39;</span><span class="p">:</span>
+        <span class="c1"># Here r is the number of successes but pytorch requires a number of failures.</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="n">corrected_p</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">p</span>
+        <span class="c1"># to avoid errors with very small probabilities</span>
+        <span class="n">corrected_p</span><span class="p">[</span><span class="n">corrected_p</span> <span class="o">==</span> <span class="mf">1.</span><span class="p">]</span> <span class="o">-=</span> <span class="n">eps</span>
+        <span class="n">distr</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">negative_binomial</span><span class="o">.</span><span class="n">NegativeBinomial</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">corrected_p</span><span class="p">)</span>
+        <span class="n">prob</span> <span class="o">=</span> <span class="n">distr</span><span class="o">.</span><span class="n">log_prob</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+    <span class="c1"># Poisson distribution</span>
+    <span class="k">if</span> <span class="n">mixture</span> <span class="o">==</span> <span class="s1">&#39;Poisson&#39;</span><span class="p">:</span>
+        <span class="c1"># Here p is the rate of the process.</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">corrected_r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+        <span class="n">corrected_r</span><span class="p">[</span><span class="n">corrected_r</span> <span class="o">&lt;</span> <span class="n">eps</span><span class="p">]</span> <span class="o">+=</span> <span class="n">eps</span>
+        <span class="n">distr</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">poisson</span><span class="o">.</span><span class="n">Poisson</span><span class="p">(</span><span class="n">corrected_r</span><span class="p">)</span>
+        <span class="n">prob</span> <span class="o">=</span> <span class="n">distr</span><span class="o">.</span><span class="n">log_prob</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="c1"># to avoid errors with very small probabilities</span>
+        <span class="n">prob</span><span class="p">[</span><span class="n">prob</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">10</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">prob</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mix_pdf"><a class="viewcode-back" href="../usage.html#neuralnetwork.mix_pdf">[docs]</a><span class="k">def</span> <span class="nf">mix_pdf</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">NeuralNetwork</span><span class="p">,</span> 
+            <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+            <span class="n">yy</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span>
+            <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the predicted distribution of the Neural Network at input points **x** and evaluates its pdf at points **yy**.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters of the distribution mixture:</span>
+<span class="sd">        - **ww**: Weights of the mixture.</span>
+<span class="sd">        - **params**: Parameters to define the distribution.</span>
+
+<span class="sd">    A distribution mixture evaluated at point **k** is given by:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        q(k) = \sum_i w_i \text{Distr}(k, \text{params}_i)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **model** (NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **x** (torch.tensor): Input points, </span>
+<span class="sd">          :math:`[t, \theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, \xi_1^2, ..., \xi_1^{M_{\xi}}, ..., \xi_L^{M_{\xi}}]`.</span>
+<span class="sd">        - **yy** (torch.tensor): Points at which to evaluate the pdf.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - The pdf of a mixture of distributions evaluated at **k**.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">ww</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">output</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">distr_pdf</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">mixture</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">mixture</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<span class="c1">## Losses functions</span>
+
+<div class="viewcode-block" id="loss_kldivergence"><a class="viewcode-back" href="../usage.html#neuralnetwork.loss_kldivergence">[docs]</a><span class="k">def</span> <span class="nf">loss_kldivergence</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+                    <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+                    <span class="n">model</span><span class="p">:</span> <span class="n">NeuralNetwork</span>
+                    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the Kullback-Leibler divergence from the predicted distribution at input points **x** to the expected output **y**.</span>
+
+<span class="sd">   For tensors of the same shape :math:`\hat{y}` and :math:`y`:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        KL(y, \hat{y}) = y \log \bigl(\frac{y}{\hat{y}}\bigl)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **x** (torch.tensor): Vector of inputs.</span>
+<span class="sd">        - **y** (torch.tensor): Expected vector of outputs :math:`y`.</span>
+<span class="sd">        - **model** (NeuralNetwork): Mixture Density Network model.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - :math:`KL(y, \hat{y})`: Kullback-Leibler divergence between the predicted fistribution of the Neural Network at input</span>
+<span class="sd">          points **x** and the expected output **y**.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">y_size</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">dim0</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dim0</span> <span class="o">=</span> <span class="n">y_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># to provide a set of points at which to evaluate the pdf for each input point.</span>
+    <span class="n">mat_k</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">y_size</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">dim0</span><span class="p">,</span><span class="n">model</span><span class="o">.</span><span class="n">n_comps</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">mix_pdf</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mat_k</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># correction: gradient of log is not defined near 0</span>
+    <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="o">&lt;</span><span class="mf">1e-10</span><span class="p">]</span><span class="o">=</span><span class="mf">1e-10</span>
+    <span class="n">y</span><span class="p">[</span><span class="n">y</span><span class="o">&lt;</span><span class="mf">1e-10</span><span class="p">]</span><span class="o">=</span><span class="mf">1e-10</span>
+    <span class="n">kl_loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">KLDivLoss</span><span class="p">(</span><span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;sum&#39;</span><span class="p">)</span>
+    <span class="c1"># in pytorch, 1st argument is the prediction and 2nd one is the expected result</span>
+    <span class="c1"># the logarithm is computed for y but not p</span>
+    <span class="k">return</span> <span class="n">kl_loss</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="loss_hellinger"><a class="viewcode-back" href="../usage.html#neuralnetwork.loss_hellinger">[docs]</a><span class="k">def</span> <span class="nf">loss_hellinger</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+                <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+                <span class="n">model</span><span class="p">:</span> <span class="n">NeuralNetwork</span>
+                <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Computes the Hellinger distance from the predicted distribution at input points **x** to the expected output **y**.</span>
+
+<span class="sd">    For tensors of the same shape :math:`\hat{y}` and :math:`y`:</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        H(y, \hat{y}) =\sqrt{1 - \sum_i \sqrt{\hat{y}_iy_i}}</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **x** (torch.tensor): Vector of inputs.</span>
+<span class="sd">        - **y** (torch.tensor): Expected vector of outputs.</span>
+<span class="sd">        - **model** (NeuralNetwork): Mixture Density Network model.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - :math:`H(y, \hat{y})`: Hellinger distance between the predicted distributions of the Neural Network at input points **X**</span>
+<span class="sd">          and the expected outputs **y**.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">y_size</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_size</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">dim0</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dim0</span> <span class="o">=</span> <span class="n">y_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># to provide a set of points at which to evaluate the pdf for each input point.</span>
+    <span class="n">mat_k</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">y_size</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">dim0</span><span class="p">,</span><span class="n">model</span><span class="o">.</span><span class="n">n_comps</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>    
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">mix_pdf</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mat_k</span><span class="p">)</span>
+    <span class="c1"># computing the Hellinger distance step by step</span>
+    <span class="n">sqrt1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span><span class="o">*</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">sqrt1</span> <span class="o">=</span> <span class="n">sqrt1</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">normalization</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">y</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">sqrt2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">normalization</span><span class="p">)</span>
+    <span class="n">elt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="n">sqrt1</span><span class="p">,</span> <span class="n">sqrt2</span><span class="p">)</span>
+    <span class="n">mat</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">dim0</span><span class="p">),</span> <span class="o">-</span><span class="n">elt</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">mat</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="mean_loss"><a class="viewcode-back" href="../usage.html#neuralnetwork.mean_loss">[docs]</a><span class="k">def</span> <span class="nf">mean_loss</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+            <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> 
+            <span class="n">model</span><span class="p">:</span> <span class="n">NeuralNetwork</span><span class="p">,</span> 
+            <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span><span class="n">loss_kldivergence</span>
+            <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Computes the average loss over a batch.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **X** (torch.tensor): Vector of inputs.</span>
+<span class="sd">        - **y** (torch.tensor): Expected vector of outputs.</span>
+<span class="sd">        - **model** (NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **loss** (Callable, optional): Chosen loss. Defaults to `loss_kldivergence`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - Average loss between the predicted distribution of the Neural Network at input points **x** and the expected output **y**.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">loss</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ret</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span></div>
+
+
+<span class="c1"># Training Mixture Density Network</span>
+
+<div class="viewcode-block" id="NNTrainer"><a class="viewcode-back" href="../usage.html#neuralnetwork.NNTrainer">[docs]</a><span class="k">class</span> <span class="nc">NNTrainer</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Class to train the Mixture Density Network model.</span>
+
+<span class="sd">    Hyperparameters and parameters are saved in the dictionary `args`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **model** (NeuralNetwork): Mixture Density Network model.</span>
+<span class="sd">        - **train_data** (Tuple[torch.tensor, torch.tensor]): Training dataset.</span>
+<span class="sd">        - **valid_data** (Tuple[torch.tensor, torch.tensor]): Validation dataset.</span>
+<span class="sd">        - :math:`l_r` (float, optional): Initial learning rate. Defaults to :math:`0.005`.</span>
+<span class="sd">        - **l2_reg** (float, optional): L2-regularisation term. Defaults to :math:`0`.</span>
+<span class="sd">        - **max_rounds** (int, optional): Maximal number of epochs. Defaults to :math:`700`.</span>
+<span class="sd">        - **batchsize** (int, optional): Number of elements in a batch. Defaults to :math:`64`.</span>
+<span class="sd">        - **optimiser** (Callable, optional): Chosen optimiser. Defaults to torch.optim.Adam.</span>
+<span class="sd">        - **add_early_stopping** (Tuple[bool, int, float], optional): Defaults to (False, :math:`50`, :math:`10^{-6}`).  </span>
+<span class="sd">        </span>
+<span class="sd">            - (bool): If True, uses the early stopping regularisation. Defaults to False.            </span>
+<span class="sd">            - **patience** (int): Patience level :math:`n_p`. </span>
+<span class="sd">              At epoch :math:`n`, the :math:`(n-n_p)` -th epoch is compared pairwise with that </span>
+<span class="sd">              of the last :math:`n_p` epochs. Defaults to :math:`50`.</span>
+<span class="sd">            - **delta** (float): Tolerance threshold :math:`\delta`. Training is stopped if the decrease between </span>
+<span class="sd">              the elements of one of those pairs is lower than :math:`\delta`. Defaults to :math:`10^{-6}`.          </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">model</span><span class="p">:</span> <span class="n">NeuralNetwork</span><span class="p">,</span>
+                <span class="n">train_data</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">],</span> 
+                <span class="n">valid_data</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">],</span> 
+                <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> 
+                <span class="n">l2_reg</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+                <span class="n">max_rounds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">700</span><span class="p">,</span>
+                <span class="n">batchsize</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">64</span><span class="p">,</span> 
+                <span class="n">optimiser</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">,</span>
+                <span class="n">add_early_stopping</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
+                <span class="p">):</span>               
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;train_data&#39;</span><span class="p">:</span> <span class="n">train_data</span><span class="p">,</span>
+            <span class="s1">&#39;valid_data&#39;</span><span class="p">:</span> <span class="n">valid_data</span><span class="p">,</span>
+            <span class="s1">&#39;lr&#39;</span><span class="p">:</span> <span class="n">lr</span><span class="p">,</span>
+            <span class="s1">&#39;l2_reg&#39;</span><span class="p">:</span> <span class="n">l2_reg</span><span class="p">,</span>
+            <span class="s1">&#39;max_rounds&#39;</span><span class="p">:</span> <span class="n">max_rounds</span><span class="p">,</span>
+            <span class="s1">&#39;batchsize&#39;</span><span class="p">:</span> <span class="n">batchsize</span><span class="p">,</span>
+            <span class="s1">&#39;optimiser&#39;</span><span class="p">:</span> <span class="n">optimiser</span><span class="p">,</span>
+            <span class="s1">&#39;patience&#39;</span><span class="p">:</span> <span class="n">add_early_stopping</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;delta&#39;</span><span class="p">:</span> <span class="n">add_early_stopping</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="p">}</span>
+        <span class="c1"># divides the dataset into shuffled batches.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_loader</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">TensorDataset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;train_data&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> 
+                                                                                        <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;train_data&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]),</span> 
+                                                        <span class="n">batch_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;batchsize&#39;</span><span class="p">],</span> 
+                                                        <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># to reshuffle after each epoch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_losses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valid_losses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr_updates</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;optimiser&#39;</span><span class="p">](</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;lr&#39;</span><span class="p">],</span> <span class="n">weight_decay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;l2_reg&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheduler</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">lr_scheduler</span><span class="o">.</span><span class="n">CosineAnnealingLR</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">opt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;max_rounds&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iteration</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_early_stopping</span> <span class="o">=</span> <span class="n">add_early_stopping</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_losses</span><span class="p">()</span>
+
+<div class="viewcode-block" id="NNTrainer.update_losses"><a class="viewcode-back" href="../usage.html#neuralnetwork.NNTrainer.update_losses">[docs]</a>    <span class="k">def</span> <span class="nf">update_losses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes training and validation losses at each iteration and stores them.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">train_loss</span> <span class="o">=</span> <span class="n">mean_loss</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;train_data&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;train_data&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">loss_kldivergence</span><span class="p">)</span>
+        <span class="n">valid_loss</span> <span class="o">=</span> <span class="n">mean_loss</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;valid_data&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;valid_data&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="n">loss_kldivergence</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">train_loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valid_losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">valid_loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span></div>
+
+<div class="viewcode-block" id="NNTrainer.early_stopping"><a class="viewcode-back" href="../usage.html#neuralnetwork.NNTrainer.early_stopping">[docs]</a>    <span class="k">def</span> <span class="nf">early_stopping</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Computes early stopping regularisation to avoid overfitting.</span>
+<span class="sd">        If :math:`n_p` number of rounds pass without improving the validation loss by at least :math:`\delta`,</span>
+<span class="sd">        stops the training.</span>
+
+<span class="sd">        Only called if `add_early_stopping` is True.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            - A boolean stating if the training should be stopped.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valid_losses</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;patience&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">losses</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">valid_losses</span><span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;patience&#39;</span><span class="p">]:])</span>
+        <span class="n">losses</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;delta&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">losses</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">iter</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">train_losses</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">iter</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;max_rounds&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">StopIteration</span>
+        <span class="c1"># early stopping regularisation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_early_stopping</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">early_stopping</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">StopIteration</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span></div>
+
+
+<span class="c1"># Training rounds</span>
+
+<div class="viewcode-block" id="train_round"><a class="viewcode-back" href="../usage.html#neuralnetwork.train_round">[docs]</a><span class="k">def</span> <span class="nf">train_round</span><span class="p">(</span><span class="n">trainer</span><span class="p">:</span> <span class="n">NNTrainer</span><span class="p">,</span> <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span><span class="n">loss_kldivergence</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Performs one training epoch.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **trainer** (NNTrainer): Training structure.</span>
+<span class="sd">        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to `loss_kldivergence`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">model</span>
+    <span class="n">optimiser</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">opt</span>
+    <span class="n">scheduler</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">scheduler</span>
+    <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">trainer</span><span class="o">.</span><span class="n">train_loader</span><span class="p">:</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">loss_y</span> <span class="o">=</span> <span class="n">mean_loss</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">loss</span><span class="p">)</span>
+        <span class="n">loss_y</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="c1"># clipping gradients to tackle exploding gradient.</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">clip_grad_norm_</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="mf">10.</span><span class="p">)</span>
+        <span class="n">optimiser</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="c1"># updating learning rate</span>
+    <span class="n">scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;lr&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">get_last_lr</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">lr_updates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">scheduler</span><span class="o">.</span><span class="n">get_last_lr</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">trainer</span><span class="o">.</span><span class="n">update_losses</span><span class="p">()</span></div>
+
+
+<span class="c1"># Training process</span>
+
+<div class="viewcode-block" id="train_NN"><a class="viewcode-back" href="../usage.html#neuralnetwork.train_NN">[docs]</a><span class="k">def</span> <span class="nf">train_NN</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">NeuralNetwork</span><span class="p">,</span> 
+            <span class="n">train_data</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">],</span> 
+            <span class="n">valid_data</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">],</span> 
+            <span class="n">loss</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span><span class="n">loss_kldivergence</span><span class="p">,</span>
+            <span class="n">print_results</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+            <span class="n">print_info</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Trains the Neural Network.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **model** (NeuralNetwork): Mixture Density Network model to train.</span>
+<span class="sd">        - **train_data** (Tuple[torch.tensor, torch.tensor]): Training dataset.</span>
+
+<span class="sd">                        - **X_train**: Tensor of input data.</span>
+<span class="sd">                        - **y_train**: Tensor of expected outputs.</span>
+<span class="sd">        - **valid_data** (Tuple[torch.tensor, torch.tensor]): Validation dataset. Only used for early stopping.</span>
+
+<span class="sd">                        - **X_valid**: Tensor of input data.</span>
+<span class="sd">                        - **y_valid**: Tensor of expected outputs.</span>
+<span class="sd">        - **loss** (Callable, optional): Chosen loss for optimisation. Defaults to `loss_kldivergence`.</span>
+<span class="sd">        - **print_results** (bool, optional): If True, prints the final results</span>
+<span class="sd">          (final learning rate, train and valid losses). Defaults to True.</span>
+<span class="sd">        - **print_info** (bool, optional): If True, prints a progress bar. Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - Training and validation losses for each epoch.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">trainer</span> <span class="o">=</span> <span class="n">NNTrainer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">valid_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">print_info</span><span class="p">:</span>
+        <span class="n">pbar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="n">trainer</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;max_rounds&#39;</span><span class="p">],</span> <span class="n">desc</span><span class="o">=</span><span class="s1">&#39;Training ...&#39;</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">trainer</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">print_info</span><span class="p">:</span>
+            <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">train_round</span><span class="p">(</span><span class="n">trainer</span><span class="p">,</span> <span class="n">loss</span><span class="p">)</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">iteration</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">print_info</span><span class="p">:</span>
+        <span class="n">pbar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">print_results</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Learning rate: </span><span class="si">{</span><span class="n">trainer</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s1">&#39;lr&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">,</span><span class="se">\n</span><span class="s2">Train loss: </span><span class="si">{</span><span class="n">trainer</span><span class="o">.</span><span class="n">train_losses</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">,</span><span class="se">\n</span><span class="s2"> Valid loss: </span><span class="si">{</span><span class="n">trainer</span><span class="o">.</span><span class="n">valid_losses</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">trainer</span><span class="o">.</span><span class="n">train_losses</span><span class="p">,</span> <span class="n">trainer</span><span class="o">.</span><span class="n">valid_losses</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

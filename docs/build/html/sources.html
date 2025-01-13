@@ -1,25 +1,24 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sources &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -31,11 +30,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -71,8 +74,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Sources</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Sources</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/sources.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -83,34 +86,42 @@
            <div itemprop="articleBody">
              
   <section id="sources">
-<h1>Sources<a class="headerlink" href="#sources" title="Permalink to this heading"></a></h1>
+<h1>Sources<a class="headerlink" href="#sources" title="Link to this heading"></a></h1>
 <div class="docutils container" id="id1">
-<dl class="citation">
-<dt class="label" id="id5"><span class="brackets">AK15</span></dt>
-<dd><p>David F Anderson and Thomas G Kurtz. <em>Stochastic analysis of biochemical systems</em>. Volume 674. Springer International Publishing, 2015.</p>
-</dd>
-<dt class="label" id="id9"><span class="brackets">CTS23a</span></dt>
-<dd><p>CTSB. Controlling stochastic chemical reaction networks using policy search. <em>arXiv preprint</em>, 2023.</p>
-</dd>
-<dt class="label" id="id8"><span class="brackets">CTS23b</span></dt>
-<dd><p>CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. <em>ArXiv</em>, 2023.</p>
-</dd>
-<dt class="label" id="id2"><span class="brackets">FM19</span></dt>
-<dd><p>Zachary R Fox and Brian Munsky. The finite state projection based fisher information matrix approach to estimate information and optimize single-cell experiments. <em>PLoS Computational Biology.</em>, 15:e1006365, 2019.</p>
-</dd>
-<dt class="label" id="id7"><span class="brackets">Gil76</span></dt>
-<dd><p>Daniel T Gillespie. A general method for numerically simulating the stochastic time evolution of coupled chemical reactions. <em>Journal of Computational Physics.</em>, 22:403–434, 1976.</p>
-</dd>
-<dt class="label" id="id3"><span class="brackets">GMK17</span></dt>
-<dd><p>Ankit Gupta, Jan Mikelson, and Mustafa Khammash. A finite state projection algorithm for the stationary solution of the chemical master equation. <em>The Journal of Chemical Physics.</em>, 147:154101, 2017.</p>
-</dd>
-<dt class="label" id="id4"><span class="brackets">SOG22</span></dt>
-<dd><p>Augustinas Sukys, Kaan Ocal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. <em>iScience.</em>, 25:105010, 2022.</p>
-</dd>
-<dt class="label" id="id6"><span class="brackets">WR21</span></dt>
-<dd><p>Ting Wang and Muruhan Rathinam. On the validity of the girsanov transformation method for sensitivity analysis of stochastic chemical reaction networks. <em>Stochastics.</em>, 93:1227–1248, 2021.</p>
-</dd>
-</dl>
+<div role="list" class="citation-list">
+<div class="citation" id="id5" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>AK15<span class="fn-bracket">]</span></span>
+<p>David F Anderson and Thomas G Kurtz. <em>Stochastic analysis of biochemical systems</em>. Volume 674. Springer International Publishing, 2015.</p>
+</div>
+<div class="citation" id="id9" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>CTS23a<span class="fn-bracket">]</span></span>
+<p>CTSB. Controlling stochastic chemical reaction networks using policy search. <em>arXiv preprint</em>, 2023.</p>
+</div>
+<div class="citation" id="id8" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>CTS23b<span class="fn-bracket">]</span></span>
+<p>CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. <em>ArXiv</em>, 2023.</p>
+</div>
+<div class="citation" id="id2" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>FM19<span class="fn-bracket">]</span></span>
+<p>Zachary R Fox and Brian Munsky. The finite state projection based fisher information matrix approach to estimate information and optimize single-cell experiments. <em>PLoS Computational Biology.</em>, 15:e1006365, 2019.</p>
+</div>
+<div class="citation" id="id7" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>Gil76<span class="fn-bracket">]</span></span>
+<p>Daniel T Gillespie. A general method for numerically simulating the stochastic time evolution of coupled chemical reactions. <em>Journal of Computational Physics.</em>, 22:403–434, 1976.</p>
+</div>
+<div class="citation" id="id3" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>GMK17<span class="fn-bracket">]</span></span>
+<p>Ankit Gupta, Jan Mikelson, and Mustafa Khammash. A finite state projection algorithm for the stationary solution of the chemical master equation. <em>The Journal of Chemical Physics.</em>, 147:154101, 2017.</p>
+</div>
+<div class="citation" id="id4" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>SOG22<span class="fn-bracket">]</span></span>
+<p>Augustinas Sukys, Kaan Ocal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. <em>iScience.</em>, 25:105010, 2022.</p>
+</div>
+<div class="citation" id="id6" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>WR21<span class="fn-bracket">]</span></span>
+<p>Ting Wang and Muruhan Rathinam. On the validity of the girsanov transformation method for sensitivity analysis of stochastic chemical reaction networks. <em>Stochastics.</em>, 93:1227–1248, 2021.</p>
+</div>
+</div>
 </div>
 </section>
 

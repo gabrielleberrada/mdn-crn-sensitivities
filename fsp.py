@@ -75,7 +75,6 @@ class StateSpaceEnumeration:
         self.bijection[self.ub] = tuple(self.cr)
         for z in range(self.lb, self.ub):
             self.bijection[z] = self.phi_inverse(z, self.dim)
-        # print(self.bijection)
 
 
 class SensitivitiesDerivation:

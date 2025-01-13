@@ -1,26 +1,25 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
-        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -32,11 +31,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="#" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -72,8 +75,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
-      <li>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning</li>
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -84,18 +87,18 @@
            <div itemprop="articleBody">
              
   <section id="efficient-fisher-information-computation-and-policy-search-in-sampled-stochastic-chemical-reaction-networks-through-deep-learning">
-<h1>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning<a class="headerlink" href="#efficient-fisher-information-computation-and-policy-search-in-sampled-stochastic-chemical-reaction-networks-through-deep-learning" title="Permalink to this heading"></a></h1>
+<h1>Efficient Fisher Information Computation and Policy Search in Sampled Stochastic Chemical Reaction Networks through Deep Learning<a class="headerlink" href="#efficient-fisher-information-computation-and-policy-search-in-sampled-stochastic-chemical-reaction-networks-through-deep-learning" title="Link to this heading"></a></h1>
 <p>This project introduces a Deep-Learning based method to compute the probability mass function and the sensitivity of the likelihood of Chemical Reaction Networks in an accurate and fast manner.
 It first demonstrates the performance of the method by computing the Fisher Information, then uses the Neural Network model to perform fast Optimal Control experiments.</p>
 <section id="state-of-the-art">
-<h2>State of the art<a class="headerlink" href="#state-of-the-art" title="Permalink to this heading"></a></h2>
+<h2>State of the art<a class="headerlink" href="#state-of-the-art" title="Link to this heading"></a></h2>
 <section id="the-fisher-information">
-<h3>The Fisher Information<a class="headerlink" href="#the-fisher-information" title="Permalink to this heading"></a></h3>
+<h3>The Fisher Information<a class="headerlink" href="#the-fisher-information" title="Link to this heading"></a></h3>
 <p>Computing the Fisher Information currently relies on approximating an expectation by a finite sum, which involves the probability mass
 function and the sensitivity of the likelihood.</p>
 <p>Details on the formulas and notations can be found in the section <a class="reference internal" href="math.html#background-on-the-fisher-information"><span class="std std-ref">Background on the Fisher Information</span></a>.</p>
 <section id="current-methods">
-<h4>Current methods<a class="headerlink" href="#current-methods" title="Permalink to this heading"></a></h4>
+<h4>Current methods<a class="headerlink" href="#current-methods" title="Link to this heading"></a></h4>
 <p>The current state-of-the-art is based on two main methods:</p>
 <ul class="simple">
 <li><p>Monte Carlo estimations associated to finite differences.</p></li>
@@ -103,7 +106,7 @@ function and the sensitivity of the likelihood.</p>
 </ul>
 </section>
 <section id="limitations">
-<h4>Limitations<a class="headerlink" href="#limitations" title="Permalink to this heading"></a></h4>
+<h4>Limitations<a class="headerlink" href="#limitations" title="Link to this heading"></a></h4>
 <p>Both these methods show major limitations:</p>
 <ol class="arabic simple">
 <li><p>Both methods are affected by the curse of dimensionality when the number of species and the cardinality of their state-space increase.</p></li>
@@ -117,12 +120,12 @@ Differential Equation.</p></li>
 </section>
 </section>
 <section id="new-approach">
-<h2>New approach<a class="headerlink" href="#new-approach" title="Permalink to this heading"></a></h2>
+<h2>New approach<a class="headerlink" href="#new-approach" title="Link to this heading"></a></h2>
 <p>To overcome these problems, we propose to use a Mixture Density Network model (as presented in <span id="id2">[<a class="reference internal" href="sources.html#id4" title="Augustinas Sukys, Kaan Ocal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. iScience., 25:105010, 2022.">SOG22</a>]</span>) to predict the probability mass function and the sensitivity of the likelihood.
 The Fisher Information will follow easily.</p>
 <p>Details on the architecture of the Mixture Density Network can be found in the section <a class="reference internal" href="neuralnetwork.html#background-on-the-architecture-of-the-mixture-density-network"><span class="std std-ref">Background on the Architecture of the Mixture Density Network</span></a>.</p>
 <section id="benefits-over-existing-methods">
-<h3>Benefits over existing methods<a class="headerlink" href="#benefits-over-existing-methods" title="Permalink to this heading"></a></h3>
+<h3>Benefits over existing methods<a class="headerlink" href="#benefits-over-existing-methods" title="Link to this heading"></a></h3>
 <p>Neural Networks offer an alternative way of computing the probability mass functions of Chemical Reaction Networks. Their introduction has been
 motivated by their universal approximation property, their generalisation ability and their compositional structure.</p>
 <p>The computation of composite functions gradient has been made straightforward to implement and efficient to perform thanks to the development
@@ -135,18 +138,18 @@ Their generalisation property allows Mixture Density Networks to accurately pred
 </section>
 </section>
 <section id="policy-search">
-<h2>Policy search<a class="headerlink" href="#policy-search" title="Permalink to this heading"></a></h2>
+<h2>Policy search<a class="headerlink" href="#policy-search" title="Link to this heading"></a></h2>
 <p>Having demonstrated their efficiency and accuracy in estimating probability mass functions and sensitivities of the likelihood,
 the Mixture Density Networks can be used to accurately perform fast policy search.</p>
 <p>The aim is to control Chemical Reaction Networks at discrete time points. To do so, we perform a Projected Gradient Descent to optimise a performance index and find the optimal control parameters.</p>
 <p>Our experiments demonstrate the speed and accuracy of the Deep-Learning method to do Stochastic control of Chemical Reaction Networks. Using Deep-Learning proved to be
-<span class="math notranslate nohighlight">\(??\)</span> to <span class="math notranslate nohighlight">\(??\)</span> times faster than using the Finite State Projection method on the studied examples. Details on the experiments can be found in
+<span class="math notranslate nohighlight">\(31\)</span> to <span class="math notranslate nohighlight">\(824\)</span> times faster than using the Finite State Projection method on the studied examples. Details on the experiments can be found in
 the article <span id="id4">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span> as well as the notebooks presented for each example in the <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs">Github repository</a>.</p>
 <p>Details on the formulas, the Projected Gradient Descent algorithm and the notations can be found in the section
 <a class="reference internal" href="control.html#background-on-the-stochastic-control-of-chemical-reaction-networks"><span class="std std-ref">Background on the Stochastic control of Chemical Reaction Networks</span></a>.</p>
 </section>
 <section id="user-guide">
-<h2>User guide<a class="headerlink" href="#user-guide" title="Permalink to this heading"></a></h2>
+<h2>User guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h2>
 <p>The Python implementation has been made available online on the <a class="reference external" href="https://github.com/gabrielleberrada/DL_based_Control_of_CRNs">GitHub repository DL_based_Control_of_CRNs repository</a>.
 The complete method is described and illustrated in the following sections.</p>
 <div class="toctree-wrapper compound">

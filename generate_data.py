@@ -269,22 +269,25 @@ class CRN_Simulations:
             - **targets** (np.ndarray, optional): Target values. If None, no target value. Defaults to None.
             - **save** (Tuple[bool, str], optional): If the first argument is True, saves the plot. The second argument 
               is the name of the file under which to save the plot. Defaults to (False, None).
-        """        
+        """      
         samples, times = self.run_simulations(params)
         if self.complete_trajectory:
             for i in range(self.n_trajectories):
                 edges = np.concatenate((times[i], self.time_windows[-1:]))
                 plt.stairs(values=samples[i], edges=edges, baseline=None, orientation='vertical')
         else:
+            _, ax = plt.subplots(figsize=(1.8, 1.3))
             data = pd.DataFrame(samples.transpose(), columns = [f'Abundance{i}' for i in range(self.n_trajectories)])
             data['id'] = data.index
-            data['time'] = times
-            data = pd.wide_to_long(data, ['Abundance'], i='time', j='id')
-            seaborn.lineplot(data=data, x='time', y='Abundance')
+            data['Time'] = times
+            data = pd.wide_to_long(data, ['Abundance'], i='Time', j='id')
+            seaborn.lineplot(ax=ax, data=data, x='Time', y='Abundance')
+            ax.spines[['right', 'top']].set_visible(False)
         if targets is not None: # shape (n_targets,2)
-            plt.scatter(x=targets[:,0], y=targets[:,1], marker='x', c='black', label='target values')
+            ax.scatter(x=targets[:,0], y=targets[:,1], marker='x', c='black', label='target values')
             plt.legend()
-        plt.ylim(-0.1, plt.ylim()[1])
+        ax.set_ylim(-0.1, plt.ylim()[1])
+        plt.tight_layout()
         if save[0]:
             plt.savefig(f'{save[1]}.pdf')
         plt.show()

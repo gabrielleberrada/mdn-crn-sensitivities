@@ -1,26 +1,25 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Background on the Fisher Information &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
-        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -33,11 +32,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -78,8 +81,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Background on the Fisher Information</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Background on the Fisher Information</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/math.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -90,16 +93,16 @@
            <div itemprop="articleBody">
              
   <section id="background-on-the-fisher-information">
-<h1>Background on the Fisher Information<a class="headerlink" href="#background-on-the-fisher-information" title="Permalink to this heading"></a></h1>
+<h1>Background on the Fisher Information<a class="headerlink" href="#background-on-the-fisher-information" title="Link to this heading"></a></h1>
 <section id="chemical-reaction-networks">
-<h2>Chemical Reaction Networks<a class="headerlink" href="#chemical-reaction-networks" title="Permalink to this heading"></a></h2>
+<h2>Chemical Reaction Networks<a class="headerlink" href="#chemical-reaction-networks" title="Link to this heading"></a></h2>
 <p>We consider Chemical Reaction Networks as Markov pure jump processes (see <span id="id1">[<a class="reference internal" href="sources.html#id5" title="David F Anderson and Thomas G Kurtz. Stochastic analysis of biochemical systems. Volume 674. Springer International Publishing, 2015.">AK15</a>]</span>).</p>
 <p>We introduce <span class="math notranslate nohighlight">\((X_t)_{t \in \mathbb{R}_+}\)</span> the distribution of the jump process.</p>
 <p>In the same setting as introduced in <span id="id2">[<a class="reference internal" href="sources.html#id8" title="CTSB. Efficient fisher information computation and policy search in sampled stochastic chemical reaction networks through deep learning. ArXiv, 2023.">CTS23b</a>]</span>, <span class="math notranslate nohighlight">\(X_t\)</span> has a probability mass function <span class="math notranslate nohighlight">\(p_t^\theta\)</span>, whose evaluation at the point <span class="math notranslate nohighlight">\(x \in \mathbb{N}^N\)</span>
 we write <span class="math notranslate nohighlight">\(p(x; t, \theta)\)</span>. We also introduce the likelihood <span class="math notranslate nohighlight">\(p : \mathbb{N}^N \times \mathbb{R}_+ \times \mathbb{R}_+^M \rightarrow \mathbb{R}_+\)</span>.</p>
 </section>
 <section id="approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood">
-<h2>Approximation of the mass function and the sensitivity of the likelihood<a class="headerlink" href="#approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood" title="Permalink to this heading"></a></h2>
+<h2>Approximation of the mass function and the sensitivity of the likelihood<a class="headerlink" href="#approximation-of-the-mass-function-and-the-sensitivity-of-the-likelihood" title="Link to this heading"></a></h2>
 <p>If the state-space of <span class="math notranslate nohighlight">\(X_t\)</span> is finite, it can be projected into a finite subset of <span class="math notranslate nohighlight">\(\mathbb{N}\)</span> whose cardinality will be written <span class="math notranslate nohighlight">\(N_{\max} \in \mathbb{N}^*\)</span>.
 We will write the ordered elements of the projected state-space as <span class="math notranslate nohighlight">\(\big\{x^1_t, x^2_t, ..., x^{N_{\max}}_t \big\}\)</span>.</p>
 <p>For ease of notation, we introduce :</p>
@@ -110,7 +113,7 @@ We will write the ordered elements of the projected state-space as <span class="
 \[\big[S_t^\theta\big]_{ij} = \frac{\partial p_i}{\partial \theta_j}(t, \theta)\]</div>
 </section>
 <section id="fisher-information-of-sampled-chemical-reaction-networks">
-<h2>Fisher Information of sampled Chemical Reaction Networks<a class="headerlink" href="#fisher-information-of-sampled-chemical-reaction-networks" title="Permalink to this heading"></a></h2>
+<h2>Fisher Information of sampled Chemical Reaction Networks<a class="headerlink" href="#fisher-information-of-sampled-chemical-reaction-networks" title="Link to this heading"></a></h2>
 <p>Let us define the Fisher Information <span class="math notranslate nohighlight">\(\mathcal{I}_t^\theta \in \mathcal{M}_{M, M}(\mathbb{R})\)</span> of <span class="math notranslate nohighlight">\(X_t\)</span> as <span id="id3">[<a class="reference internal" href="sources.html#id2" title="Zachary R Fox and Brian Munsky. The finite state projection based fisher information matrix approach to estimate information and optimize single-cell experiments. PLoS Computational Biology., 15:e1006365, 2019.">FM19</a>]</span>:</p>
 <div class="math notranslate nohighlight">
 \[\mathcal{I}_t^\theta

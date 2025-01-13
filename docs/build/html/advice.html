@@ -1,26 +1,25 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Some advice on the implementation of the approach &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
-        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -33,11 +32,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -81,8 +84,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Some advice on the implementation of the approach</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Some advice on the implementation of the approach</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/advice.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -93,20 +96,20 @@
            <div itemprop="articleBody">
              
   <section id="some-advice-on-the-implementation-of-the-approach">
-<h1>Some advice on the implementation of the approach<a class="headerlink" href="#some-advice-on-the-implementation-of-the-approach" title="Permalink to this heading"></a></h1>
+<h1>Some advice on the implementation of the approach<a class="headerlink" href="#some-advice-on-the-implementation-of-the-approach" title="Link to this heading"></a></h1>
 <p>Here are some general observations regarding Mixture Density Networks.</p>
 <section id="which-mixture-should-i-choose">
-<h2>Which mixture should I choose?<a class="headerlink" href="#which-mixture-should-i-choose" title="Permalink to this heading"></a></h2>
+<h2>Which mixture should I choose?<a class="headerlink" href="#which-mixture-should-i-choose" title="Link to this heading"></a></h2>
 <p>It is recommended to choose a Negative Binomial mixture as it has performed better in all studied examples.
 It tends to fit various distributions better and also avoids overfitting the data.</p>
 </section>
 <section id="do-i-need-to-use-regularisation-methods-while-training">
-<h2>Do I need to use regularisation methods while training?<a class="headerlink" href="#do-i-need-to-use-regularisation-methods-while-training" title="Permalink to this heading"></a></h2>
+<h2>Do I need to use regularisation methods while training?<a class="headerlink" href="#do-i-need-to-use-regularisation-methods-while-training" title="Link to this heading"></a></h2>
 <p>As long as the model does not overfit, no need need to use regularisation terms. In most of the studied examples,
 models showed a good generalization ability.</p>
 </section>
 <section id="how-can-i-detect-overfitting">
-<h2>How can I detect overfitting?<a class="headerlink" href="#how-can-i-detect-overfitting" title="Permalink to this heading"></a></h2>
+<h2>How can I detect overfitting?<a class="headerlink" href="#how-can-i-detect-overfitting" title="Link to this heading"></a></h2>
 <p>Overfitting can be indicate by a higher final loss for the validation dataset compared to the training dataset.</p>
 <p>To confirm or refute overfitting, you can plot the training and validation losses produced by the training function.
 If the validation loss curve is increasing after a certain number of iterations, it suggests that the model is overfitting.</p>
@@ -125,7 +128,7 @@ If the validation loss curve is increasing after a certain number of iterations,
 </div>
 </section>
 <section id="how-do-i-deal-with-overfitting">
-<h2>How do I deal with overfitting?<a class="headerlink" href="#how-do-i-deal-with-overfitting" title="Permalink to this heading"></a></h2>
+<h2>How do I deal with overfitting?<a class="headerlink" href="#how-do-i-deal-with-overfitting" title="Link to this heading"></a></h2>
 <p>There are various methods to improve a Neural Network generalisation ability.</p>
 <p>The implemented code already allows to add a <span class="math notranslate nohighlight">\(\ell_2\)</span>-regularisation term or to use an early stopping method.</p>
 <p>Early stopping works as follows: At epoch <span class="math notranslate nohighlight">\(n\)</span>, it compares pairwise the loss of the <span class="math notranslate nohighlight">\((n-n_p)\)</span>-th epoch with that of the last <span class="math notranslate nohighlight">\(n_p\)</span> epochs.
@@ -133,7 +136,7 @@ The Neural Network is considered to have improved if the decrease between the el
 If the Neural Network has not improved, the descent is stopped.</p>
 </section>
 <section id="how-many-simulations-should-i-run-to-create-a-dataset">
-<h2>How many simulations should I run to create a dataset?<a class="headerlink" href="#how-many-simulations-should-i-run-to-create-a-dataset" title="Permalink to this heading"></a></h2>
+<h2>How many simulations should I run to create a dataset?<a class="headerlink" href="#how-many-simulations-should-i-run-to-create-a-dataset" title="Link to this heading"></a></h2>
 <p>It is recommended to run multiple simulations for each data to deduce the appropriate probability mass function.
 At least <span class="math notranslate nohighlight">\(10^4\)</span> simulations should be run to ensure that the mass function is accurate enough.</p>
 <p>The size of the training dataset depends on the complexity of the mass function to predict. For simple systems,
@@ -141,7 +144,7 @@ a dateset size of <span class="math notranslate nohighlight">\(10^3\)</span> has
 the dataset size used for the controlled Toggle switch Reaction Network was around <span class="math notranslate nohighlight">\(4 \cdot 10^4\)</span>.</p>
 </section>
 <section id="what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm">
-<h2>What hyperparameters should I choose for the Projected Gradient Descent Algorithm?<a class="headerlink" href="#what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm" title="Permalink to this heading"></a></h2>
+<h2>What hyperparameters should I choose for the Projected Gradient Descent Algorithm?<a class="headerlink" href="#what-hyperparameters-should-i-choose-for-the-projected-gradient-descent-algorithm" title="Link to this heading"></a></h2>
 <p>Hyperparameters are crucial for the Projected Gradient Descent algorithm to perform well.</p>
 <p>The step size <span class="math notranslate nohighlight">\(\gamma\)</span> is usually taken between <span class="math notranslate nohighlight">\(10^{-3}\)</span> and <span class="math notranslate nohighlight">\(1\)</span>.
 The maximal number of iterations parameter guarantees the termination of the program. It should be set high enough to never be reached.</p>

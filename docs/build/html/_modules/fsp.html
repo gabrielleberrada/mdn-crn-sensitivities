@@ -1,24 +1,23 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>fsp &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
@@ -29,11 +28,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -69,9 +72,9 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="index.html">Module code</a> &raquo;</li>
-      <li>fsp</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">fsp</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -89,8 +92,10 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span> <span class="nn">collections.abc</span> <span class="k">as</span> <span class="nn">abc</span>
 
-<div class="viewcode-block" id="StateSpaceEnumeration"><a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration">[docs]</a><span class="k">class</span> <span class="nc">StateSpaceEnumeration</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;State space enumeration as presented in :cite:`gupta2017projection`.</span>
+<div class="viewcode-block" id="StateSpaceEnumeration">
+<a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration">[docs]</a>
+<span class="k">class</span> <span class="nc">StateSpaceEnumeration</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;State space enumeration as presented in :cite:`gupta2017projection`.</span>
 <span class="sd">    Computes functions :math:`\Phi_{\text{dim}}` and :math:`\Phi_{\text{dim}}^{-1}` to project the state space on the set of integers and conversely.</span>
 
 <span class="sd">    Args:</span>
@@ -109,8 +114,10 @@
         <span class="c1"># number of states included in the truncated state space</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">n_states</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ub</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">lb</span> <span class="o">+</span> <span class="mi">1</span>
     
-<div class="viewcode-block" id="StateSpaceEnumeration.phi"><a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration.phi">[docs]</a>    <span class="k">def</span> <span class="nf">phi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recurrent function which computes the projection :math:`\Phi: \mathbb{N}^n \rightarrow \mathbb{N}` </span>
+<div class="viewcode-block" id="StateSpaceEnumeration.phi">
+<a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration.phi">[docs]</a>
+    <span class="k">def</span> <span class="nf">phi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recurrent function which computes the projection :math:`\Phi: \mathbb{N}^n \rightarrow \mathbb{N}` </span>
 <span class="sd">        as defined in :cite:`gupta2017projection`.</span>
 
 <span class="sd">        Args:</span>
@@ -127,8 +134,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">phi</span><span class="p">(</span><span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]),</span> <span class="mi">2</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="StateSpaceEnumeration.phi_inverse"><a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration.phi_inverse">[docs]</a>    <span class="k">def</span> <span class="nf">phi_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recurrent function which computes the inversed projection :math:`\Phi^{-1}: \mathbb{N} \rightarrow \mathbb{N}^n` </span>
+
+<div class="viewcode-block" id="StateSpaceEnumeration.phi_inverse">
+<a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration.phi_inverse">[docs]</a>
+    <span class="k">def</span> <span class="nf">phi_inverse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Recurrent function which computes the inversed projection :math:`\Phi^{-1}: \mathbb{N} \rightarrow \mathbb{N}^n` </span>
 <span class="sd">        as defined in :cite:`gupta2017projection`.</span>
 
 <span class="sd">        Args:</span>
@@ -148,21 +158,27 @@
             <span class="n">z1</span><span class="p">,</span> <span class="n">z2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_inverse</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
             <span class="n">z11</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_inverse</span><span class="p">(</span><span class="n">z1</span><span class="p">,</span> <span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">z11</span> <span class="o">+</span> <span class="p">(</span><span class="n">z2</span><span class="p">,)</span></div>
+
     
-<div class="viewcode-block" id="StateSpaceEnumeration.create_bijection"><a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration.create_bijection">[docs]</a>    <span class="k">def</span> <span class="nf">create_bijection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Saves the bijection values in a dictionary.</span>
+<div class="viewcode-block" id="StateSpaceEnumeration.create_bijection">
+<a class="viewcode-back" href="../usage.html#fsp.StateSpaceEnumeration.create_bijection">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_bijection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Saves the bijection values in a dictionary.</span>
 
 <span class="sd">        A dictionary requires unhashable keys. For this reason, we use tuples instead of arrays.</span>
 <span class="sd">        &quot;&quot;&quot;</span>        
         <span class="bp">self</span><span class="o">.</span><span class="n">bijection</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">lb</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cl</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bijection</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ub</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cr</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ub</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">bijection</span><span class="p">[</span><span class="n">z</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_inverse</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span></div></div>
-        <span class="c1"># print(self.bijection)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bijection</span><span class="p">[</span><span class="n">z</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">phi_inverse</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="SensitivitiesDerivation"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation">[docs]</a><span class="k">class</span> <span class="nc">SensitivitiesDerivation</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to compute the sensitivity of the likelihood and the probability mass function with the FSP method.</span>
+
+<div class="viewcode-block" id="SensitivitiesDerivation">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation">[docs]</a>
+<span class="k">class</span> <span class="nc">SensitivitiesDerivation</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to compute the sensitivity of the likelihood and the probability mass function with the FSP method.</span>
 <span class="sd">    Based on :cite:`fox2019fspfim`.</span>
 <span class="sd">    </span>
 <span class="sd">    Args:</span>
@@ -216,16 +232,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bijection</span><span class="o">.</span><span class="n">bijection</span><span class="o">.</span><span class="n">inverse</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">crn</span><span class="o">.</span><span class="n">init_state</span><span class="p">)],</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.reset"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Resets the class to the initial setting: sets the time to :math:`t=0`, the current time window to :math:`0`</span>
+<div class="viewcode-block" id="SensitivitiesDerivation.reset">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.reset">[docs]</a>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the class to the initial setting: sets the time to :math:`t=0`, the current time window to :math:`0`</span>
 <span class="sd">        and the current state to the initial state.</span>
 <span class="sd">        &quot;&quot;&quot;</span>        
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_time_window</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.create_generator"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_generator">[docs]</a>    <span class="k">def</span> <span class="nf">create_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the generator matrix :math:`\hat{A}^\theta` as defined in :cite:`fox2019fspfim`</span>
+
+<div class="viewcode-block" id="SensitivitiesDerivation.create_generator">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_generator">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_generator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the generator matrix :math:`\hat{A}^\theta` as defined in :cite:`fox2019fspfim`</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **params** (np.ndarray): Current parameters of the propensity functions.</span>
@@ -260,8 +281,11 @@
             <span class="n">Bs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">B</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">Bs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.create_gdrv"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_gdrv">[docs]</a>    <span class="k">def</span> <span class="nf">create_gdrv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes :math:`\frac{\partial \hat{A}^\theta}{\partial \theta_{\text{ind}}}` in the</span>
+
+<div class="viewcode-block" id="SensitivitiesDerivation.create_gdrv">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_gdrv">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_gdrv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes :math:`\frac{\partial \hat{A}^\theta}{\partial \theta_{\text{ind}}}` in the</span>
 <span class="sd">        case of non-mass-action kinetics.</span>
 
 <span class="sd">        Requires the propensity derivatives to be explicitly defined.</span>
@@ -297,8 +321,11 @@
             <span class="n">dA</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dAi</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dA</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.create_gdrv_B"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_gdrv_B">[docs]</a>    <span class="k">def</span> <span class="nf">create_gdrv_B</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes :math:`\frac{\partial \hat{A}^\theta}{\partial \theta_{\text{ind}}}` in the case of mass-action kinetics.</span>
+
+<div class="viewcode-block" id="SensitivitiesDerivation.create_gdrv_B">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_gdrv_B">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_gdrv_B</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes :math:`\frac{\partial \hat{A}^\theta}{\partial \theta_{\text{ind}}}` in the case of mass-action kinetics.</span>
 <span class="sd">        In that case, :math:`\frac{\partial\hat{A}^\theta}{\partial \theta_{\text{ind}}} = \hat{B}_{\text{ind}}` </span>
 <span class="sd">        where the rate matrix :math:`\hat{B}_i` is as defined in :cite:`fox2019fspfim`.</span>
 
@@ -331,8 +358,11 @@
         <span class="k">return</span> <span class="n">B</span></div>
 
 
-<div class="viewcode-block" id="SensitivitiesDerivation.create_generator_derivative"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_generator_derivative">[docs]</a>    <span class="k">def</span> <span class="nf">create_generator_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes :math:`\frac{\partial \hat{A}^\theta}{\partial \theta_{\text{ind}}}` in the general case.</span>
+
+<div class="viewcode-block" id="SensitivitiesDerivation.create_generator_derivative">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.create_generator_derivative">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_generator_derivative</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes :math:`\frac{\partial \hat{A}^\theta}{\partial \theta_{\text{ind}}}` in the general case.</span>
 
 
 <span class="sd">        Args:</span>
@@ -344,8 +374,11 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_gdrv_B</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_gdrv</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">ind</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.constant_matrix"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.constant_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">constant_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the constant matrix :math:`\hat{C}^\theta` to solve the set of ODEs, possibly for several parameters at once.</span>
+
+<div class="viewcode-block" id="SensitivitiesDerivation.constant_matrix">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.constant_matrix">[docs]</a>
+    <span class="k">def</span> <span class="nf">constant_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the constant matrix :math:`\hat{C}^\theta` to solve the set of ODEs, possibly for several parameters at once.</span>
 
 <span class="sd">        In the following, we can easily assume that there are no controlled reaction. </span>
 <span class="sd">        The expression can easily be generalised to the case where there are control parameters :math:`\xi`. </span>
@@ -380,14 +413,17 @@
             <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">sp</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.solve_ode"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.solve_ode">[docs]</a>    <span class="k">def</span> <span class="nf">solve_ode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+
+<div class="viewcode-block" id="SensitivitiesDerivation.solve_ode">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.solve_ode">[docs]</a>
+    <span class="k">def</span> <span class="nf">solve_ode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
                 <span class="n">init_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
                 <span class="n">tf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
                 <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>  
                 <span class="n">t_eval</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
                 <span class="n">with_stv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Solves the following set of linear ODEs, which allows to solve the sensitivities with respect to several parameters at once:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Solves the following set of linear ODEs, which allows to solve the sensitivities with respect to several parameters at once:</span>
 
 <span class="sd">        .. math::</span>
 <span class="sd">            \frac{\partial}{\partial t}\begin{pmatrix} \hat{p}^{\theta, \xi} \\ \hat{S}_{i_1}^{\theta, \xi} \\ \vdots \\ \hat{S}^{\theta,\xi}_{i_\alpha} \end{pmatrix} </span>
@@ -424,13 +460,16 @@
         <span class="k">return</span> <span class="n">solve_ivp</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="n">t0</span><span class="p">,</span> <span class="n">tf</span><span class="p">),</span> <span class="n">init_state</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">)</span></div>
 
 
+
         
-<div class="viewcode-block" id="SensitivitiesDerivation.solve_multiple_odes"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.solve_multiple_odes">[docs]</a>    <span class="k">def</span> <span class="nf">solve_multiple_odes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+<div class="viewcode-block" id="SensitivitiesDerivation.solve_multiple_odes">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.solve_multiple_odes">[docs]</a>
+    <span class="k">def</span> <span class="nf">solve_multiple_odes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
                             <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                             <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                             <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                             <span class="n">with_stv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Solves the set of ODEs for several parameters at once, taking into account varying parameters over time windows.</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Solves the set of ODEs for several parameters at once, taking into account varying parameters over time windows.</span>
 <span class="sd">        This means that, in case there is a control reaction:</span>
 
 <span class="sd">        .. math::</span>
@@ -492,14 +531,17 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">distributions</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="c1"># shape (n_states, L, 1) or (n_states, L, len(index)+1)</span></div>
 
 
-<div class="viewcode-block" id="SensitivitiesDerivation.marginal"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.marginal">[docs]</a>    <span class="k">def</span> <span class="nf">marginal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>  
+
+<div class="viewcode-block" id="SensitivitiesDerivation.marginal">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.marginal">[docs]</a>
+    <span class="k">def</span> <span class="nf">marginal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>  
                 <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                 <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
                 <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                 <span class="n">with_stv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span>
                 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the marginal probability mass functions and marginal sensitivities of the likelihood.</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the marginal probability mass functions and marginal sensitivities of the likelihood.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **sampling_times** (np.ndarray): Sampling times.</span>
@@ -525,13 +567,16 @@
                 <span class="n">marginal_distributions</span><span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="n">ind_species</span><span class="p">],</span><span class="n">i</span><span class="p">,:]</span> <span class="o">+=</span> <span class="n">solution</span><span class="p">[</span><span class="n">n</span><span class="p">,</span><span class="n">i</span><span class="p">,:]</span>
         <span class="k">return</span> <span class="n">marginal_distributions</span> <span class="c1"># shape (n_states, L, 1) or (n_states, L, len(index)+1)</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.marginals"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.marginals">[docs]</a>    <span class="k">def</span> <span class="nf">marginals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+
+<div class="viewcode-block" id="SensitivitiesDerivation.marginals">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.marginals">[docs]</a>
+    <span class="k">def</span> <span class="nf">marginals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
                 <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">ind_species</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
                 <span class="n">with_stv</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Computes the marginal probability mass functions and marginal sensitivity of the likelihood for multiple species.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the marginal probability mass functions and marginal sensitivity of the likelihood for multiple species.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **sampling_times** (np.ndarray): Sampling times.</span>
@@ -552,15 +597,18 @@
             <span class="n">marginal_distributions</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">marginal</span><span class="p">(</span><span class="n">sampling_times</span><span class="p">,</span> <span class="n">time_windows</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">ind</span><span class="p">,</span> <span class="n">with_stv</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">marginal_distributions</span></div>
 
+
     <span class="k">def</span> <span class="nf">identity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">x</span>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.expected_val"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.expected_val">[docs]</a>    <span class="k">def</span> <span class="nf">expected_val</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+<div class="viewcode-block" id="SensitivitiesDerivation.expected_val">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.expected_val">[docs]</a>
+    <span class="k">def</span> <span class="nf">expected_val</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
                     <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                     <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                     <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                     <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the expected value at each sampling time :math:`E_{\theta, \xi}[X_t]`.</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the expected value at each sampling time :math:`E_{\theta, \xi}[X_t]`.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **sampling_times** (np.ndarray): Sampling times.</span>
@@ -580,13 +628,16 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">marginal_distributions</span><span class="o">.</span><span class="n">transpose</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cr</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span> <span class="c1"># shape(L,)</span></div>
 
-<div class="viewcode-block" id="SensitivitiesDerivation.gradient_expected_val"><a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.gradient_expected_val">[docs]</a>    <span class="k">def</span> <span class="nf">gradient_expected_val</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+
+<div class="viewcode-block" id="SensitivitiesDerivation.gradient_expected_val">
+<a class="viewcode-back" href="../usage.html#fsp.SensitivitiesDerivation.gradient_expected_val">[docs]</a>
+    <span class="k">def</span> <span class="nf">gradient_expected_val</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
                             <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                             <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                             <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                             <span class="n">ind_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                             <span class="n">with_probs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the gradient of the expected value with respect to one or several parameters defined in `index`.</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes the gradient of the expected value with respect to one or several parameters defined in `index`.</span>
 <span class="sd">        </span>
 <span class="sd">        .. math::</span>
 <span class="sd">            \nabla_{\theta, \xi} E_{\theta, \xi}[X_t] = \sum_{k \in \mathbb{N}} k \ \nabla_{\theta, \xi} p(k;t,\theta,\xi)</span>
@@ -613,7 +664,9 @@
         <span class="n">grad_expect</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">stv</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">x</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">with_probs</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">grad_expect</span><span class="p">,</span> <span class="n">expect</span>
-        <span class="k">return</span> <span class="n">grad_expect</span></div></div>
+        <span class="k">return</span> <span class="n">grad_expect</span></div>
+</div>
+
 
 </pre></div>
 

@@ -1,24 +1,23 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>simulation &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
@@ -29,11 +28,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -69,9 +72,9 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="index.html">Module code</a> &raquo;</li>
-      <li>simulation</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">simulation</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -85,8 +88,10 @@
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span>
 
-<div class="viewcode-block" id="CRN"><a class="viewcode-back" href="../usage.html#simulation.CRN">[docs]</a><span class="k">class</span> <span class="nc">CRN</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to specify the CRN to work on.</span>
+<div class="viewcode-block" id="CRN">
+<a class="viewcode-back" href="../usage.html#simulation.CRN">[docs]</a>
+<span class="k">class</span> <span class="nc">CRN</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to specify the CRN to work on.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        - **stoichiometry_mat** (np.ndarray): Stoichiometry matrix. Has shape :math:`(N, M)`.</span>
@@ -109,7 +114,8 @@
                 <span class="n">n_fixed_params</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                 <span class="n">n_control_params</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">0</span><span class="p">,</span>
                 <span class="n">propensities_drv</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-                <span class="n">exact_distr</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+                <span class="n">exact_distr</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">1</span><span class="p">):</span>
         <span class="c1"># stoichiometry_mat has shape (n_species, n_reactions)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stoichiometry_mat</span> <span class="o">=</span> <span class="n">stoichiometry_mat</span>
         <span class="c1"># total number of reactions, including those whose parameters change</span>
@@ -127,8 +133,13 @@
         <span class="k">if</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">exact_distr</span> <span class="o">=</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">exact_sensitivities_prob</span> <span class="o">=</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
 
-<div class="viewcode-block" id="CRN.step"><a class="viewcode-back" href="../usage.html#simulation.CRN.step">[docs]</a>    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+<div class="viewcode-block" id="CRN.step">
+<a class="viewcode-back" href="../usage.html#simulation.CRN.step">[docs]</a>
+    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
             <span class="n">init_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
             <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
             <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
@@ -136,7 +147,7 @@
             <span class="n">tf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
             <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
             <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span> 
-        <span class="sd">&quot;&quot;&quot;Computes a simulation for a time window during which all parameters are constant.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes a simulation for a time window during which all parameters are constant.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **init_state** (np.ndarray): Initial state of the CRN when the simulation starts.</span>
@@ -167,13 +178,16 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="n">simulations</span><span class="o">.</span><span class="n">current_state</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">tf</span></div>
 
-<div class="viewcode-block" id="CRN.simulation"><a class="viewcode-back" href="../usage.html#simulation.CRN.simulation">[docs]</a>    <span class="k">def</span> <span class="nf">simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+
+<div class="viewcode-block" id="CRN.simulation">
+<a class="viewcode-back" href="../usage.html#simulation.CRN.simulation">[docs]</a>
+    <span class="k">def</span> <span class="nf">simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
                 <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                 <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;SSA&#39;</span><span class="p">,</span> 
                 <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes a simulation between two time points.</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes a simulation between two time points.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **sampling_times** (np.ndarray): Sampling times.</span>
@@ -197,19 +211,30 @@
                         <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
                         <span class="n">complete_trajectory</span><span class="o">=</span><span class="n">complete_trajectory</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="CRN.reset"><a class="viewcode-back" href="../usage.html#simulation.CRN.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Resets the CRN to the initial setting: sets the time to :math:`t=0`, the current state to the initial state and</span>
+
+<div class="viewcode-block" id="CRN.reset">
+<a class="viewcode-back" href="../usage.html#simulation.CRN.reset">[docs]</a>
+    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resets the CRN to the initial setting: sets the time to :math:`t=0`, the current state to the initial state and</span>
 <span class="sd">        empties the sampling times and samples arrays.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>                   
-        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_states</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span><span class="p">))</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_states</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">seed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span></div>
+</div>
 
 
 
-<div class="viewcode-block" id="StochasticSimulation"><a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation">[docs]</a><span class="k">class</span> <span class="nc">StochasticSimulation</span><span class="p">:</span> 
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="StochasticSimulation">
+<a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation">[docs]</a>
+<span class="k">class</span> <span class="nc">StochasticSimulation</span><span class="p">:</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class to run a simulation between two time points of the same time window using the Stochastic Simulation Algorithm :cite:`gillespie1976general`.</span>
 <span class="sd">    </span>
 <span class="sd">    Args:</span>
@@ -242,8 +267,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">stoich_mat</span> <span class="o">=</span> <span class="n">stoich_mat</span>
 
 
-<div class="viewcode-block" id="StochasticSimulation.SSA"><a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation.SSA">[docs]</a>    <span class="k">def</span> <span class="nf">SSA</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Computes the SSA.</span>
+<div class="viewcode-block" id="StochasticSimulation.SSA">
+<a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation.SSA">[docs]</a>
+    <span class="k">def</span> <span class="nf">SSA</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the SSA.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            - **complete_trajectory** (bool): If True, returns the complete jump process, ie the time</span>
@@ -286,12 +313,17 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="StochasticSimulation.mNRM"><a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation.mNRM">[docs]</a>    <span class="k">def</span> <span class="nf">mNRM</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Computes the mNRM.</span>
+
+<div class="viewcode-block" id="StochasticSimulation.mNRM">
+<a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation.mNRM">[docs]</a>
+    <span class="k">def</span> <span class="nf">mNRM</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the mNRM.</span>
 <span class="sd">        </span>
 <span class="sd">        To be implemented.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div></div>
+        <span class="k">pass</span></div>
+</div>
+
 
 
 </pre></div>

@@ -1,26 +1,25 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Background on the Architecture of the Mixture Density Network &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
-        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -33,11 +32,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Computing the Fisher Information of CRNs using Deep Learning
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -77,8 +80,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Background on the Architecture of the Mixture Density Network</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Background on the Architecture of the Mixture Density Network</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/neuralnetwork.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -89,15 +92,16 @@
            <div itemprop="articleBody">
              
   <section id="background-on-the-architecture-of-the-mixture-density-network">
-<h1>Background on the Architecture of the Mixture Density Network<a class="headerlink" href="#background-on-the-architecture-of-the-mixture-density-network" title="Permalink to this heading"></a></h1>
+<h1>Background on the Architecture of the Mixture Density Network<a class="headerlink" href="#background-on-the-architecture-of-the-mixture-density-network" title="Link to this heading"></a></h1>
 <section id="mixture-density-networks-for-uncontrolled-reaction-networks">
-<h2>Mixture Density Networks for uncontrolled Reaction Networks<a class="headerlink" href="#mixture-density-networks-for-uncontrolled-reaction-networks" title="Permalink to this heading"></a></h2>
-<p>The general architecture of the Mixture Density Network is based on <span id="id1">[<a class="reference internal" href="sources.html#id4" title="Augustinas Sukys, Kaan Ãcal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. iScience., 25:105010, 2022.">SAcalG22</a>]</span>.</p>
+<h2>Mixture Density Networks for uncontrolled Reaction Networks<a class="headerlink" href="#mixture-density-networks-for-uncontrolled-reaction-networks" title="Link to this heading"></a></h2>
+<p>The general architecture of the Mixture Density Network is based on <span id="id1">[<a class="reference internal" href="sources.html#id4" title="Augustinas Sukys, Kaan Ocal, and Ramon Grima. Approximating solutions of the chemical master equation using neural networks. iScience., 25:105010, 2022.">SOG22</a>]</span>.</p>
 <p>In the following, to simplify the notations, we will omit the writing of parameters <span class="math notranslate nohighlight">\(\xi\)</span> and assume that <span class="math notranslate nohighlight">\(M = M_{\theta}\)</span>.</p>
 <figure class="align-center" id="id2">
-<a class="border reference internal image-reference" href="_images/neuralnetwork_architecture.jpeg"><img alt="_images/neuralnetwork_architecture.jpeg" class="border" src="_images/neuralnetwork_architecture.jpeg" style="width: 600px;" /></a>
+<a class="border reference internal image-reference" href="_images/neuralnetwork_architecture.jpeg"><img alt="_images/neuralnetwork_architecture.jpeg" class="border" src="_images/neuralnetwork_architecture.jpeg" style="width: 600px;" />
+</a>
 <figcaption>
-<p><span class="caption-text">Mixture Density Network architecture</span><a class="headerlink" href="#id2" title="Permalink to this image"></a></p>
+<p><span class="caption-text">Mixture Density Network architecture</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 <p>The Mixture Density Network takes as inputs:</p>
@@ -120,7 +124,7 @@ of a Negative Binomial distribution <span class="math notranslate nohighlight">\
 \[\forall k \in \mathbb{N}, p_{\text{NB}}(k;r,q) = \binom{k+r-1}{r-1}(1-q)^kq^r\]</div>
 </section>
 <section id="mixture-density-networks-for-controlled-reaction-networks">
-<h2>Mixture Density Networks for controlled Reaction Networks<a class="headerlink" href="#mixture-density-networks-for-controlled-reaction-networks" title="Permalink to this heading"></a></h2>
+<h2>Mixture Density Networks for controlled Reaction Networks<a class="headerlink" href="#mixture-density-networks-for-controlled-reaction-networks" title="Link to this heading"></a></h2>
 <p>In the general case, each control parameter value is an additional input to the Mixture Density Network.</p>
 <p>The Mixture Density Network now takes as inputs:</p>
 <ul class="simple">

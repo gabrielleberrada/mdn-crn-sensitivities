@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>simulation &mdash; Computing the Fisher Information of CRNs using Deep Learning 0.1 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.min.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/pseudocode@latest/build/pseudocode.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> Computing the Fisher Information of CRNs using Deep Learning
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../workflow.html">Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../demos.html">Examples of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advice.html">Some advice on the implementation of the approach</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">API Documentation</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../neuralnetwork.html">Background on the Architecture of the Mixture Density Network</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../control.html">Background on the Stochastic control of Chemical Reaction Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../math.html">Background on the Fisher Information</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../sources.html">Sources</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Computing the Fisher Information of CRNs using Deep Learning</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Module code</a> &raquo;</li>
+      <li>simulation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for simulation</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span>
+
+<div class="viewcode-block" id="CRN"><a class="viewcode-back" href="../usage.html#simulation.CRN">[docs]</a><span class="k">class</span> <span class="nc">CRN</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Class to specify the CRN to work on.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - **stoichiometry_mat** (np.ndarray): Stoichiometry matrix. Has shape :math:`(N, M)`.</span>
+<span class="sd">        - **propensities** (np.ndarray): Non-parameterised propensity functions.</span>
+<span class="sd">        - **init_state** (np.ndarray): Initial state of the system.</span>
+<span class="sd">        - **n_fixed_params** (int): Number of fixed parameters required to define the propensity functions :math:`M_{\theta}`.</span>
+<span class="sd">        - **n_control_params** (int): Number of control parameters required to define the propensity functions :math:`M_{\xi}`. </span>
+<span class="sd">          Their values vary from one time window to another.</span>
+<span class="sd">        - **propensities_drv** (np.ndarray, optional): Gradient functions of the propensities with respect to the parameters.</span>
+<span class="sd">          Has shape :math:`(M, M_{\theta}+M_{\xi})`. If None, the CRN is assumed to follow mass-action kinetics.</span>
+<span class="sd">          Defaults to None.</span>
+<span class="sd">        - **exact** (Tuple[bool, Tuple[Callable], Tuple[Callable]], optional): If the first element is True, </span>
+<span class="sd">          the exact distribution of the CRN is known. The second element then is the exact probability mass function. The third</span>
+<span class="sd">          element is the exact sensitivities of the mass function. Defaults to (False, None, None).</span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">stoichiometry_mat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">propensities</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">init_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">n_fixed_params</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                <span class="n">n_control_params</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">propensities_drv</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">exact_distr</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span><span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+        <span class="c1"># stoichiometry_mat has shape (n_species, n_reactions)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stoichiometry_mat</span> <span class="o">=</span> <span class="n">stoichiometry_mat</span>
+        <span class="c1"># total number of reactions, including those whose parameters change</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_reactions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">stoichiometry_mat</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_states</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span> <span class="o">=</span> <span class="n">init_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">propensities</span> <span class="o">=</span> <span class="n">propensities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_fixed_params</span> <span class="o">=</span> <span class="n">n_fixed_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_control_params</span> <span class="o">=</span> <span class="n">n_control_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exact</span> <span class="o">=</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">propensities_drv</span> <span class="o">=</span> <span class="n">propensities_drv</span>
+        <span class="k">if</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exact_distr</span> <span class="o">=</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exact_sensitivities_prob</span> <span class="o">=</span> <span class="n">exact_distr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+<div class="viewcode-block" id="CRN.step"><a class="viewcode-back" href="../usage.html#simulation.CRN.step">[docs]</a>    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+            <span class="n">init_state</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">params</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+            <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">tf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span> 
+        <span class="sd">&quot;&quot;&quot;Computes a simulation for a time window during which all parameters are constant.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **init_state** (np.ndarray): Initial state of the CRN when the simulation starts.</span>
+<span class="sd">            - **params** (np.ndarray): Parameters associated to the propensity functions.</span>
+<span class="sd">            - **sampling_times** (np.ndarray): Sampling times.</span>
+<span class="sd">            - :math:`t_0` (float): Time at which the simulation starts.</span>
+<span class="sd">            - :math:`t_f` (float): Time to end the simulation.</span>
+<span class="sd">            - **method** (str): Stochastic Simulation to compute.</span>
+<span class="sd">            - **complete_trajectory** (bool): If True, saves the complete trajectory of the simulation, ie the time of each jump and the</span>
+<span class="sd">              corresponding abundance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">set_parameters</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">f</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">x</span><span class="p">)),</span> <span class="n">excluded</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>          
+        <span class="n">lambdas</span> <span class="o">=</span> <span class="n">set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propensities</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="n">simulations</span> <span class="o">=</span> <span class="n">StochasticSimulation</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">init_state</span><span class="p">,</span>
+                                            <span class="n">t0</span><span class="o">=</span><span class="n">t0</span><span class="p">,</span>
+                                            <span class="n">tf</span><span class="o">=</span><span class="n">tf</span><span class="p">,</span>
+                                            <span class="n">sampling_times</span><span class="o">=</span><span class="n">sampling_times</span><span class="p">,</span>
+                                            <span class="n">propensities</span><span class="o">=</span><span class="n">lambdas</span><span class="p">,</span>
+                                            <span class="n">n_species</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_species</span><span class="p">,</span>
+                                            <span class="n">n_reactions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_reactions</span><span class="p">,</span>
+                                            <span class="n">stoich_mat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stoichiometry_mat</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;SSA&#39;</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">simulations</span><span class="o">.</span><span class="n">SSA</span><span class="p">(</span><span class="n">complete_trajectory</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">simulations</span><span class="o">.</span><span class="n">mNRM</span><span class="p">(</span><span class="n">complete_trajectory</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> <span class="n">simulations</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_states</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_states</span><span class="p">,</span> <span class="n">samples</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="n">simulations</span><span class="o">.</span><span class="n">current_state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">tf</span></div>
+
+<div class="viewcode-block" id="CRN.simulation"><a class="viewcode-back" href="../usage.html#simulation.CRN.simulation">[docs]</a>    <span class="k">def</span> <span class="nf">simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">time_windows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">parameters</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;SSA&#39;</span><span class="p">,</span> 
+                <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Computes a simulation between two time points.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **sampling_times** (np.ndarray): Sampling times.</span>
+<span class="sd">            - **time_windows** (np.ndarray): Time windows during which all parameters are constant. Its form is :math:`[t_1, ..., t_L]`,</span>
+<span class="sd">              such that the time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match</span>
+<span class="sd">              with the final time :math:`t_f`. If there is only one time window, it should be defined as :math:`[t_f]`.</span>
+<span class="sd">            - **parameters** (np.ndarray): Parameters of the simulation, including fixed parameters for the whole simulation and control</span>
+<span class="sd">              parameters for each time window. Its form is :math:`[\theta_1, ..., \theta_{M_{\theta}}, \xi_1^1, ..., \xi^{M_{\xi}}_1, \xi_2^1, ..., \xi_L^{M_{\xi}}]`.</span>
+<span class="sd">              Has shape :math:`(M_{\tot},)`.</span>
+<span class="sd">            - **method** (str, optional): Stochastic Simulation to compute. Defaults to `SSA`.</span>
+<span class="sd">            - **complete_trajectory** (bool, optional): If True, saves the complete trajectory of the simulation, ie the time of each jump and the</span>
+<span class="sd">              corresponding abundance. Defaults to False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>       
+        <span class="c1"># time_windows [t1, ..., tf] with t0 = 0</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">time_windows</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">init_state</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">,</span> 
+                        <span class="n">params</span><span class="o">=</span><span class="n">parameters</span><span class="p">[</span><span class="n">i</span><span class="p">,:],</span> 
+                        <span class="n">sampling_times</span><span class="o">=</span><span class="n">sampling_times</span><span class="p">[(</span><span class="n">sampling_times</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">sampling_times</span> <span class="o">&lt;=</span> <span class="n">t</span><span class="p">)],</span>
+                        <span class="n">t0</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
+                        <span class="n">tf</span><span class="o">=</span><span class="n">t</span><span class="p">,</span>
+                        <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+                        <span class="n">complete_trajectory</span><span class="o">=</span><span class="n">complete_trajectory</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CRN.reset"><a class="viewcode-back" href="../usage.html#simulation.CRN.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Resets the CRN to the initial setting: sets the time to :math:`t=0`, the current state to the initial state and</span>
+<span class="sd">        empties the sampling times and samples arrays.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_state</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>                   
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_states</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span><span class="p">))</span></div></div>
+
+
+
+<div class="viewcode-block" id="StochasticSimulation"><a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation">[docs]</a><span class="k">class</span> <span class="nc">StochasticSimulation</span><span class="p">:</span> 
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class to run a simulation between two time points of the same time window using the Stochastic Simulation Algorithm :cite:`gillespie1976general`.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        - :math:`x_0` (np.ndarray): Initial state.</span>
+<span class="sd">        - :math:`t_0` (float): Initial time of the simulation.</span>
+<span class="sd">        - :math:`t_f` (float): Final time of the simulation.</span>
+<span class="sd">        - **sampling_times** (np.ndarray): Sampling times.</span>
+<span class="sd">        - **propensities** (np.ndarray): Parameterised propensity functions.</span>
+<span class="sd">        - **n_species** (int): Number of species involved :math:`N`.</span>
+<span class="sd">        - **n_reactions** (int): Number of reactions of the CRN :math:`M`.</span>
+<span class="sd">        - **stoich_mat** (np.ndarray): Stoichiometry matrix.     </span>
+<span class="sd">    &quot;&quot;&quot;</span>   
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">x0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                <span class="n">t0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+                <span class="n">tf</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> 
+                <span class="n">sampling_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">propensities</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
+                <span class="n">n_species</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                <span class="n">n_reactions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+                <span class="n">stoich_mat</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">final_time</span> <span class="o">=</span> <span class="n">tf</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_species</span> <span class="o">=</span> <span class="n">n_species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_reactions</span> <span class="o">=</span> <span class="n">n_reactions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">t0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">sampling_times</span> <span class="c1"># = np.empty(0) when complete_trajectory=True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">=</span> <span class="n">x0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">propensities</span> <span class="o">=</span> <span class="n">propensities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stoich_mat</span> <span class="o">=</span> <span class="n">stoich_mat</span>
+
+
+<div class="viewcode-block" id="StochasticSimulation.SSA"><a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation.SSA">[docs]</a>    <span class="k">def</span> <span class="nf">SSA</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Computes the SSA.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            - **complete_trajectory** (bool): If True, returns the complete jump process, ie the time</span>
+<span class="sd">              of each jump and the corresponding abundance. The jump times can be found in the attribute **sampling_times**.</span>
+<span class="sd">              Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            - **samples**: Abundance samples at the sampling times.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">eval_propensities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vectorize</span><span class="p">(</span><span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">excluded</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">otypes</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span>
+            <span class="n">lambdas</span> <span class="o">=</span> <span class="n">eval_propensities</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propensities</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">)</span>
+            <span class="n">lambda0</span> <span class="o">=</span> <span class="n">lambdas</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">probabilities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">lambdas</span><span class="p">)</span> <span class="o">/</span> <span class="n">lambda0</span>
+            <span class="n">delta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">exponential</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">lambda0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">+=</span> <span class="n">delta</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_time</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">complete_trajectory</span><span class="p">):</span>
+                    <span class="c1"># last samples</span>
+                    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">final_time</span><span class="p">]))</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">))</span>
+                <span class="k">break</span>
+            <span class="c1"># choosing which reaction occurs</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
+            <span class="n">ind_reaction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">probabilities</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">)</span> <span class="c1"># the reaction n°ind_reaction occurs</span>
+            <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">complete_trajectory</span><span class="p">):</span>
+                <span class="c1"># sampling if needed</span>
+                <span class="n">last_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">-</span> <span class="n">delta</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">))</span>
+                <span class="n">current_index</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">current_index</span> <span class="o">-</span> <span class="n">last_index</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">))</span>
+            <span class="c1"># updating state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_state</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stoich_mat</span><span class="p">[:,</span> <span class="n">ind_reaction</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">complete_trajectory</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_times</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">]))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_state</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="StochasticSimulation.mNRM"><a class="viewcode-back" href="../usage.html#simulation.StochasticSimulation.mNRM">[docs]</a>    <span class="k">def</span> <span class="nf">mNRM</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">complete_trajectory</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Computes the mNRM.</span>
+<span class="sd">        </span>
+<span class="sd">        To be implemented.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Control Theory and Systems Biology Laboratory, D-BSSE, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

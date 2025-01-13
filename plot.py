@@ -11,6 +11,29 @@ import get_fi
 import simulation
 import time
 from typing import Callable, Tuple
+import importlib
+
+importlib.reload(fsp)
+
+def setup_matplotlib(
+    small_size: int = 5,
+    medium_size: int = 6,
+    bigger_size: int = 7,
+):
+    plt.rcParams['lines.markersize'] = 3
+    plt.rcParams['lines.linewidth'] = 0.8
+    plt.rcParams['grid.linewidth'] = 0.5
+    plt.rcParams['errorbar.capsize'] = 3
+    plt.rcParams['figure.dpi'] = 400
+    plt.rc('font', size=small_size)               # controls default text sizes
+    plt.rc('axes', titlesize=small_size)          # fontsize of the axes title
+    plt.rc('axes', labelsize=small_size)         # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=small_size)         # fontsize of the tick labels
+    plt.rc('ytick', labelsize=small_size)         # fontsize of the tick labels
+    plt.rc('legend', fontsize=small_size)         # legend fontsize
+    plt.rc('legend', title_fontsize=medium_size)  # legend title fontsize
+    plt.rc('figure', titlesize=bigger_size)       # fontsize of the figure title
+
 
 # Plots the probability mass function or the sensitivity of the likelihood
 def plot_model(to_pred: torch.tensor,
@@ -18,7 +41,7 @@ def plot_model(to_pred: torch.tensor,
             up_bound: int,
             time_windows: np.ndarray,
             n_comps: int,
-            index_names: Tuple[str, str] =("Probabilities", r"Abundance of species $S$"), 
+            index_names: Tuple[str, str] =("Probability mass function", r"Abundance of $\mathbf{mRNA}$"), 
             plot_test_result: Tuple[bool, torch.tensor] =(False, None), 
             plot_exact_result: Tuple[bool, Callable] =(False, None), 
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, Tuple[int], int, int, int] = (False, None),
@@ -35,7 +58,7 @@ def plot_model(to_pred: torch.tensor,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **n_comps** (int): Number of components of the predicted mixture.
-        - **index_names** (Tuple[str, str], optional): Labels of x-axis and y-axis. Defaults to ("Probabilities", "Abundance of species S").
+        - **index_names** (Tuple[str, str], optional): Labels of x-axis and y-axis. Defaults to ("Probabilities", "Abundance of mRNA").
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If the first argument is True, plots the expected results 
           from the datasets for the chosen set of parameters. The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If the first argument is True, plots the exact results 
@@ -75,14 +98,14 @@ def plot_model(to_pred: torch.tensor,
         ymin = min(ymin, y_pred.min())
         ymax = max(ymax, y_pred.max())
         pred = pd.DataFrame([np.squeeze(y_pred), np.arange(up_bound)], index = index_names).transpose()
-        pred['Model'] = f'training{i+1}'
+        pred['Model'] = f'MDN'
         preds.append(pred)
     if plot_test_result[0]:
         result = plot_test_result[1]
         if torch.is_tensor(result):
             result = result.detach().numpy()
         test_result = pd.DataFrame([np.squeeze(result), np.arange(up_bound)], index = index_names).transpose()
-        test_result['Model'] = 'SSA simulation'
+        test_result['Model'] = 'SSA'
         preds.append(test_result)
     if plot_fsp_result[0]:
         n_time_windows = len(time_windows)
@@ -117,7 +140,7 @@ def plot_model(to_pred: torch.tensor,
         ymin = min(ymin, results_fsp.min())
         ymax = max(ymax, results_fsp.max())
         fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
-        fsp_result['Model'] = 'FSP estimation'
+        fsp_result['Model'] = 'FSP'
         preds.append(fsp_result)
     if plot_exact_result[0]:
         parameters = []
@@ -125,12 +148,13 @@ def plot_model(to_pred: torch.tensor,
             parameters.append(tens.numpy())
         exact_result = pd.DataFrame([[plot_exact_result[1](k, parameters) for k in range(up_bound)],
                                     np.arange(up_bound)], index = index_names).transpose()
-        exact_result['Model'] = 'exact result'
+        exact_result['Model'] = 'Exact value'
         preds.append(exact_result)
     data = pd.concat(preds, ignore_index=True)
     # params = [np.round(param.numpy(), 2) for param in to_pred]
-    fig = seaborn.relplot(data=data, x=index_names[1], y=index_names[0], hue='Model', style='Model', aspect=1.5, kind='line',
-        dashes={'training1': '', 'training2': '', 'training3': '', 'exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)}) #.set(title=fr'{plot[0]} plot for {crn_name} with $t=${params[0]}, $\theta=${params[1:]}')
+    fig = seaborn.relplot(data=data, x=index_names[1], y=index_names[0], hue='Model', style='Model', aspect=1.5, kind='line', height=2.2,
+        #dashes={'Training 1': '', 'Training 2': '', 'Training 3': '', 'Exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)}) #.set(title=fr'{plot[0]} plot for {crn_name} with $t=${params[0]}, $\theta=${params[1:]}')
+        errorbar=("se", 1))
     fig._legend.remove()
     plt.legend(loc='best')
     plt.ylim(ymin-0.05, ymax+0.05)
@@ -143,7 +167,7 @@ def multiple_plots(to_pred: list,
             up_bound: int,
             time_windows: np.ndarray,
             n_comps: int,
-            index_names: Tuple[str] =('Probabilities', r'Abundance of species $S$'),
+            index_names: Tuple[str] =('Probability mass function', r'Abundance of $\mathbf{mRNA}$'),
             plot_test_result: Tuple[bool, torch.tensor] =(False, None),
             plot_exact_result: Tuple[bool, Callable] =(False, None),
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
@@ -161,7 +185,7 @@ def multiple_plots(to_pred: list,
           such that the considered time windows are :math:`[0, t_1], [t_1, t_2], ..., [t_{L-1}, t_L]`. :math:`t_L` must match
           with the final time :math:`t_f`. If there is only one time window, **time_windows** should be defined as :math:`[t_f]`.
         - **n_comps** (int): Number of components of the predicted mixture.
-        - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ("Probabilities", "Abundance of species S").
+        - **index_names** (Tuple[str], optional): Labels of x-axis and y-axis. Defaults to ("Probabilities", "Abundance of mRNA").
         - **plot_test_result** (Tuple[bool, torch.tensor], optional): If the first argument is True, plots the expected results 
           from the datasets for the chosen set of parameters. The second argument is the expected results. Defaults to (False, None).
         - **plot_exact_result** (Tuple[bool, Callable], optional): If the first argument is True, plots the exact results for the
@@ -192,7 +216,7 @@ def multiple_plots(to_pred: list,
     if n == 1:
             plot_model(to_pred[0], models, up_bound, n_comps, index_names, plot_test_result, plot_exact_result, plot_fsp_result, plot, save)
     else:
-        _, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(3*n,3*n))
+        fig, axes = plt.subplots(math.ceil(n/n_col), n_col, figsize=(0.7*n,0.7*n))#3*n, 3*n
         ymin = 0
         ymax = 0
         # in case there is only one row
@@ -209,14 +233,14 @@ def multiple_plots(to_pred: list,
                 ymin = min(ymin, y_pred.min())
                 ymax = max(ymax, y_pred.max())
                 pred = pd.DataFrame([np.squeeze(y_pred), np.arange(up_bound[k])], index = index_names).transpose()
-                pred['Model'] = f'training{i+1}'
+                pred['Model'] = 'MDN'#f'Training {i+1}'
                 preds.append(pred)
             if plot_test_result[0]:
                 result = plot_test_result[1][k]
                 if torch.is_tensor(result):
                     result = result.detach().numpy()
                 test_result = pd.DataFrame([np.squeeze(result), np.arange(up_bound[k])], index = index_names).transpose()
-                test_result['Model'] = 'SSA simulation'
+                test_result['Model'] = 'SSA'
                 preds.append(test_result)
             if plot_fsp_result[0]:
                 n_time_windows = len(time_windows)
@@ -251,7 +275,7 @@ def multiple_plots(to_pred: list,
                 ymin = min(ymin, results_fsp.min())
                 ymax = max(ymax, results_fsp.max())
                 fsp_result = pd.DataFrame([results_fsp[:length], np.arange(length)], index=index_names).transpose()
-                fsp_result['Model'] = 'FSP estimation'
+                fsp_result['Model'] = 'FSP'
                 preds.append(fsp_result)
             if plot_exact_result[0]:
                 parameters = []
@@ -259,17 +283,28 @@ def multiple_plots(to_pred: list,
                     parameters.append(tens.numpy())
                 exact_result = pd.DataFrame([[plot_exact_result[1](j, parameters) for j in range(up_bound[k])], 
                                             np.arange(up_bound[k])], index = index_names).transpose()
-                exact_result['Model'] = 'exact result'
+                exact_result['Model'] = 'Exact value'
                 preds.append(exact_result)
             data = pd.concat(preds, ignore_index=True)
             seaborn.lineplot(ax=axes[k//n_col, k%n_col], data=data, x=index_names[1], y=index_names[0], hue='Model', style='Model',
-                dashes={'training1': '', 'training2': '', 'training3': '', 'exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)})
+                #dashes={'Training': '', 'Exact result': (5, 5), 'FSP estimation': (1, 1), 'SSA simulation': (1, 1)},
+                errorbar=("se", 1))
+            axes[k//n_col, k%n_col].spines['top'].set_visible(False)
+            axes[k//n_col, k%n_col].spines['right'].set_visible(False)
+            axes[k//n_col, k%n_col].legend().set_title('')
             # axes[k//n_col, k%n_col].annotate(f'({k})', xy=(length*0.9, ymax*0.8), xycoords='data', fontsize=11)
+        #axes[0, 0].get_legend().remove()
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        for ax in axes.flatten():
+            ax.get_legend().remove()
+        #plt.tight_layout()
+        fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.53, 1.09), ncol=4)
         plt.setp(axes, ylim=(ymin-0.05, ymax+0.05))
         plt.subplots_adjust(hspace=0.01)
         # fig.suptitle(f'{plot[0]} plot for params {params[1:]}')
+        plt.tight_layout()
         if save[0]:
-            plt.savefig(save[1])
+            plt.savefig(save[1], bbox_inches="tight")
         plt.show()
 
 
@@ -370,8 +405,6 @@ def fi_table(time_samples: np.ndarray,
                                             parameters, 
                                             plot_fsp_result[6],
                                             with_stv=True)[:length,:,:]
-        end = time.time()
-        print(end-start)
         fsp_fi = np.zeros(n_rows)
         if ind_param < crn.n_fixed_params:
             index = 1
@@ -428,8 +461,7 @@ def fi_barplots(time_samples: np.ndarray,
             plot_fsp_result: Tuple[bool, np.ndarray, np.ndarray, np.ndarray, int, np.ndarray, int, int, int] = (False, None),
             up_bound: int =200,
             save: Tuple[bool, str] =(False, None),
-            colors: list =["blue", "darkorange", "forestgreen"],
-            mean: bool =True):
+            colors: list =["blue", "darkorange", "forestgreen"]):
     r"""Plots rectangular bars to visualize the diagonal element of the Fisher Information estimated by various methods at various times.
 
     Args:
@@ -472,7 +504,6 @@ def fi_barplots(time_samples: np.ndarray,
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
           The second argument is the name of the file under which to save the plot. Defaults to (False, None).
         - **colors** (list, optional): Chosen colors for the bars. Defaults to ["blue", "darkorange", "forestgreen"].
-        - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """            
     n_rows = len(time_samples)
     preds=[]
@@ -494,15 +525,10 @@ def fi_barplots(time_samples: np.ndarray,
                 fim_m = get_fi.fisher_information_t(probabilities_m[i,:], stv_m[i,:,:])
                 predicted_fi[i] = fim_m[ind_param, ind_param]
             model_results.append(np.round(predicted_fi, 3))
-        if mean:
-            pred = pd.DataFrame([list(np.mean(model_results, axis=0)), time_samples], index = index_names).transpose()
-            pred['Model'] = 'MDN (mean)'
+        for j, model in enumerate(models[1]):
+            pred = pd.DataFrame([np.round(model_results[j], 3), time_samples], index = index_names).transpose()
+            pred['Model'] = 'MDN'
             preds.append(pred)
-        else:
-            for j, model in enumerate(models[1]):
-                pred = pd.DataFrame([np.round(model_results[j], 3), time_samples], index = index_names).transpose()
-                pred['Model'] = f'MDN {j+1}'
-                preds.append(pred)
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
         n_time_windows = len(time_windows)
@@ -532,7 +558,7 @@ def fi_barplots(time_samples: np.ndarray,
         for i in range(n_rows):
             fsp_fi[i] = get_fi.fisher_information_t(results_fsp[:,i,0], results_fsp[:,i, index:])[0,0]
         pred = pd.DataFrame([np.round(fsp_fi, 3), time_samples], index = index_names).transpose()
-        pred['Model'] = 'FSP estimation'
+        pred['Model'] = 'FSP'
         preds.append(pred)
     if plot_exact_result[0]:
         exact_fi = np.zeros(n_rows)
@@ -543,10 +569,11 @@ def fi_barplots(time_samples: np.ndarray,
         preds.append(pred)
     data = pd.concat(preds, ignore_index=True)
     #plot
-    fig = seaborn.catplot(data=data, kind='bar', x=index_names[1], y=index_names[0], aspect=1.5, hue='Model',
-        palette=colors)
+    fig = seaborn.catplot(data=data, kind='bar', x=index_names[1], y=index_names[0], aspect=1.5, hue='Model', height=2.1,
+        palette=colors, errorbar=("se", 1))
     fig._legend.remove()
-    plt.legend(loc='best')
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.09), ncol=3)
+    plt.tight_layout()
     if save[0]:
         plt.savefig(save[1])
     plt.show()
@@ -701,7 +728,7 @@ def expect_val_barplots(time_samples: np.ndarray,
             plot: Tuple[str, int]=("value", None),
             save: Tuple[bool, str] =(False, None),
             colors: list =["blue", "darkorange", "forestgreen"],
-            mean: bool =True):
+            height=2.1):
     r"""Plots rectangular bars to visualize the expectation :math:`E_{\theta, \xi}[X_t]` or its gradient with respect to a specified parameter
     :math:`\frac{\partial E_{\theta, \xi}[X_t]}{\partial \theta_i}` or :math:`\frac{\partial E_{\theta, \xi}[X_t]}{\partial \xi_i}`, 
     estimated by various methods at various times.
@@ -747,11 +774,10 @@ def expect_val_barplots(time_samples: np.ndarray,
         - **save** (Tuple[bool, str], optional): If the first argument is True, saves the file. 
           The second argument is the name of the file under which to save the plot. Defaults to (False, None).
         - **colors** (list, optional): Chosen colors for the bars. Defaults to ["blue", "darkorange", "forestgreen"].
-        - **mean** (bool, optional): Indicates whether to compute the mean of the MDN values or to plot a bar for each MDN value. Defaults to True.
     """      
     n_rows = len(time_samples)
     preds=[]
-    index_names = ('Fisher Information', 'Time')
+    index_names = ('Mean abundance', 'Time') if plot[0] == 'value' else ('Derivative of the mean abundance', 'Time')
     # compute probabilities and sensitivities with the neural networks
     if models[0]:
         predicted_expectation = np.zeros((n_rows, len(models[1])))
@@ -762,15 +788,10 @@ def expect_val_barplots(time_samples: np.ndarray,
                     predicted_expectation[i, m] = get_sensitivities.expected_val(inputs=to_pred, model=model, length_output=up_bound)
                 elif plot[0] == 'gradient':
                     predicted_expectation[i, m] = get_sensitivities.gradient_expected_val(inputs=to_pred, model=model, length_output=up_bound)[plot[1]+1]
-        if mean:
-            pred = pd.DataFrame([list(np.mean(predicted_expectation, axis=1)), time_samples], index = index_names).transpose()
-            pred['Model'] = 'MDN (mean)'
+        for m, model in enumerate(models[1]):
+            pred = pd.DataFrame([np.round(predicted_expectation[:, m], 3), time_samples], index = index_names).transpose()
+            pred['Model'] = 'MDN'
             preds.append(pred)
-        else:
-            for m, model in enumerate(models[1]):
-                pred = pd.DataFrame([np.round(predicted_expectation[:, m], 3), time_samples], index = index_names).transpose()
-                pred['Model'] = f'MDN {m+1}'
-                preds.append(pred)
     # compute probabilities and sensitivities of probabilities with the FSP
     if plot_fsp_result[0]:
         n_time_windows = len(time_windows)
@@ -790,10 +811,11 @@ def expect_val_barplots(time_samples: np.ndarray,
                                                         parameters=parameters, 
                                                         ind_species=plot_fsp_result[6])
         elif plot[0] == 'gradient':
-            results_fsp = stv_calculator.gradient_expected_val(sampling_times=time_samples, 
+            results_fsp = (stv_calculator.gradient_expected_val(sampling_times=time_samples, 
                                                             time_windows=time_windows, 
                                                             parameters=parameters, 
-                                                            ind_species=plot_fsp_result[6])
+                                                            ind_species=plot_fsp_result[6],
+                                                            with_probs=False))
             if plot[1] < crn.n_fixed_params:
                 index = 0
             elif crn.n_control_params < 2:
@@ -802,7 +824,7 @@ def expect_val_barplots(time_samples: np.ndarray,
                 index = (plot[1] - crn.n_fixed_params) % crn.n_control_params
             fsp_expectation = results_fsp[:, index]
         pred = pd.DataFrame([np.round(fsp_expectation, 3), time_samples], index = index_names).transpose()
-        pred['Model'] = 'FSP estimation'
+        pred['Model'] = 'FSP'
         preds.append(pred)
     if plot_exact_result[0]:
         exact_fi = np.zeros(n_rows)
@@ -813,10 +835,11 @@ def expect_val_barplots(time_samples: np.ndarray,
         preds.append(pred)
     data = pd.concat(preds, ignore_index=True)
     #plot
-    fig = seaborn.catplot(data=data, kind='bar', x=index_names[1], y=index_names[0], aspect=1.5, hue='Model',
-        palette=colors)
+    fig = seaborn.catplot(data=data, kind='bar', x=index_names[1], y=index_names[0], aspect=1.5, hue='Model', height=height, #1.7 or 2.1
+        palette=colors, errorbar=("se", 1))
     fig._legend.remove()
-    plt.legend(loc='best')
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=3)
+    plt.tight_layout()
     if save[0]:
         plt.savefig(save[1])
     plt.show()
